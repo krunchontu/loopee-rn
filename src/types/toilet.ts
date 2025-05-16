@@ -12,6 +12,15 @@ export interface Review {
   photos?: string[];
 }
 
+export interface Building {
+  id: string;
+  name: string;
+  location: Location;
+  address?: string;
+  description?: string;
+  photos?: string[];
+}
+
 export interface Toilet {
   id: string;
   name: string;
@@ -34,6 +43,11 @@ export interface Toilet {
     hasWaterSpray: boolean;
     hasSoap: boolean;
   };
+  // Building & floor information
+  buildingId?: string;
+  buildingName?: string;
+  floorLevel?: number; // Positive for above ground, negative for below ground
+  floorName?: string; // Human-readable floor name (e.g., "L3", "B2", "Food Court")
   photos?: string[];
   reviews?: Review[];
   lastUpdated: string;

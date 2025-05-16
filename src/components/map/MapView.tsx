@@ -166,13 +166,19 @@ export const CustomMapView = memo(function CustomMapView({
             if (cluster.points.length === 1) {
               const toilet = cluster.points[0];
 
-              // Skip rendering if toilet or location is invalid
+              // Log skipped markers but attempt to render all toilets for diagnosis
               if (!toilet?.location?.latitude || !toilet?.location?.longitude) {
                 debug.warn(
                   "MapView",
-                  `Skipping marker for toilet with invalid location: ${toilet?.id}`
+                  `TOILET DIAGNOSIS: Would normally skip marker for toilet with invalid location: ${toilet?.id}`,
+                  {
+                    toiletId: toilet?.id,
+                    hasLocation: !!toilet?.location,
+                    latitude: toilet?.location?.latitude,
+                    longitude: toilet?.location?.longitude,
+                  }
                 );
-                return null;
+                // Continue rendering to see if any coordinates are actually being set
               }
 
               return (

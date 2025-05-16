@@ -2,8 +2,9 @@ import "react-native-gesture-handler";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ErrorBoundaryProvider } from "./src/components/ErrorBoundaryProvider";
 import { debug } from "./src/utils/debug";
-import { LogBox } from "react-native";
+import { LogBox, StyleSheet } from "react-native";
 import { ExpoRoot } from "expo-router";
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 
 // Ignore specific warnings that are not actionable
 LogBox.ignoreLogs([
@@ -19,6 +20,13 @@ LogBox.ignoreLogs([
  * It sets up global providers and error boundaries.
  * The actual app content is handled by Expo Router.
  */
+// Use StyleSheet for better performance
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+});
+
 export default function App() {
   // Log app initialization with debug utility
   debug.log("App", "Initializing app with Expo Router");
@@ -28,10 +36,12 @@ export default function App() {
   const ctx = require.context("./src/app");
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <ErrorBoundaryProvider>
-        <ExpoRoot context={ctx} />
-      </ErrorBoundaryProvider>
+    <GestureHandlerRootView style={styles.container}>
+      <BottomSheetModalProvider>
+        <ErrorBoundaryProvider>
+          <ExpoRoot context={ctx} />
+        </ErrorBoundaryProvider>
+      </BottomSheetModalProvider>
     </GestureHandlerRootView>
   );
 }

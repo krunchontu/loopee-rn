@@ -92,15 +92,18 @@ export function AnimatedMarker({
   }
 
   return (
-    <Marker coordinate={coordinate} onPress={onPress} pinColor={pinColor}>
+    <Marker coordinate={coordinate} onPress={onPress}>
       <Animated.View
         style={[
           styles.marker,
           {
             transform: [{ scale }],
+            backgroundColor: pinColor || colors.primary,
           },
         ]}
-      />
+      >
+        <Text style={styles.markerIcon}>🚻</Text>
+      </Animated.View>
     </Marker>
   );
 }
@@ -109,6 +112,7 @@ const styles = StyleSheet.create({
   cluster: {
     alignItems: "center",
     borderRadius: 15,
+    elevation: 5,
     height: 30,
     justifyContent: "center",
     shadowColor: colors.text.primary,
@@ -118,7 +122,6 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
-    elevation: 5,
     width: 30,
   },
   clusterText: {
@@ -127,11 +130,25 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   marker: {
+    alignItems: "center",
     backgroundColor: colors.primary,
     borderColor: colors.background.primary,
-    borderRadius: 4,
-    borderWidth: 1,
-    height: 8,
-    width: 8,
+    borderRadius: 12,
+    borderWidth: 2,
+    elevation: 5,
+    height: 24,
+    justifyContent: "center",
+    shadowColor: colors.text.primary,
+    shadowOffset: {
+      height: 2,
+      width: 0,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    width: 24,
+  },
+  markerIcon: {
+    color: colors.background.primary,
+    fontSize: 14,
   },
 });

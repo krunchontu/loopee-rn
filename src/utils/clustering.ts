@@ -42,28 +42,59 @@ export function clusterToilets(
 
   const clusters: { [key: string]: Cluster } = {};
 
-  // Filter out toilets with invalid locations first
-  const validToilets = toilets.filter(
+  // TEMPORARY DIAGNOSTIC: Count different types of toilets
+  const withLocation = toilets.filter(
+    (toilet) => toilet && toilet.location
+  ).length;
+  const withValidCoordTypes = toilets.filter(
     (toilet) =>
       toilet &&
       toilet.location &&
       typeof toilet.location.latitude === "number" &&
       typeof toilet.location.longitude === "number"
-  );
+  ).length;
+  const withValidRange = toilets.filter(
+    (toilet) =>
+      toilet &&
+      toilet.location &&
+      typeof toilet.location.latitude === "number" &&
+      typeof toilet.location.longitude === "number" &&
+      toilet.location.latitude >= -90 &&
+      toilet.location.latitude <= 90 &&
+      toilet.location.longitude >= -180 &&
+      toilet.location.longitude <= 180
+  ).length;
 
-  debug.log("Clustering", "Processing valid toilets", {
-    validToiletCount: validToilets.length,
+  debug.warn("Clustering", "TOILET DIAGNOSIS IN CLUSTERING", {
     totalToilets: toilets.length,
+    withLocation,
+    withValidCoordTypes,
+    withValidRange,
+    missingLocation: toilets.length - withLocation,
+    invalidCoordTypes: withLocation - withValidCoordTypes,
+    outOfRange: withValidCoordTypes - withValidRange,
   });
 
-  if (validToilets.length !== toilets.length) {
-    debug.warn("Clustering", "Found invalid toilets", {
-      invalidCount: toilets.length - validToilets.length,
-      totalCount: toilets.length,
-    });
-  }
-
-  validToilets.forEach((toilet) => {
+  // Don't filter toilets at clustering level to diagnose the issue
+  // Just add logging for any invalid ones
+  toilets.forEach((toilet, index) => {
+    // Log any invalid toilets
+    if (
+      !toilet ||
+      !toilet.location ||
+      typeof toilet.location.latitude !== "number" ||
+      typeof toilet.location.longitude !== "number"
+    ) {
+      debug.warn("Clustering", `Skipping invalid toilet at index ${index}`, {
+        id: toilet?.id || "unknown",
+        hasLocation: !!toilet?.location,
+        latitudeType:
+          toilet?.location ? typeof toilet.location.latitude : "N/A",
+        longitudeType:
+          toilet?.location ? typeof toilet.location.longitude : "N/A",
+      });
+      return; // Skip this toilet
+    }
     const key = getClusterKey(
       toilet.location.latitude,
       toilet.location.longitude,

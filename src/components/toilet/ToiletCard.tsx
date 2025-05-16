@@ -32,6 +32,15 @@ export const ToiletCard = memo(function ToiletCard({
           )}
         </View>
 
+        {/* Building and floor information */}
+        {(toilet.buildingName || toilet.floorName) && (
+          <Text style={styles.buildingInfo} numberOfLines={1}>
+            {toilet.buildingName && toilet.floorName ?
+              `${toilet.buildingName} • ${toilet.floorName}`
+            : toilet.buildingName || toilet.floorName}
+          </Text>
+        )}
+
         <View style={styles.details}>
           <Rating value={toilet.rating} size="small" />
           <Text style={styles.reviewCount}>
@@ -55,9 +64,32 @@ export const ToiletCard = memo(function ToiletCard({
 });
 
 const styles = StyleSheet.create({
+  accessibleBadge: {
+    backgroundColor: colors.secondary,
+    borderRadius: 12,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  accessibleText: {
+    color: colors.background.primary,
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  address: {
+    color: colors.text.secondary,
+    fontSize: 14,
+    marginBottom: spacing.xs,
+  },
+  buildingInfo: {
+    color: colors.text.secondary,
+    fontSize: 13,
+    fontStyle: "italic",
+    marginBottom: spacing.xs,
+  },
   container: {
     backgroundColor: colors.background.primary,
     borderRadius: 12,
+    elevation: 3,
     marginBottom: spacing.md,
     shadowColor: colors.text.primary,
     shadowOffset: {
@@ -66,7 +98,6 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
   },
   containerCompact: {
     marginBottom: spacing.sm,
@@ -77,47 +108,31 @@ const styles = StyleSheet.create({
   contentCompact: {
     padding: spacing.sm,
   },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: spacing.xs,
-  },
-  name: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: colors.text.primary,
-    flex: 1,
-    marginRight: spacing.sm,
-  },
-  accessibleBadge: {
-    backgroundColor: colors.secondary,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 12,
-  },
-  accessibleText: {
-    color: colors.background.primary,
-    fontSize: 12,
-    fontWeight: "500",
-  },
   details: {
-    flexDirection: "row",
     alignItems: "center",
-    marginBottom: spacing.xs,
-  },
-  reviewCount: {
-    marginLeft: spacing.xs,
-    color: colors.text.light,
-    fontSize: 12,
-  },
-  address: {
-    color: colors.text.secondary,
-    fontSize: 14,
+    flexDirection: "row",
     marginBottom: spacing.xs,
   },
   distance: {
     color: colors.text.light,
     fontSize: 12,
+  },
+  header: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: spacing.xs,
+  },
+  name: {
+    color: colors.text.primary,
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "600",
+    marginRight: spacing.sm,
+  },
+  reviewCount: {
+    color: colors.text.light,
+    fontSize: 12,
+    marginLeft: spacing.xs,
   },
 });

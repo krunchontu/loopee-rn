@@ -86,6 +86,30 @@ export default memo(function DetailsScreen() {
                 `${toilet.openingHours.open} - ${toilet.openingHours.close}`
               : "Opening hours not available"}
             </Text>
+
+            {/* Building and floor information */}
+            {(toilet.buildingName || toilet.floorName) && (
+              <View style={styles.locationInfo}>
+                <Text style={styles.locationTitle}>Location</Text>
+                {toilet.buildingName && (
+                  <Text style={styles.locationDetail}>
+                    Building: {toilet.buildingName}
+                  </Text>
+                )}
+                {toilet.floorName && (
+                  <Text style={styles.locationDetail}>
+                    Floor: {toilet.floorName}
+                    {typeof toilet.floorLevel === "number" &&
+                      ` (${
+                        toilet.floorLevel > 0 ? `Level ${toilet.floorLevel}`
+                        : toilet.floorLevel < 0 ?
+                          `Basement ${Math.abs(toilet.floorLevel)}`
+                        : "Ground Floor"
+                      })`}
+                  </Text>
+                )}
+              </View>
+            )}
           </View>
 
           <View style={styles.card}>
@@ -127,57 +151,71 @@ export default memo(function DetailsScreen() {
 });
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background.primary,
-  },
-  image: {
-    width: "100%",
-    height: 200,
-  },
-  content: {
-    padding: spacing.md,
-  },
-  card: {
-    backgroundColor: colors.background.secondary,
-    borderRadius: 12,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-  },
-  openingHours: {
-    color: colors.text.secondary,
-    marginTop: spacing.sm,
-    fontSize: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: colors.text.primary,
-    marginBottom: spacing.md,
-  },
   amenitiesContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
   },
-  amenityItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginRight: spacing.md,
-    marginBottom: spacing.sm,
-  },
   amenityIcon: {
     fontSize: 16,
   },
-  amenityText: {
-    marginLeft: spacing.xs,
-    color: colors.text.secondary,
+  amenityItem: {
+    alignItems: "center",
+    flexDirection: "row",
+    marginBottom: spacing.sm,
+    marginRight: spacing.md,
   },
-  reviewsSection: {
-    marginTop: spacing.sm,
+  amenityText: {
+    color: colors.text.secondary,
+    marginLeft: spacing.xs,
+  },
+  card: {
+    backgroundColor: colors.background.secondary,
+    borderRadius: 12,
+    marginBottom: spacing.md,
+    padding: spacing.md,
+  },
+  container: {
+    backgroundColor: colors.background.primary,
+    flex: 1,
+  },
+  content: {
+    padding: spacing.md,
+  },
+  image: {
+    height: 200,
+    width: "100%",
+  },
+  locationDetail: {
+    color: colors.text.secondary,
+    fontSize: 14,
+    marginBottom: spacing.xs,
+  },
+  locationInfo: {
+    marginTop: spacing.md,
+  },
+  locationTitle: {
+    color: colors.text.primary,
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: spacing.xs,
   },
   noReviews: {
     color: colors.text.light,
     fontStyle: "italic",
     marginTop: spacing.sm,
+  },
+  openingHours: {
+    color: colors.text.secondary,
+    fontSize: 16,
+    marginTop: spacing.sm,
+  },
+  reviewsSection: {
+    marginTop: spacing.sm,
+  },
+  sectionTitle: {
+    color: colors.text.primary,
+    fontSize: 18,
+    fontWeight: "600",
+    marginBottom: spacing.md,
   },
 });

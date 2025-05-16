@@ -35,33 +35,91 @@ export const supabaseService = {
 
       if (error) throw error;
 
+      // Enhanced diagnosis logging
+      const totalToilets = data.length;
+      const withValidCoords = data.filter(
+        (toilet) =>
+          toilet.latitude &&
+          toilet.longitude &&
+          toilet.latitude !== 0 &&
+          toilet.longitude !== 0
+      ).length;
+
+      debug.warn(
+        "Supabase",
+        `TOILET DIAGNOSIS: Total toilets: ${totalToilets}, With valid coordinates: ${withValidCoords}`,
+        {
+          totalToilets,
+          withValidCoords,
+          missingCoords: totalToilets - withValidCoords,
+          percentValid:
+            totalToilets > 0 ?
+              Math.round((withValidCoords / totalToilets) * 100)
+            : 0,
+        }
+      );
+
       // Transform raw database results to match the Toilet interface structure
       // This handles the mismatch between PostgreSQL results and our TypeScript model
       const transformedData: Toilet[] = data.map((toilet) => {
-        // Create unique coordinates for each toilet by using the distance
-        // and approximating a position relative to the search coordinates
-        const angle = Math.random() * Math.PI * 2; // Random angle in radians
-        const distanceInDegrees = (toilet.distance_meters || 0) / 111000; // Rough conversion from meters to degrees
+        // Default to using actual coordinates from the database if available
+        let toiletLatitude = toilet.latitude;
+        let toiletLongitude = toilet.longitude;
 
-        const estimatedLat = latitude + Math.sin(angle) * distanceInDegrees;
-        const estimatedLng = longitude + Math.cos(angle) * distanceInDegrees;
+        // Fallback to calculated position if coordinates are missing or invalid
+        if (
+          !toiletLatitude ||
+          !toiletLongitude ||
+          typeof toiletLatitude !== "number" ||
+          typeof toiletLongitude !== "number" ||
+          toiletLatitude === 0 ||
+          toiletLongitude === 0
+        ) {
+          debug.warn(
+            "Supabase",
+            `Missing or invalid coordinates for toilet ${toilet.name}, using calculated fallback`
+          );
 
-        // Add debug logs to understand coordinate calculation
-        debug.log("Supabase", `Positioning toilet ${toilet.name}`, {
-          toiletId: toilet.id,
-          toiletName: toilet.name,
-          distance: toilet.distance_meters,
-          calculatedPosition: { lat: estimatedLat, lng: estimatedLng },
-          angle: angle * (180 / Math.PI), // Convert to degrees for readability
-          userPosition: { lat: latitude, lng: longitude },
-        });
+          const angle = Math.random() * Math.PI * 2; // Random angle in radians
+          const distanceInDegrees = (toilet.distance_meters || 0) / 111000; // Rough conversion from meters to degrees
+
+          toiletLatitude = latitude + Math.sin(angle) * distanceInDegrees;
+          toiletLongitude = longitude + Math.cos(angle) * distanceInDegrees;
+
+          // Log the fallback calculation
+          debug.log(
+            "Supabase",
+            `Calculated fallback position for toilet ${toilet.name}`,
+            {
+              toiletId: toilet.id,
+              toiletName: toilet.name,
+              distance: toilet.distance_meters,
+              calculatedPosition: { lat: toiletLatitude, lng: toiletLongitude },
+              angle: angle * (180 / Math.PI), // Convert to degrees for readability
+              userPosition: { lat: latitude, lng: longitude },
+            }
+          );
+        } else {
+          // Log that we're using actual coordinates
+          debug.log(
+            "Supabase",
+            `Using actual coordinates for toilet ${toilet.name}`,
+            {
+              toiletId: toilet.id,
+              toiletName: toilet.name,
+              actualPosition: { lat: toiletLatitude, lng: toiletLongitude },
+              distance: toilet.distance_meters,
+              userPosition: { lat: latitude, lng: longitude },
+            }
+          );
+        }
 
         return {
           id: toilet.id,
           name: toilet.name,
           location: {
-            latitude: estimatedLat,
-            longitude: estimatedLng,
+            latitude: toiletLatitude,
+            longitude: toiletLongitude,
           },
           rating: parseFloat(toilet.rating),
           reviewCount: 0, // Default value as it's not returned by the SQL function
@@ -81,6 +139,12 @@ export const supabaseService = {
             hasWaterSpray: toilet.amenities?.waterSpray || false,
             hasSoap: toilet.amenities?.soap || false,
           },
+          // Building and floor information
+          buildingId: toilet.building_id || undefined,
+          buildingName: toilet.building_name || undefined,
+          floorLevel:
+            toilet.floor_level !== undefined ? toilet.floor_level : undefined,
+          floorName: toilet.floor_name || undefined,
           photos: toilet.photos || [],
           lastUpdated: new Date().toISOString(), // Default as it's not in the SQL results
           createdAt: new Date().toISOString(), // Default as it's not in the SQL results

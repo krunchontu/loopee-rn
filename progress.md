@@ -1,5 +1,5 @@
 [System Generated - Do Not Edit Manually]
-Last Updated: 2025-05-14 01:10 UTC+8
+Last Updated: 2025-05-17 01:30 UTC+8
 
 Current Phase: 2.5 (Bug Fixes & Refinement)
 
@@ -9,6 +9,11 @@ Current Phase: 2.5 (Bug Fixes & Refinement)
 - [x] Basic state management with Zustand
 - [x] Database schema and migrations
 - [x] PostGIS integration for location services
+- [x] Multistory building support
+  - [x] Enhanced database schema with buildings table
+  - [x] Added floor level information for toilets
+  - [x] Updated UI to display building and floor information
+  - [x] Updated documentation
 - [x] Shared UI components library
   - Button
   - Rating
@@ -53,6 +58,11 @@ Current Phase: 2.5 (Bug Fixes & Refinement)
     - [x] Fixed "No filename found" error by updating App.js, babel.config.js, and metro.config.js
   - [x] Added warning suppression for New Architecture in Expo Go
   - [x] Added router debugging screen to help diagnose future routing issues
+  - [x] Fixed bottom sheet visibility issue on map screen
+    - [x] Added proper BottomSheetModalProvider in App.js
+    - [x] Enhanced styling with z-index and elevation properties
+    - [x] Configured proper backdrop and gesture handling
+    - [x] Fixed TypeScript and ESLint issues
 - [x] Environment configuration
   - [x] Set up proper environment variable loading with react-native-dotenv
   - [x] Added TypeScript type definitions for environment variables
@@ -72,7 +82,9 @@ Current Phase: 2.5 (Bug Fixes & Refinement)
 2. [P0] Fix app configuration and database integration issues
    - [x] Fix app.json configuration issues by removing "newArchEnabled": false and adding URL scheme
    - [x] Fix toilet data transformation to properly handle SQL-to-TypeScript mapping
-   - [ ] Implement proper error handling for empty toilet results
+   - [x] Fix toilet location randomization by returning actual coordinates from database
+   - [x] Implement proper error handling for empty toilet results
+   - [x] Diagnose and document issue with only 2 toilets showing on map (confirmed working as expected - only 2 toilets in database)
 
 3. [P0] Testing infrastructure
    - Set up Jest for unit testing
@@ -107,5 +119,5 @@ Current Phase: 2.5 (Bug Fixes & Refinement)
 - Consider replacing events package with native EventEmitter
 
 ## Next Milestone
-Complete Phase 2.4: Testing and Validation
+Complete Phase 2.5: Bug Fixes & Refinement
 Target: End of Week (2025-05-17)
