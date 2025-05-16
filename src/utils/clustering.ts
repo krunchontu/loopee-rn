@@ -31,12 +31,21 @@ export function getZoomLevel(region: Region): number {
 export function clusterToilets(
   toilets: Toilet[],
   region: Region,
-  clusterRadius: number = 50
+  _clusterRadius: number = 50 // Renamed with underscore to indicate intentionally unused parameter
 ): Cluster[] {
   const zoom = getZoomLevel(region);
   const clusters: { [key: string]: Cluster } = {};
 
-  toilets.forEach((toilet) => {
+  // Filter out toilets with invalid locations first
+  const validToilets = toilets.filter(
+    (toilet) =>
+      toilet &&
+      toilet.location &&
+      typeof toilet.location.latitude === "number" &&
+      typeof toilet.location.longitude === "number"
+  );
+
+  validToilets.forEach((toilet) => {
     const key = getClusterKey(
       toilet.location.latitude,
       toilet.location.longitude,

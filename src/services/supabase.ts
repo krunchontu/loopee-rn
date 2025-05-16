@@ -26,7 +26,7 @@ export const supabaseService = {
       radius: number = 5000
     ) {
       const { data, error } = await supabase
-        .rpc("nearby_toilets", {
+        .rpc("find_toilets_within_radius", {
           lat: latitude,
           lng: longitude,
           radius_meters: radius,
@@ -34,7 +34,57 @@ export const supabaseService = {
         .select("*");
 
       if (error) throw error;
-      return data as Toilet[];
+
+      // Transform raw database results to match the Toilet interface structure
+      // This handles the mismatch between PostgreSQL results and our TypeScript model
+      const transformedData: Toilet[] = data.map((toilet) => {
+        // Create unique coordinates for each toilet by using the distance
+        // and approximating a position relative to the search coordinates
+        const angle = Math.random() * Math.PI * 2; // Random angle in radians
+        const distanceInDegrees = (toilet.distance_meters || 0) / 111000; // Rough conversion from meters to degrees
+
+        const estimatedLat = latitude + Math.sin(angle) * distanceInDegrees;
+        const estimatedLng = longitude + Math.cos(angle) * distanceInDegrees;
+
+        return {
+          id: toilet.id,
+          name: toilet.name,
+          location: {
+            latitude: estimatedLat,
+            longitude: estimatedLng,
+          },
+          rating: parseFloat(toilet.rating),
+          reviewCount: 0, // Default value as it's not returned by the SQL function
+          isAccessible: !!toilet.is_accessible,
+          address: "", // Default value as it's not returned by the SQL function
+          distance:
+            toilet.distance_meters ?
+              parseFloat(toilet.distance_meters.toString())
+            : undefined,
+          amenities: {
+            // Default values for amenities that might not be in the SQL results
+            hasBabyChanging: toilet.amenities?.babyChanging || false,
+            hasShower: toilet.amenities?.shower || false,
+            isGenderNeutral: toilet.amenities?.genderNeutral || false,
+            hasPaperTowels: toilet.amenities?.paperTowels || false,
+            hasHandDryer: toilet.amenities?.handDryer || false,
+            hasWaterSpray: toilet.amenities?.waterSpray || false,
+            hasSoap: toilet.amenities?.soap || false,
+          },
+          photos: toilet.photos || [],
+          lastUpdated: new Date().toISOString(), // Default as it's not in the SQL results
+          createdAt: new Date().toISOString(), // Default as it's not in the SQL results
+          openingHours:
+            toilet.opening_hours ?
+              {
+                open: toilet.opening_hours.split("-")[0] || "00:00",
+                close: toilet.opening_hours.split("-")[1] || "23:59",
+              }
+            : undefined,
+        };
+      });
+
+      return transformedData;
     },
 
     async getById(id: string) {

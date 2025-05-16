@@ -45,8 +45,29 @@ export const useToiletStore = create<ToiletState>()(
             radius
           );
 
-          debug.log("ToiletStore", `Fetched ${toilets.length} toilets`);
-          set({ toilets, loading: false });
+          // Validate toilets data before storing
+          const validToilets = toilets.filter(
+            (toilet) =>
+              toilet &&
+              toilet.id &&
+              toilet.location &&
+              typeof toilet.location.latitude === "number" &&
+              typeof toilet.location.longitude === "number"
+          );
+
+          // Log if any invalid toilets were found
+          if (validToilets.length !== toilets.length) {
+            debug.warn(
+              "ToiletStore",
+              `Filtered out ${toilets.length - validToilets.length} invalid toilets`
+            );
+          }
+
+          debug.log(
+            "ToiletStore",
+            `Fetched ${validToilets.length} valid toilets`
+          );
+          set({ toilets: validToilets, loading: false });
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : "Failed to fetch toilets";

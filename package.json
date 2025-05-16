@@ -12,7 +12,7 @@
     "reset": "rm -rf node_modules && npm install --legacy-peer-deps && npm start -- --reset-cache"
   },
   "dependencies": {
-    "@gorhom/bottom-sheet": "^4.5.0",
+    "@gorhom/bottom-sheet": "^5.1.4",
     "@react-native-community/hooks": "^100.1.0",
     "@shopify/flash-list": "1.7.6",
     "@supabase/supabase-js": "^2.39.0",

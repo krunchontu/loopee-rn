@@ -23,6 +23,17 @@ export function AnimatedMarker({
 }: AnimatedMarkerProps) {
   const scale = useRef(new Animated.Value(0)).current;
 
+  // Validate coordinate before using
+  const isValidCoordinate =
+    coordinate &&
+    typeof coordinate.latitude === "number" &&
+    typeof coordinate.longitude === "number";
+
+  // If invalid coordinate, return null instead of crashing
+  if (!isValidCoordinate) {
+    return null;
+  }
+
   useEffect(() => {
     Animated.spring(scale, {
       toValue: 1,

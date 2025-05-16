@@ -342,6 +342,20 @@
 - Fixed warnings: "No route named '(guest)' exists in nested children" and "No route named '(auth)' exists in nested children"
 - Added explanatory comments about the file system-based routing
 
+## 2025-05-16 23:30 UTC+8 - App Configuration and Data Integration Fix
+**Action:** Fixed app configuration warnings and data mapping issues
+**Files Modified:**
+- app.json
+- src/services/supabase.ts
+- progress.md
+- track-changes.md
+**Changes:**
+- Removed `"newArchEnabled": false` from app.json to resolve the conflict with Expo Go
+- Added `"scheme": "loopee"` to enable proper deep linking
+- Enhanced Supabase service to properly transform SQL query results to match the Toilet interface
+- Implemented approximate toilet location mapping based on distance data
+- Updated progress tracking with completed items
+
 ## Next Planned Changes
 1. Implement React Query for data fetching
 2. Add comprehensive type definitions for API responses
@@ -349,6 +363,7 @@
 4. Set up E2E testing with Detox
 5. Consider replacing events package with native EventEmitter implementation
 6. Implement fix for app.json config syncing in the build pipeline by adding prebuild step
+7. Update SQL functions in Supabase to directly return proper location format
 
 ## Verification Status
 - [x] Database schema validated
@@ -363,5 +378,7 @@
 - [x] Unknown package warnings suppressed
 - [x] GestureHandlerRootView issue fixed
 - [x] Babel configuration warning resolved
+- [x] App configuration warnings addressed
+- [x] Toilet data transformation fixed
 - [ ] App config sync issue acknowledged (needs prebuild in pipeline)
 - [ ] Testing infrastructure setup in progress

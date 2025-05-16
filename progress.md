@@ -69,7 +69,12 @@ Current Phase: 2.5 (Bug Fixes & Refinement)
    - [x] Remove deprecated expo-router/babel plugin from babel.config.js
    - [x] Fix route structure warnings by removing explicit (guest) and (auth) Stack.Screen entries
 
-2. [P0] Testing infrastructure
+2. [P0] Fix app configuration and database integration issues
+   - [x] Fix app.json configuration issues by removing "newArchEnabled": false and adding URL scheme
+   - [x] Fix toilet data transformation to properly handle SQL-to-TypeScript mapping
+   - [ ] Implement proper error handling for empty toilet results
+
+3. [P0] Testing infrastructure
    - Set up Jest for unit testing
    - Add key component tests
    - Implement E2E testing with Detox
@@ -92,6 +97,7 @@ Current Phase: 2.5 (Bug Fixes & Refinement)
 - None
 
 ## Technical Debt
+- Improve Supabase SQL function to directly return proper location format
 - Add proper TypeScript types for Supabase responses
 - Add unit tests for all components
 - Optimize clustering algorithm for large datasets

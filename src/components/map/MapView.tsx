@@ -149,6 +149,16 @@ export const CustomMapView = memo(function CustomMapView({
           {clusters.map((cluster) => {
             if (cluster.points.length === 1) {
               const toilet = cluster.points[0];
+
+              // Skip rendering if toilet or location is invalid
+              if (!toilet?.location?.latitude || !toilet?.location?.longitude) {
+                debug.warn(
+                  "MapView",
+                  `Skipping marker for toilet with invalid location: ${toilet?.id}`
+                );
+                return null;
+              }
+
               return (
                 <AnimatedMarker
                   key={toilet.id}
@@ -162,6 +172,18 @@ export const CustomMapView = memo(function CustomMapView({
                   }
                 />
               );
+            }
+
+            // Validate cluster coordinate before rendering
+            if (
+              !cluster?.coordinate?.latitude ||
+              !cluster?.coordinate?.longitude
+            ) {
+              debug.warn(
+                "MapView",
+                `Skipping cluster with invalid coordinate: ${cluster?.id}`
+              );
+              return null;
             }
 
             return (
@@ -224,18 +246,15 @@ const styles = StyleSheet.create({
     flex: 1,
     width: "100%",
   },
-  map: {
-    flex: 1,
-    width: "100%",
-  },
   errorContainer: {
-    position: "absolute",
-    top: spacing.md,
-    left: spacing.md,
-    right: spacing.md,
+    alignItems: "center",
     backgroundColor: colors.background.primary,
-    padding: spacing.sm,
     borderRadius: 8,
+    elevation: 3,
+    left: spacing.md,
+    padding: spacing.sm,
+    position: "absolute",
+    right: spacing.md,
     shadowColor: colors.text.primary,
     shadowOffset: {
       width: 0,
@@ -243,22 +262,25 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
-    alignItems: "center",
+    top: spacing.md,
   },
   errorText: {
     color: colors.status.error,
     marginBottom: spacing.sm,
     textAlign: "center",
   },
+  listContainer: {
+    backgroundColor: colors.background.primary,
+    flex: 1,
+    paddingHorizontal: spacing.md,
+  },
   locationButtonContainer: {
-    position: "absolute",
     bottom: SCREEN_HEIGHT * 0.45,
+    position: "absolute",
     right: spacing.md,
   },
-  listContainer: {
+  map: {
     flex: 1,
-    backgroundColor: colors.background.primary,
-    paddingHorizontal: spacing.md,
+    width: "100%",
   },
 });
