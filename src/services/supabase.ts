@@ -46,6 +46,16 @@ export const supabaseService = {
         const estimatedLat = latitude + Math.sin(angle) * distanceInDegrees;
         const estimatedLng = longitude + Math.cos(angle) * distanceInDegrees;
 
+        // Add debug logs to understand coordinate calculation
+        debug.log("Supabase", `Positioning toilet ${toilet.name}`, {
+          toiletId: toilet.id,
+          toiletName: toilet.name,
+          distance: toilet.distance_meters,
+          calculatedPosition: { lat: estimatedLat, lng: estimatedLng },
+          angle: angle * (180 / Math.PI), // Convert to degrees for readability
+          userPosition: { lat: latitude, lng: longitude },
+        });
+
         return {
           id: toilet.id,
           name: toilet.name,

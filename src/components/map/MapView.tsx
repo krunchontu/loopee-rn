@@ -129,6 +129,22 @@ export const CustomMapView = memo(function CustomMapView({
   useEffect(() => {
     // Initial clustering
     const initialClusters = clusterToilets(toilets, currentRegion);
+
+    // Debug clustering results
+    debug.log(
+      "MapView",
+      `Clustering resulted in ${initialClusters.length} clusters:`,
+      {
+        totalToilets: toilets.length,
+        numClusters: initialClusters.length,
+        zoomLevel: getZoomLevel(currentRegion),
+        singleMarkers: initialClusters.filter((c) => c.points.length === 1)
+          .length,
+        multiMarkers: initialClusters.filter((c) => c.points.length > 1).length,
+        region: currentRegion,
+      }
+    );
+
     setClusters(initialClusters);
   }, [toilets, currentRegion]);
 

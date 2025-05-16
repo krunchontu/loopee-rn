@@ -1,5 +1,6 @@
 import { Region } from "react-native-maps";
 import { Toilet } from "../types/toilet";
+import { debug } from "./debug";
 
 interface Cluster {
   id: string;
@@ -34,6 +35,11 @@ export function clusterToilets(
   _clusterRadius: number = 50 // Renamed with underscore to indicate intentionally unused parameter
 ): Cluster[] {
   const zoom = getZoomLevel(region);
+  debug.log("Clustering", "Starting toilet clustering", {
+    zoomLevel: zoom,
+    toiletCount: toilets.length,
+  });
+
   const clusters: { [key: string]: Cluster } = {};
 
   // Filter out toilets with invalid locations first
@@ -44,6 +50,18 @@ export function clusterToilets(
       typeof toilet.location.latitude === "number" &&
       typeof toilet.location.longitude === "number"
   );
+
+  debug.log("Clustering", "Processing valid toilets", {
+    validToiletCount: validToilets.length,
+    totalToilets: toilets.length,
+  });
+
+  if (validToilets.length !== toilets.length) {
+    debug.warn("Clustering", "Found invalid toilets", {
+      invalidCount: toilets.length - validToilets.length,
+      totalCount: toilets.length,
+    });
+  }
 
   validToilets.forEach((toilet) => {
     const key = getClusterKey(
