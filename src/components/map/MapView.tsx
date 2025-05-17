@@ -108,8 +108,22 @@ export const CustomMapView = memo(function CustomMapView({
   const handleMarkerPress = useCallback(
     (toilet: Toilet) => {
       debug.log("MapView", "Marker pressed", toilet.id);
-      selectToilet(toilet);
-      onMarkerPress?.(toilet);
+
+      // Ensure the toilet data is complete before selection
+      if (toilet && toilet.id) {
+        selectToilet(toilet);
+
+        // Explicitly invoke any additional marker press handler
+        onMarkerPress?.(toilet);
+
+        // Log selection for debugging
+        debug.log("MapView", "Toilet selected successfully", {
+          toiletId: toilet.id,
+          name: toilet.name,
+        });
+      } else {
+        debug.error("MapView", "Invalid toilet data on marker press", toilet);
+      }
     },
     [selectToilet, onMarkerPress]
   );

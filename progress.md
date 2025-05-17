@@ -1,7 +1,7 @@
 [System Generated - Do Not Edit Manually]
-Last Updated: 2025-05-17 01:30 UTC+8
+Last Updated: 2025-05-17 01:46 UTC+8
 
-Current Phase: 2.5 (Bug Fixes & Refinement)
+Current Phase: 3.0 (UI/UX Enhancements)
 
 ## Completed Items
 - [x] Project scaffolding and TypeScript setup
@@ -118,6 +118,36 @@ Current Phase: 2.5 (Bug Fixes & Refinement)
 - Set up CI/CD pipeline
 - Consider replacing events package with native EventEmitter
 
+## UI/UX Enhancement Plan (Phase 3)
+- [x] Design System Improvements
+  - [x] Create comprehensive design tokens system
+  - [x] Establish typography hierarchy
+  - [x] Expand color palette with semantic colors
+  - [x] Define animation and interaction patterns
+  - [ ] Document design system guidelines
+- [ ] Visual Component Enhancements
+  - [ ] Redesign home screen with improved branding
+  - [x] Enhance ToiletCard with better visual hierarchy
+  - [x] Improve bottom sheet interactions and styling
+    - [x] Enhanced gesture handling and animations
+    - [x] Improved visual appearance with proper elevation and shadows
+    - [x] Fixed visibility issues on Android devices
+  - [x] Add visual feedback for user interactions
+  - [x] Fix map interaction issues
+    - [x] Enhanced marker touch handling
+    - [x] Improved toilet selection experience
+    - [x] Fixed bottom sheet expansion on marker interaction
+- [ ] Accessibility Improvements
+  - [ ] Implement proper screen reader support
+  - [ ] Ensure WCAG AA contrast compliance
+  - [ ] Add focus management
+  - [ ] Improve touch targets for better usability
+- [ ] User Experience Refinements
+  - [ ] Add onboarding flow
+  - [ ] Implement improved empty states
+  - [ ] Enhance loading indicators and transitions
+  - [ ] Add micro-interactions for better feedback
+
 ## Next Milestone
-Complete Phase 2.5: Bug Fixes & Refinement
-Target: End of Week (2025-05-17)
+Complete Phase 3.0: UI/UX Enhancements - Foundation Stage
+Target: End of Week (2025-05-24)

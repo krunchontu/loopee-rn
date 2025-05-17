@@ -1,7 +1,23 @@
-import React, { memo } from "react";
-import { StyleSheet, View, Text, TouchableOpacity } from "react-native";
+import React, { memo, useRef } from "react";
+import {
+  StyleSheet,
+  View,
+  Text,
+  TouchableOpacity,
+  Animated,
+} from "react-native";
 import { Toilet } from "../../types/toilet";
-import { colors, spacing } from "../../constants/colors";
+import {
+  colors,
+  spacing,
+  createAnimatedValue,
+  duration,
+  easing,
+} from "../../foundations";
+import {
+  createComponentStyle,
+  createTextStyle,
+} from "../../foundations/react-native-helpers";
 import { Rating } from "../shared/Rating";
 
 export interface ToiletCardProps {
@@ -15,90 +31,116 @@ export const ToiletCard = memo(function ToiletCard({
   onPress,
   compact = false,
 }: ToiletCardProps) {
+  // Create animated scale value for touch feedback
+  const scaleValue = useRef(createAnimatedValue(1)).current;
+
+  // Enhanced animation for hover effect
+  const animateCard = (toValue: number) => {
+    Animated.timing(scaleValue, {
+      toValue,
+      duration: duration.fast,
+      useNativeDriver: true,
+      easing: easing.easeOut,
+    }).start();
+  };
+
+  // Format distance for better readability
+  const formatDistance = (meters: number) => {
+    return meters < 1000 ?
+        `${meters.toFixed(0)}m away`
+      : `${(meters / 1000).toFixed(1)}km away`;
+  };
+
   return (
-    <TouchableOpacity
-      onPress={onPress}
-      style={[styles.container, compact && styles.containerCompact]}
-    >
-      <View style={[styles.content, compact && styles.contentCompact]}>
-        <View style={styles.header}>
-          <Text style={styles.name} numberOfLines={1}>
-            {toilet.name}
+    <Animated.View style={{ transform: [{ scale: scaleValue }] }}>
+      <TouchableOpacity
+        onPress={onPress}
+        onPressIn={() => animateCard(0.97)}
+        onPressOut={() => animateCard(1)}
+        style={[styles.container, compact && styles.containerCompact]}
+        activeOpacity={0.7}
+      >
+        <View style={[styles.content, compact && styles.contentCompact]}>
+          {/* Card Header */}
+          <View style={styles.header}>
+            <Text style={styles.name} numberOfLines={1}>
+              {toilet.name}
+            </Text>
+            {toilet.isAccessible && (
+              <View style={styles.accessibleBadge}>
+                <Text style={styles.accessibleText}>♿ Accessible</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Rating Section */}
+          <View style={styles.details}>
+            <Rating value={toilet.rating} size="small" />
+            <Text style={styles.reviewCount}>
+              ({toilet.reviewCount}{" "}
+              {toilet.reviewCount === 1 ? "review" : "reviews"})
+            </Text>
+          </View>
+
+          {/* Building and floor information */}
+          {(toilet.buildingName || toilet.floorName) && (
+            <View style={styles.locationContainer}>
+              <Text style={styles.buildingInfo} numberOfLines={1}>
+                📍{" "}
+                {toilet.buildingName && toilet.floorName ?
+                  `${toilet.buildingName} • ${toilet.floorName}`
+                : toilet.buildingName || toilet.floorName}
+              </Text>
+            </View>
+          )}
+
+          {/* Address */}
+          <Text style={styles.address} numberOfLines={compact ? 1 : 2}>
+            {toilet.address}
           </Text>
-          {toilet.isAccessible && (
-            <View style={styles.accessibleBadge}>
-              <Text style={styles.accessibleText}>♿ Accessible</Text>
+
+          {/* Distance */}
+          {toilet.distance && (
+            <View style={styles.distanceContainer}>
+              <Text style={styles.distanceIcon}>🚶</Text>
+              <Text style={styles.distance}>
+                {formatDistance(toilet.distance)}
+              </Text>
             </View>
           )}
         </View>
-
-        {/* Building and floor information */}
-        {(toilet.buildingName || toilet.floorName) && (
-          <Text style={styles.buildingInfo} numberOfLines={1}>
-            {toilet.buildingName && toilet.floorName ?
-              `${toilet.buildingName} • ${toilet.floorName}`
-            : toilet.buildingName || toilet.floorName}
-          </Text>
-        )}
-
-        <View style={styles.details}>
-          <Rating value={toilet.rating} size="small" />
-          <Text style={styles.reviewCount}>
-            ({toilet.reviewCount}{" "}
-            {toilet.reviewCount === 1 ? "review" : "reviews"})
-          </Text>
-        </View>
-
-        <Text style={styles.address} numberOfLines={compact ? 1 : 2}>
-          {toilet.address}
-        </Text>
-
-        {toilet.distance && (
-          <Text style={styles.distance}>
-            {(toilet.distance / 1000).toFixed(1)}km away
-          </Text>
-        )}
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </Animated.View>
   );
 });
 
 const styles = StyleSheet.create({
-  accessibleBadge: {
-    backgroundColor: colors.secondary,
-    borderRadius: 12,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  accessibleText: {
-    color: colors.background.primary,
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  address: {
-    color: colors.text.secondary,
-    fontSize: 14,
-    marginBottom: spacing.xs,
-  },
-  buildingInfo: {
-    color: colors.text.secondary,
-    fontSize: 13,
-    fontStyle: "italic",
-    marginBottom: spacing.xs,
-  },
-  container: {
-    backgroundColor: colors.background.primary,
-    borderRadius: 12,
-    elevation: 3,
-    marginBottom: spacing.md,
-    shadowColor: colors.text.primary,
-    shadowOffset: {
-      width: 0,
-      height: 2,
+  accessibleBadge: createComponentStyle({
+    backgroundColor: colors.interactive.secondary.default,
+    radius: "pill",
+    padding: {
+      horizontal: spacing.sm,
+      vertical: spacing.xs,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
+  }),
+  accessibleText: createTextStyle("caption", {
+    color: colors.text.inverse,
+    fontWeight: "600",
+  }),
+  address: createTextStyle("bodySmall", {
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+  }),
+  buildingInfo: createTextStyle("bodySmall", {
+    color: colors.text.secondary,
+    marginBottom: spacing.xs / 2,
+  }),
+  container: createComponentStyle({
+    backgroundColor: colors.background.primary,
+    radius: "card",
+    shadow: "md",
+    marginBottom: spacing.md,
+  }),
   containerCompact: {
     marginBottom: spacing.sm,
   },
@@ -113,9 +155,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     marginBottom: spacing.xs,
   },
-  distance: {
-    color: colors.text.light,
-    fontSize: 12,
+  distance: createTextStyle("caption", {
+    color: colors.text.tertiary,
+    marginLeft: spacing.xs / 2,
+  }),
+  distanceContainer: {
+    alignItems: "center",
+    flexDirection: "row",
+    marginTop: spacing.xs / 2,
+  },
+  distanceIcon: {
+    fontSize: 14,
   },
   header: {
     alignItems: "center",
@@ -123,16 +173,17 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: spacing.xs,
   },
-  name: {
-    color: colors.text.primary,
+  locationContainer: {
+    alignItems: "center",
+    flexDirection: "row",
+    marginBottom: spacing.xs / 2,
+  },
+  name: createTextStyle("h4", {
     flex: 1,
-    fontSize: 16,
-    fontWeight: "600",
     marginRight: spacing.sm,
-  },
-  reviewCount: {
-    color: colors.text.light,
-    fontSize: 12,
+  }),
+  reviewCount: createTextStyle("caption", {
+    color: colors.text.tertiary,
     marginLeft: spacing.xs,
-  },
+  }),
 });

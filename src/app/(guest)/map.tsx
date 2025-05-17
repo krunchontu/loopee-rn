@@ -113,6 +113,15 @@ function useBottomSheetController(_snapPoints: number[]) {
     setCurrentSheetIndex(index);
   }, []);
 
+  // Add method to expand sheet to show selected toilet
+  const expandSheet = useCallback(() => {
+    debug.log("BottomSheet", "Expanding sheet to show toilet details");
+    if (bottomSheetRef.current) {
+      // Expand to maximum height (index 1)
+      bottomSheetRef.current.snapToIndex(1);
+    }
+  }, []);
+
   // Render custom backdrop component
   const renderBackdrop = useCallback(
     (props: BottomSheetBackdropProps) => (
@@ -131,6 +140,7 @@ function useBottomSheetController(_snapPoints: number[]) {
     currentSheetIndex,
     handleSheetChanges,
     renderBackdrop,
+    expandSheet,
   };
 }
 
@@ -141,12 +151,13 @@ function useMapConfiguration() {
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
-  // Calculate snap points based on screen dimensions
+  // Calculate snap points based on screen dimensions, accounting for system UI elements
   const snapPoints = useMemo(() => {
-    const minHeight = 300; // Increased to make more visible on screen
+    // Account for both top and bottom insets to handle notches and navigation bars
+    const minHeight = Math.max(300, 120 + insets.bottom); // Ensure visibility above nav bar
     const maxHeight = height - (insets.top + 100);
     return [minHeight, maxHeight];
-  }, [height, insets.top]);
+  }, [height, insets.top, insets.bottom]);
 
   return { snapPoints };
 }
@@ -252,17 +263,26 @@ export default function MapScreen() {
   // Custom hooks for different concerns
   const { snapPoints } = useMapConfiguration();
   const { locationError, handleRetry } = useLocationService();
-  const { bottomSheetRef, handleSheetChanges, renderBackdrop } =
+  const { bottomSheetRef, handleSheetChanges, renderBackdrop, expandSheet } =
     useBottomSheetController(snapPoints);
 
   // Handle toilet selection with proper navigation
   const handleToiletPress = useCallback(
     (toilet: Toilet) => {
       debug.log("Map", "Selected toilet", toilet.id);
+
+      // Update the global state with selected toilet
       selectToilet(toilet);
-      // Any additional logic for toilet selection
+
+      // Show the bottom sheet with toilet details
+      expandSheet();
+
+      debug.log("Map", "Toilet selection completed", {
+        name: toilet.name,
+        showingDetails: true,
+      });
     },
-    [selectToilet]
+    [selectToilet, expandSheet]
   );
 
   return (
