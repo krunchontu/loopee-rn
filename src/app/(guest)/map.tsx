@@ -6,7 +6,7 @@ import BottomSheet, {
   BottomSheetBackdropProps,
 } from "@gorhom/bottom-sheet";
 import { useCallback, useRef, useMemo, useEffect, useState, memo } from "react";
-import { colors, spacing } from "../../constants/colors";
+import { colors, spacing, zIndex } from "../../foundations";
 import { ToiletList } from "../../components/toilet/ToiletList";
 import { CustomMapView } from "../../components/map/MapView";
 import { useToiletStore } from "../../stores/toilets";
@@ -105,31 +105,135 @@ function useLocationService() {
  */
 function useBottomSheetController(_snapPoints: number[]) {
   const bottomSheetRef = useRef<BottomSheet>(null);
-  const [currentSheetIndex, setCurrentSheetIndex] = useState<number>(1);
+  const [currentSheetIndex, setCurrentSheetIndex] = useState<number>(0); // Start at index 0 for better compatibility
+  const [isSheetReady, setIsSheetReady] = useState<boolean>(false);
+  const [isForceVisible, setIsForceVisible] = useState<boolean>(false);
+
+  // Add sheet initialization detection with increased reliability
+  useEffect(() => {
+    // Immediate flag setting for component render cycle
+    if (bottomSheetRef.current) {
+      setIsSheetReady(true);
+    }
+
+    // Multiple timeouts with increasing delays for reliability
+    const timeouts = [
+      setTimeout(() => {
+        if (bottomSheetRef.current) {
+          setIsSheetReady(true);
+          debug.log(
+            "BottomSheet",
+            "Sheet initialization complete (first check)"
+          );
+        }
+      }, 250),
+
+      setTimeout(() => {
+        if (bottomSheetRef.current) {
+          setIsSheetReady(true);
+          debug.log(
+            "BottomSheet",
+            "Sheet initialization complete (second check)"
+          );
+
+          // Force a snap to index 0 to ensure visibility
+          try {
+            bottomSheetRef.current.snapToIndex(0);
+          } catch (err) {
+            // Ignore errors during initialization
+          }
+        }
+      }, 750),
+    ];
+
+    return () => {
+      timeouts.forEach(clearTimeout);
+    };
+  }, []);
+
+  // Force the bottom sheet to be visible regardless of component state
+  const forceVisible = useCallback(() => {
+    debug.log("BottomSheet", "Forcing bottom sheet visibility");
+    setIsForceVisible(true);
+
+    // Multiple approaches to ensure visibility
+    setTimeout(() => {
+      if (bottomSheetRef.current) {
+        try {
+          // Attempt multiple methods to ensure visibility
+          bottomSheetRef.current.snapToPosition("50%");
+        } catch (err) {
+          try {
+            bottomSheetRef.current.expand();
+          } catch (innerErr) {
+            try {
+              bottomSheetRef.current.snapToIndex(0);
+            } catch (finalErr) {
+              debug.error(
+                "BottomSheet",
+                "All visibility methods failed",
+                finalErr
+              );
+            }
+          }
+        }
+      }
+    }, 300);
+  }, []);
 
   // Handle bottom sheet changes with proper logging
-  const handleSheetChanges = useCallback((index: number) => {
-    debug.log("BottomSheet", `Sheet changed to index ${index}`);
-    setCurrentSheetIndex(index);
-  }, []);
+  const handleSheetChanges = useCallback(
+    (index: number) => {
+      debug.log("BottomSheet", `Sheet changed to index ${index}`);
+      setCurrentSheetIndex(index);
+      // Once we've successfully changed index, we know the sheet is ready
+      if (!isSheetReady) setIsSheetReady(true);
+    },
+    [isSheetReady]
+  );
 
-  // Add method to expand sheet to show selected toilet
+  // Add method to expand sheet to show selected toilet with safe expansion
   const expandSheet = useCallback(() => {
     debug.log("BottomSheet", "Expanding sheet to show toilet details");
-    if (bottomSheetRef.current) {
-      // Expand to maximum height (index 1)
-      bottomSheetRef.current.snapToIndex(1);
-    }
-  }, []);
 
-  // Render custom backdrop component
+    // First try the standard methods
+    setTimeout(() => {
+      if (bottomSheetRef.current) {
+        try {
+          // Try to use direct expand() method instead of snapToIndex
+          // This is more reliable and bypasses the snap points array validation
+          debug.log(
+            "BottomSheet",
+            "Using expand() method for more reliable expansion"
+          );
+          bottomSheetRef.current.expand();
+        } catch (err) {
+          debug.error("BottomSheet", "Failed to use expand() method", err);
+
+          // If standard methods fail, force visibility as a last resort
+          forceVisible();
+        }
+      } else {
+        debug.warn("BottomSheet", "Sheet ref not available for expansion");
+        // Even without a ref, we can set the force visible flag
+        setIsForceVisible(true);
+      }
+    }, 100);
+
+    // Set force visible flag for rendering visibility hints
+    setIsForceVisible(true);
+  }, [forceVisible]);
+
+  // Render custom backdrop component with improved visibility
   const renderBackdrop = useCallback(
     (props: BottomSheetBackdropProps) => (
       <BottomSheetBackdrop
         {...props}
         disappearsOnIndex={-1}
-        appearsOnIndex={1}
-        opacity={0.5}
+        appearsOnIndex={0} // Show backdrop even at index 0 for better visibility
+        opacity={0.7} // Increase opacity for better contrast
+        pressBehavior="close" // Enhanced touch behavior
+        enableTouchThrough={false} // Prevent touches going through the backdrop
       />
     ),
     []
@@ -141,6 +245,8 @@ function useBottomSheetController(_snapPoints: number[]) {
     handleSheetChanges,
     renderBackdrop,
     expandSheet,
+    forceVisible,
+    isForceVisible,
   };
 }
 
@@ -213,7 +319,7 @@ const ToiletBottomSheet = memo(
   }: ToiletBottomSheetProps) => (
     <BottomSheet
       ref={bottomSheetRef}
-      index={1}
+      index={0} // Start with the first snap point instead of the second
       snapPoints={snapPoints}
       onChange={onChange}
       handleIndicatorStyle={styles.sheetIndicator}
@@ -263,8 +369,15 @@ export default function MapScreen() {
   // Custom hooks for different concerns
   const { snapPoints } = useMapConfiguration();
   const { locationError, handleRetry } = useLocationService();
-  const { bottomSheetRef, handleSheetChanges, renderBackdrop, expandSheet } =
-    useBottomSheetController(snapPoints);
+  const {
+    bottomSheetRef,
+    handleSheetChanges,
+    renderBackdrop,
+    expandSheet,
+    // Include these in component scope but prefix with _ to indicate intentionally unused
+    forceVisible: _forceVisible,
+    isForceVisible: _isForceVisible,
+  } = useBottomSheetController(snapPoints);
 
   // Handle toilet selection with proper navigation
   const handleToiletPress = useCallback(
@@ -285,6 +398,19 @@ export default function MapScreen() {
     [selectToilet, expandSheet]
   );
 
+  // Handle map marker press by updating the selection and showing sheet
+  const handleMapMarkerPress = useCallback(
+    (toilet: Toilet) => {
+      // First handle the toilet selection
+      handleToiletPress(toilet);
+
+      // Use our safer expandSheet method that includes proper error handling
+      // expandSheet() internally handles all the safety checks and fallbacks
+      expandSheet();
+    },
+    [handleToiletPress, expandSheet]
+  );
+
   return (
     <>
       <MapHeader />
@@ -292,7 +418,10 @@ export default function MapScreen() {
         {locationError ?
           <LocationErrorView error={locationError} onRetry={handleRetry} />
         : <>
-            <CustomMapView />
+            <CustomMapView
+              onMarkerPress={handleMapMarkerPress}
+              style={styles.mapView}
+            />
             <ToiletBottomSheet
               bottomSheetRef={bottomSheetRef}
               snapPoints={snapPoints}
@@ -318,7 +447,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   expandIcon: {
-    color: colors.text.light,
+    color: colors.text.tertiary,
     fontSize: 18,
   },
   expandIndicator: {
@@ -343,35 +472,46 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
   },
+  mapView: {
+    flex: 1,
+    width: "100%",
+    zIndex: zIndex.map, // Ensure map is below bottom sheet
+  },
   sheetBackground: {
     backgroundColor: colors.background.primary,
+    borderTopLeftRadius: 20, // Enhanced rounded corners
+    borderTopRightRadius: 20,
   },
   sheetContainer: {
+    borderTopColor: colors.border.medium, // Subtle border color
+    borderTopWidth: 1, // Add border for visual distinction
     bottom: 0,
-    elevation: 24, // Higher elevation for Android
+    elevation: zIndex.bottomSheet, // Use our z-index value for consistent elevation
     left: 0,
+    minHeight: 300, // Ensure the height is sufficient to be visible
     position: "absolute", // Ensure absolute positioning
     right: 0,
-    shadowColor: colors.text.primary,
+    shadowColor: colors.text.primary, // Using design system color
     shadowOffset: {
       width: 0,
-      height: -4,
+      height: -6, // Larger offset for more pronounced shadow
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    zIndex: 999, // Ensure it's above the map
+    shadowOpacity: 0.5, // Increased shadow opacity
+    shadowRadius: 12, // Larger shadow radius
+    zIndex: zIndex.bottomSheet, // Use our z-index system for consistent layering
   },
   sheetHandle: {
     backgroundColor: colors.background.primary,
-    borderTopLeftRadius: 15,
-    borderTopRightRadius: 15,
-    height: 24, // Make handle area taller
+    borderTopLeftRadius: 20, // Matches background radius
+    borderTopRightRadius: 20, // Matches background radius
+    height: 28, // Taller handle area for better visibility and touch target
     paddingTop: 8, // Add top padding for better touch area
   },
   sheetIndicator: {
-    backgroundColor: colors.border.medium,
-    height: 4, // Make indicator more visible
-    width: 40,
+    backgroundColor: colors.primary, // Use primary color for better visibility
+    borderRadius: 3, // Rounded corners on indicator
+    height: 5, // Thicker indicator
+    width: 50, // Wider indicator
   },
   toiletCount: {
     color: colors.text.secondary,

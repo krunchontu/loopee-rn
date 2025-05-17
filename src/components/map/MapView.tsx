@@ -1,13 +1,21 @@
-import { useRef, useEffect, useState, useCallback, memo } from "react";
-import { StyleSheet, Platform, View, Text, Dimensions } from "react-native";
+import { useRef, useEffect, useState, useCallback, memo, useMemo } from "react";
+import {
+  StyleSheet,
+  Platform,
+  View,
+  Text,
+  Dimensions,
+  StatusBar,
+} from "react-native";
 import MapView, {
   PROVIDER_GOOGLE,
   Region,
   MapPressEvent,
 } from "react-native-maps";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AnimatedMarker } from "./AnimatedMarker";
 import { useToiletStore } from "../../stores/toilets";
-import { colors, spacing } from "../../constants/colors";
+import { colors, spacing, zIndex } from "../../foundations";
 import { Toilet } from "../../types/toilet";
 import { locationService, LocationState } from "../../services/location";
 import { Button } from "../shared/Button";
@@ -41,6 +49,7 @@ export const CustomMapView = memo(function CustomMapView({
   style,
 }: CustomMapViewProps) {
   const mapRef = useRef<MapView>(null);
+  const insets = useSafeAreaInsets();
   const { toilets, selectToilet, fetchNearbyToilets } = useToiletStore();
   const [hasLocationPermission, setHasLocationPermission] =
     useState<boolean>(false);
@@ -162,125 +171,172 @@ export const CustomMapView = memo(function CustomMapView({
     setClusters(initialClusters);
   }, [toilets, currentRegion]);
 
+  // Calculate safe area padding for content
+  const safeAreaPadding = useMemo(() => {
+    const androidInsets =
+      Platform.OS === "android" ?
+        getAndroidInsets()
+      : { statusBarHeight: 0, navBarHeight: 0 };
+
+    return {
+      paddingTop:
+        Platform.OS === "android" ? androidInsets.statusBarHeight : insets.top,
+      paddingBottom:
+        Platform.OS === "android" ? androidInsets.navBarHeight : insets.bottom,
+      paddingLeft: insets.left,
+      paddingRight: insets.right,
+    };
+  }, [insets]);
+
   return (
     <ErrorBoundary>
-      <View style={[styles.container, style]}>
-        <MapView
-          ref={mapRef}
-          style={styles.map}
-          provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
-          initialRegion={initialRegion}
-          showsUserLocation={hasLocationPermission}
-          showsMyLocationButton={false}
-          showsCompass
-          onPress={onMapPress}
-          onRegionChangeComplete={handleRegionChange}
-        >
-          {clusters.map((cluster) => {
-            if (cluster.points.length === 1) {
-              const toilet = cluster.points[0];
+      <View style={[styles.safeAreaContainer, safeAreaPadding, style]}>
+        <View style={styles.container}>
+          <MapView
+            ref={mapRef}
+            style={styles.map}
+            provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
+            initialRegion={initialRegion}
+            showsUserLocation={hasLocationPermission}
+            showsMyLocationButton={false}
+            showsCompass
+            onPress={onMapPress}
+            onRegionChangeComplete={handleRegionChange}
+          >
+            {clusters.map((cluster) => {
+              if (cluster.points.length === 1) {
+                const toilet = cluster.points[0];
 
-              // Log skipped markers but attempt to render all toilets for diagnosis
-              if (!toilet?.location?.latitude || !toilet?.location?.longitude) {
+                // Log skipped markers but attempt to render all toilets for diagnosis
+                if (
+                  !toilet?.location?.latitude ||
+                  !toilet?.location?.longitude
+                ) {
+                  debug.warn(
+                    "MapView",
+                    `TOILET DIAGNOSIS: Would normally skip marker for toilet with invalid location: ${toilet?.id}`,
+                    {
+                      toiletId: toilet?.id,
+                      hasLocation: !!toilet?.location,
+                      latitude: toilet?.location?.latitude,
+                      longitude: toilet?.location?.longitude,
+                    }
+                  );
+                  // Continue rendering to see if any coordinates are actually being set
+                }
+
+                return (
+                  <AnimatedMarker
+                    key={toilet.id}
+                    coordinate={{
+                      latitude: toilet.location.latitude,
+                      longitude: toilet.location.longitude,
+                    }}
+                    onPress={() => handleMarkerPress(toilet)}
+                    pinColor={
+                      toilet.isAccessible ? colors.secondary : colors.primary
+                    }
+                  />
+                );
+              }
+
+              // Validate cluster coordinate before rendering
+              if (
+                !cluster?.coordinate?.latitude ||
+                !cluster?.coordinate?.longitude
+              ) {
                 debug.warn(
                   "MapView",
-                  `TOILET DIAGNOSIS: Would normally skip marker for toilet with invalid location: ${toilet?.id}`,
-                  {
-                    toiletId: toilet?.id,
-                    hasLocation: !!toilet?.location,
-                    latitude: toilet?.location?.latitude,
-                    longitude: toilet?.location?.longitude,
-                  }
+                  `Skipping cluster with invalid coordinate: ${cluster?.id}`
                 );
-                // Continue rendering to see if any coordinates are actually being set
+                return null;
               }
 
               return (
                 <AnimatedMarker
-                  key={toilet.id}
-                  coordinate={{
-                    latitude: toilet.location.latitude,
-                    longitude: toilet.location.longitude,
+                  key={cluster.id}
+                  coordinate={cluster.coordinate}
+                  isCluster
+                  count={cluster.points.length}
+                  onPress={() => {
+                    // Zoom in when cluster is pressed
+                    mapRef.current?.animateToRegion({
+                      ...cluster.coordinate,
+                      latitudeDelta: currentRegion.latitudeDelta * 0.5,
+                      longitudeDelta: currentRegion.longitudeDelta * 0.5,
+                    });
                   }}
-                  onPress={() => handleMarkerPress(toilet)}
-                  pinColor={
-                    toilet.isAccessible ? colors.secondary : colors.primary
-                  }
                 />
               );
-            }
+            })}
+          </MapView>
 
-            // Validate cluster coordinate before rendering
-            if (
-              !cluster?.coordinate?.latitude ||
-              !cluster?.coordinate?.longitude
-            ) {
-              debug.warn(
-                "MapView",
-                `Skipping cluster with invalid coordinate: ${cluster?.id}`
-              );
-              return null;
-            }
-
-            return (
-              <AnimatedMarker
-                key={cluster.id}
-                coordinate={cluster.coordinate}
-                isCluster
-                count={cluster.points.length}
-                onPress={() => {
-                  // Zoom in when cluster is pressed
-                  mapRef.current?.animateToRegion({
-                    ...cluster.coordinate,
-                    latitudeDelta: currentRegion.latitudeDelta * 0.5,
-                    longitudeDelta: currentRegion.longitudeDelta * 0.5,
-                  });
-                }}
+          {locationError && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{locationError}</Text>
+              <Button
+                title="Grant Permission"
+                onPress={handleLocationPermission}
+                size="small"
+                variant="outline"
               />
-            );
-          })}
-        </MapView>
+            </View>
+          )}
 
-        {locationError && (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{locationError}</Text>
-            <Button
-              title="Grant Permission"
-              onPress={handleLocationPermission}
-              size="small"
-              variant="outline"
-            />
-          </View>
-        )}
-
-        {hasLocationPermission && (
-          <View style={styles.locationButtonContainer}>
-            <Button
-              title="My Location"
-              onPress={() => {
-                if (userLocation) {
-                  mapRef.current?.animateToRegion({
-                    latitude: userLocation.latitude,
-                    longitude: userLocation.longitude,
-                    ...DEFAULT_DELTA,
-                  });
-                }
-              }}
-              size="small"
-            />
-          </View>
-        )}
+          {hasLocationPermission && (
+            <View style={styles.locationButtonContainer}>
+              <Button
+                title="My Location"
+                onPress={() => {
+                  if (userLocation) {
+                    mapRef.current?.animateToRegion({
+                      latitude: userLocation.latitude,
+                      longitude: userLocation.longitude,
+                      ...DEFAULT_DELTA,
+                    });
+                  }
+                }}
+                size="small"
+              />
+            </View>
+          )}
+        </View>
       </View>
     </ErrorBoundary>
   );
 });
 
-const { height: SCREEN_HEIGHT } = Dimensions.get("window");
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 
+/**
+ * Get Android specific UI insets
+ *
+ * @returns Object with Android status bar and navigation bar heights
+ */
+function getAndroidInsets() {
+  const statusBarHeight = StatusBar.currentHeight || 0;
+
+  // Estimate navigation bar height based on device aspect ratio
+  // This is a rough approximation since there's no direct API to get nav bar height
+  const aspectRatio = SCREEN_HEIGHT / SCREEN_WIDTH;
+  const isLongDevice = aspectRatio > 2.0; // Phones with tall displays likely have gesture nav
+
+  // Navigation bar is typically 48dp for button navigation, less or none for gesture navigation
+  const navBarHeight = isLongDevice ? 0 : 48;
+
+  return {
+    statusBarHeight,
+    navBarHeight,
+  };
+}
+
+// Use safe area utilities for better positioning
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     width: "100%",
+    // Lower z-index to ensure map is below other elements
+    zIndex: zIndex.map,
   },
   errorContainer: {
     alignItems: "center",
@@ -299,9 +355,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     top: spacing.md,
+    // Higher z-index for error message
+    zIndex: zIndex.mapControls,
   },
   errorText: {
-    color: colors.status.error,
+    color: colors.status.error.foreground,
     marginBottom: spacing.sm,
     textAlign: "center",
   },
@@ -311,11 +369,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   locationButtonContainer: {
-    bottom: SCREEN_HEIGHT * 0.45,
     position: "absolute",
+    bottom: SCREEN_HEIGHT * 0.45,
     right: spacing.md,
+    // Z-index to ensure controls are above map
+    zIndex: zIndex.mapControls,
   },
   map: {
+    flex: 1,
+    width: "100%",
+  },
+  safeAreaContainer: {
     flex: 1,
     width: "100%",
   },

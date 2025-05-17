@@ -13,12 +13,14 @@ export * from "./colors";
 export * from "./typography";
 export * from "./layout";
 export * from "./animations";
+export * from "./zIndex";
 
 // Export combined token object for easier theme access
 import * as colorTokens from "./colors";
 import * as typographyTokens from "./typography";
 import * as layoutTokens from "./layout";
 import * as animationTokens from "./animations";
+import * as zIndexTokens from "./zIndex";
 
 /**
  * Combined design tokens for easier theme access
@@ -28,6 +30,7 @@ export const designTokens = {
   typography: typographyTokens,
   layout: layoutTokens,
   animations: animationTokens,
+  zIndex: zIndexTokens,
 };
 
 /**
@@ -60,7 +63,7 @@ export const createComponentStyle = (options: {
   // Layout properties
   width?: number | string;
   height?: number | string;
-  zIndex?: keyof typeof layoutTokens.zIndex | number;
+  zIndex?: keyof typeof zIndexTokens.zIndex | number;
   // Additional custom styles
   [key: string]: any;
 }) => {
@@ -122,7 +125,7 @@ export const createComponentStyle = (options: {
   // Process z-index
   const zIndexValue =
     typeof zIndex === "string" ?
-      layoutTokens.zIndex[zIndex as keyof typeof layoutTokens.zIndex]
+      zIndexTokens.zIndex[zIndex as keyof typeof zIndexTokens.zIndex]
     : zIndex;
 
   return {

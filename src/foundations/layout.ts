@@ -5,8 +5,9 @@
  * - Spacing values
  * - Border radius
  * - Shadows and elevation
- * - Z-index values
  * - Screen breakpoints
+ *
+ * Note: Z-index values have been moved to a dedicated zIndex.ts file
  */
 
 // Spacing values (in pixels)
@@ -122,32 +123,6 @@ export const elevation = {
   lg: 8,
   xl: 16,
   xxl: 24,
-} as const;
-
-// Z-index values for consistent layering
-export const zIndex = {
-  // Base layers
-  base: 0,
-  below: -1,
-
-  // UI layers
-  content: 1,
-  header: 10,
-  navigation: 20,
-
-  // Overlay elements
-  tooltip: 30,
-  dropdown: 40,
-  bottomSheet: 50,
-  modal: 60,
-
-  // Top layers
-  toast: 70,
-  popover: 80,
-  overlay: 90,
-
-  // Maximum layer
-  max: 100,
 } as const;
 
 // Screen breakpoints (for responsive design)
