@@ -1,24 +1,32 @@
-import React, { memo, useRef } from "react";
+import React, { memo, useCallback } from "react";
 import {
   StyleSheet,
   View,
   Text,
-  TouchableOpacity,
-  Animated,
+  Pressable,
+  Dimensions,
+  ViewStyle,
+  TextStyle,
 } from "react-native";
+import { useResponsiveLayout } from "../../foundations/responsive";
 import { Toilet } from "../../types/toilet";
 import {
   colors,
   spacing,
-  createAnimatedValue,
-  duration,
-  easing,
+  borderRadius,
+  fontWeights,
+  fontSizes,
 } from "../../foundations";
+import {
+  getResponsiveSpacing,
+  getResponsiveFontSize,
+} from "../../foundations/responsive";
 import {
   createComponentStyle,
   createTextStyle,
 } from "../../foundations/react-native-helpers";
 import { Rating } from "../shared/Rating";
+import { createShadow as createFoundationShadow } from "../../foundations/layout";
 
 export interface ToiletCardProps {
   toilet: Toilet;
@@ -31,159 +39,235 @@ export const ToiletCard = memo(function ToiletCard({
   onPress,
   compact = false,
 }: ToiletCardProps) {
-  // Create animated scale value for touch feedback
-  const scaleValue = useRef(createAnimatedValue(1)).current;
+  const { isSmallPhone, isMediumPhone } = useResponsiveLayout();
 
-  // Enhanced animation for hover effect
-  const animateCard = (toValue: number) => {
-    Animated.timing(scaleValue, {
-      toValue,
-      duration: duration.fast,
-      useNativeDriver: true,
-      easing: easing.easeOut,
-    }).start();
-  };
-
-  // Format distance for better readability
-  const formatDistance = (meters: number) => {
+  const shouldShowAmenities = !isSmallPhone;
+  const shouldShowReviewCount = !isSmallPhone;
+  const shouldShowFullAddress = !isSmallPhone && !isMediumPhone;
+  const formatDistance = useCallback((meters: number) => {
+    if (!meters) return "";
     return meters < 1000 ?
-        `${meters.toFixed(0)}m away`
-      : `${(meters / 1000).toFixed(1)}km away`;
-  };
+        `${Math.round(meters)}m`
+      : `${(meters / 1000).toFixed(1)}km`;
+  }, []);
 
   return (
-    <Animated.View style={{ transform: [{ scale: scaleValue }] }}>
-      <TouchableOpacity
-        onPress={onPress}
-        onPressIn={() => animateCard(0.97)}
-        onPressOut={() => animateCard(1)}
-        style={[styles.container, compact && styles.containerCompact]}
-        activeOpacity={0.7}
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.container,
+        pressed && styles.pressed,
+        compact && styles.compactContainer,
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel={`${toilet.name} toilet, ${formatDistance(toilet.distance || 0)} away, ${
+        toilet.isAccessible ? "wheelchair accessible" : ""
+      }${toilet.amenities.hasBabyChanging ? ", baby changing available" : ""}${
+        toilet.amenities.hasShower ? ", shower available" : ""
+      }`}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+    >
+      <View
+        style={[
+          styles.content,
+          compact && {
+            padding: getResponsiveSpacing(spacing.xs, SCREEN_WIDTH),
+          },
+        ]}
       >
-        <View style={[styles.content, compact && styles.contentCompact]}>
-          {/* Card Header */}
-          <View style={styles.header}>
+        <View style={styles.mainInfo}>
+          <View style={styles.nameRow}>
             <Text style={styles.name} numberOfLines={1}>
               {toilet.name}
             </Text>
             {toilet.isAccessible && (
-              <View style={styles.accessibleBadge}>
-                <Text style={styles.accessibleText}>♿ Accessible</Text>
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>♿</Text>
               </View>
             )}
           </View>
-
-          {/* Rating Section */}
-          <View style={styles.details}>
-            <Rating value={toilet.rating} size="small" />
-            <Text style={styles.reviewCount}>
-              ({toilet.reviewCount}{" "}
-              {toilet.reviewCount === 1 ? "review" : "reviews"})
+          <View style={styles.locationRow}>
+            <Text style={styles.emojiIcon}>📍</Text>
+            <Text style={styles.location} numberOfLines={1}>
+              {shouldShowFullAddress ?
+                toilet.address
+              : toilet.buildingName || toilet.floorName ?
+                [toilet.buildingName, toilet.floorName]
+                  .filter(Boolean)
+                  .join(" • ")
+              : toilet.address.split(",")[0]}
             </Text>
           </View>
-
-          {/* Building and floor information */}
-          {(toilet.buildingName || toilet.floorName) && (
-            <View style={styles.locationContainer}>
-              <Text style={styles.buildingInfo} numberOfLines={1}>
-                📍{" "}
-                {toilet.buildingName && toilet.floorName ?
-                  `${toilet.buildingName} • ${toilet.floorName}`
-                : toilet.buildingName || toilet.floorName}
-              </Text>
-            </View>
-          )}
-
-          {/* Address */}
-          <Text style={styles.address} numberOfLines={compact ? 1 : 2}>
-            {toilet.address}
-          </Text>
-
-          {/* Distance */}
+        </View>
+        <View
+          style={[
+            styles.metaInfo,
+            compact && { minWidth: getResponsiveSpacing(50, SCREEN_WIDTH) },
+          ]}
+        >
           {toilet.distance && (
-            <View style={styles.distanceContainer}>
-              <Text style={styles.distanceIcon}>🚶</Text>
+            // Consider adding a distance icon here using styles.metaIcon
+            <View style={styles.distanceRow}>
+              {/* <Text style={styles.metaIcon}>...</Text> */}
               <Text style={styles.distance}>
                 {formatDistance(toilet.distance)}
               </Text>
             </View>
           )}
+          {shouldShowAmenities && (
+            <View style={styles.amenities}>
+              {toilet.amenities.hasBabyChanging && (
+                <Text style={styles.emojiIcon}>👶</Text>
+              )}
+              {toilet.amenities.hasShower && (
+                <Text style={styles.emojiIcon}>🚿</Text>
+              )}
+              {toilet.amenities.hasWaterSpray && (
+                <Text style={styles.emojiIcon}>💦</Text>
+              )}
+            </View>
+          )}
+          <View style={styles.ratingContainer}>
+            <Rating value={toilet.rating} size="small" />
+            {shouldShowReviewCount && toilet.reviewCount > 0 && (
+              <Text style={styles.reviewCount}>({toilet.reviewCount})</Text>
+            )}
+          </View>
         </View>
-      </TouchableOpacity>
-    </Animated.View>
+      </View>
+    </Pressable>
   );
 });
 
-const styles = StyleSheet.create({
-  accessibleBadge: createComponentStyle({
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+
+type StyleProps = {
+  amenities: ViewStyle;
+  badge: ViewStyle;
+  badgeText: TextStyle;
+  compactContainer: ViewStyle;
+  container: ViewStyle;
+  content: ViewStyle;
+  distance: TextStyle;
+  distanceRow: ViewStyle;
+  emojiIcon: TextStyle;
+  location: TextStyle;
+  locationRow: ViewStyle;
+  mainInfo: ViewStyle;
+  metaIcon: TextStyle;
+  metaInfo: ViewStyle;
+  name: TextStyle;
+  nameRow: ViewStyle;
+  pressed: ViewStyle;
+  ratingContainer: ViewStyle;
+  reviewCount: TextStyle;
+};
+
+const styles = StyleSheet.create<StyleProps>({
+  amenities: {
+    alignItems: "center" as const,
+    flexDirection: "row" as const,
+    gap: getResponsiveSpacing(spacing.xxs, SCREEN_WIDTH),
+    justifyContent: "flex-end" as const,
+    marginTop: getResponsiveSpacing(spacing.xs, SCREEN_WIDTH),
+  },
+  badge: createComponentStyle({
+    alignItems: "center" as const,
     backgroundColor: colors.interactive.secondary.default,
-    radius: "pill",
-    padding: {
-      horizontal: spacing.sm,
-      vertical: spacing.xs,
-    },
+    borderRadius: borderRadius.pill,
+    height: getResponsiveSpacing(28, SCREEN_WIDTH),
+    justifyContent: "center" as const,
+    marginLeft: getResponsiveSpacing(spacing.sm, SCREEN_WIDTH),
+    width: getResponsiveSpacing(28, SCREEN_WIDTH),
   }),
-  accessibleText: createTextStyle("caption", {
+  badgeText: createTextStyle("bodySmall", {
     color: colors.text.inverse,
-    fontWeight: "600",
+    fontSize: getResponsiveFontSize(fontSizes.sm, SCREEN_WIDTH),
+    fontWeight: fontWeights.bold,
   }),
-  address: createTextStyle("bodySmall", {
-    color: colors.text.secondary,
-    marginBottom: spacing.xs,
-  }),
-  buildingInfo: createTextStyle("bodySmall", {
-    color: colors.text.secondary,
-    marginBottom: spacing.xs / 2,
-  }),
+  compactContainer: {
+    marginBottom: getResponsiveSpacing(spacing.xs, SCREEN_WIDTH),
+    marginHorizontal: getResponsiveSpacing(spacing.xs, SCREEN_WIDTH),
+    minHeight: getResponsiveSpacing(60, SCREEN_HEIGHT),
+    paddingVertical: getResponsiveSpacing(spacing.xs, SCREEN_HEIGHT),
+  },
   container: createComponentStyle({
     backgroundColor: colors.background.primary,
-    radius: "card",
-    shadow: "md",
-    marginBottom: spacing.md,
+    borderRadius: borderRadius.card,
+    marginBottom: getResponsiveSpacing(spacing.md, SCREEN_WIDTH),
+    marginHorizontal: getResponsiveSpacing(spacing.md, SCREEN_WIDTH),
+    ...createFoundationShadow("sm"),
   }),
-  containerCompact: {
-    marginBottom: spacing.sm,
-  },
   content: {
-    padding: spacing.md,
-  },
-  contentCompact: {
-    padding: spacing.sm,
-  },
-  details: {
-    alignItems: "center",
-    flexDirection: "row",
-    marginBottom: spacing.xs,
-  },
-  distance: createTextStyle("caption", {
-    color: colors.text.tertiary,
-    marginLeft: spacing.xs / 2,
-  }),
-  distanceContainer: {
-    alignItems: "center",
-    flexDirection: "row",
-    marginTop: spacing.xs / 2,
-  },
-  distanceIcon: {
-    fontSize: 14,
-  },
-  header: {
-    alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: spacing.xs,
+    padding: getResponsiveSpacing(spacing.sm, SCREEN_WIDTH),
   },
-  locationContainer: {
+  distance: createTextStyle("bodySmall", {
+    color: colors.text.secondary,
+    fontWeight: fontWeights.medium,
+    textAlign: "right",
+  }),
+  distanceRow: {
     alignItems: "center",
     flexDirection: "row",
-    marginBottom: spacing.xs / 2,
+    justifyContent: "flex-end",
+    marginBottom: getResponsiveSpacing(spacing.xxs, SCREEN_WIDTH),
   },
-  name: createTextStyle("h4", {
-    flex: 1,
-    marginRight: spacing.sm,
+  emojiIcon: {
+    fontSize: fontSizes.md,
+    marginRight: spacing.xs,
+  },
+  location: createTextStyle("bodySmall", {
+    color: colors.text.secondary,
+    flexShrink: 1,
+    marginLeft: spacing.xs,
   }),
+  locationRow: {
+    alignItems: "center" as const,
+    flexDirection: "row" as const,
+    marginTop: getResponsiveSpacing(spacing.xs, SCREEN_WIDTH),
+  },
+  mainInfo: {
+    flex: 1,
+    gap: getResponsiveSpacing(spacing.xxs, SCREEN_WIDTH),
+    marginRight: getResponsiveSpacing(spacing.sm, SCREEN_WIDTH),
+  },
+  metaIcon: {
+    color: colors.text.secondary,
+    fontSize: fontSizes.sm,
+    marginRight: spacing.xxs,
+  },
+  metaInfo: {
+    alignItems: "flex-end" as const,
+    justifyContent: "flex-start" as const,
+    minWidth: getResponsiveSpacing(70, SCREEN_WIDTH),
+  },
+  name: createTextStyle("h5", {
+    color: colors.text.primary,
+    fontWeight: fontWeights.semibold,
+    marginBottom: getResponsiveSpacing(spacing.xs, SCREEN_WIDTH),
+    fontSize: getResponsiveFontSize(fontSizes.lg, SCREEN_WIDTH),
+  }),
+  nameRow: {
+    alignItems: "center" as const,
+    flexDirection: "row" as const,
+    marginBottom: getResponsiveSpacing(spacing.xs, SCREEN_WIDTH),
+  },
+  pressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.97 }],
+  },
+  ratingContainer: {
+    alignItems: "center" as const,
+    flexDirection: "row" as const,
+    gap: getResponsiveSpacing(spacing.xxs, SCREEN_WIDTH),
+    justifyContent: "flex-end" as const,
+    marginTop: "auto",
+    paddingTop: getResponsiveSpacing(spacing.xs, SCREEN_WIDTH),
+  },
   reviewCount: createTextStyle("caption", {
     color: colors.text.tertiary,
-    marginLeft: spacing.xs,
+    marginLeft: spacing.xxs,
   }),
 });

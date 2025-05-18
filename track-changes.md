@@ -1,346 +1,78 @@
-# Track Changes
-
-## 2025-05-17 10:55 UTC+8 - Comprehensive Bottom Sheet Visibility Fix
-
-**Action:** Fixed bottom sheet visibility issues with multi-layered solution
+## 2025-05-17 23:00 UTC+8 - Iteration 1 (UI/UX Refactor - Map Screen)
+**Action:** Refactored `MapHeader` in `src/app/(guest)/map.tsx` for a cleaner look.
 **Files Modified:**
-- src/app/(guest)/map.tsx (Enhanced bottom sheet visibility and error handling)
-
-**Changes Detail:**
-1. Implemented multi-layered approach for ensuring sheet visibility:
-   - Added dedicated forceVisible helper with multiple visibility strategies
-   - Enhanced initialization with staggered timeouts (250ms and 750ms)
-   - Added snapToPosition("50%") method for guaranteed visibility
-   - Implemented fallback cascade for high reliability
-   - Added explicit error handling for all visibility methods
-
-2. Enhanced bottom sheet appearance:
-   - Increased shadow prominence for better visual depth
-   - Used primary color for the indicator bar
-   - Added border and stronger border radius for better distinction
-   - Ensured minimum height is always sufficient (300px)
-
-3. Improved error handling:
-   - Added failsafe state tracking with isForceVisible flag
-   - Implemented more reliable error detection and logging
-   - Ensured fallbacks execute even when component ref is missing
-   - Added better debug logging for visibility diagnostics
-
-**Rationale:**
-The issue with invisible bottom sheets despite successful method calls required a robust multi-pronged approach:
-- Sequential fallback strategies ensure at least one method will work
-- Visual enhancements ensure sheet is unmistakably visible when present
-- Multiple timeouts address potential race conditions and initialization timing
-- Complete error handling prevents failures from being silent
-
+- `src/app/(guest)/map.tsx` (updated headerStyle options)
 **Verification:**
-This comprehensive solution ensures the bottom sheet will be visible when markers are clicked, addressing both the index error and the visibility issue. The use of snapToPosition and direct expand methods bypasses snap point validation entirely for maximum reliability.
+Visual change to map screen header (white background, dark text, subtle border).
 
-## 2025-05-17 10:38 UTC+8 - Enhanced Bottom Sheet Error Handling
-
-**Action:** Implemented more robust solution for bottom sheet expansion issues
+## 2025-05-17 23:02 UTC+8 - Iteration 2 (UI/UX Refactor - Map Screen & Modal)
+**Action:** Simplified state management for modal visibility in `src/app/(guest)/map.tsx` by using `selectedToilet` from Zustand store. Updated `src/components/toilet/ModalToiletSheet.tsx` to accept and use `selectedToilet` prop.
 **Files Modified:**
-- src/app/(guest)/map.tsx (Improved bottom sheet expansion strategy)
-
-**Changes Detail:**
-1. Replaced snap points-based expansion with direct expand() method:
-   - Used the more reliable expand() method instead of snapToIndex
-   - Added timeout to ensure component is fully initialized
-   - Improved fallback strategies when primary expansion fails
-   - Enhanced logging for better diagnostics
-
-2. Modified bottom sheet initialization:
-   - Changed initial index from 1 to 0 for better stability
-   - Fixed potential race condition between initialization and usage
-   - Ensured more consistent behavior across different devices
-
-**Rationale:**
-After implementing the initial fix, logs revealed the component was still throwing errors with "index out of provided snap points range". This improved solution:
-- Bypasses snap points validation by using the direct expand() method
-- Introduces a small delay to ensure the component is ready before expansion
-- Falls back to safer index 0 if expand() fails
-- Starts the sheet at index 0 initially to avoid validation issues during animation
-- Ensures better compatibility with the @gorhom/bottom-sheet v5.1.4 library's internal state management
-
+- `src/app/(guest)/map.tsx` (removed local `isModalVisible` state, modified `handleMapMarkerPress`, `handleModalClose`, and props passed to `ModalToiletSheet`)
+- `src/components/toilet/ModalToiletSheet.tsx` (updated `ModalToiletSheetProps`, added logic to display `selectedToilet`)
 **Verification:**
-The fix ensures more reliable bottom sheet expansion when toilet markers are tapped, preventing errors and crashes while maintaining the proper user experience.
+Modal visibility should now be correctly driven by the `selectedToilet` state in the Zustand store. TypeScript error for `selectedToilet` prop should be resolved.
 
-## 2025-05-17 10:29 UTC+8 - Fixed Bottom Sheet Error on Toilet Marker Click
-
-**Action:** Fixed "index out of range" error when clicking toilet markers
+## 2025-05-17 23:04 UTC+8 - Iteration 3 (UI/UX Refactor - Map Screen Error Handling)
+**Action:** Refactored location error display in `src/app/(guest)/map.tsx` to be a less intrusive banner. Removed unused `LocationErrorView` component and its props. Addressed ESLint style ordering issues.
 **Files Modified:**
-- src/app/(guest)/map.tsx (Enhanced BottomSheet error handling and initialization)
-
-**Changes Detail:**
-1. Added robust error handling for bottom sheet interactions:
-   - Implemented sheet initialization detection with timeout
-   - Created safe index selection based on available snap points
-   - Added fallback behavior when primary expansion fails
-   - Enhanced logging for better diagnostics
-
-2. Refactored marker interaction code:
-   - Updated `handleMapMarkerPress` to use safer expansion method
-   - Added proper dependency tracking for callbacks
-   - Fixed potential race condition between selection and expansion
-
-**Rationale:**
-The error occurred due to a timing issue where `snapToIndex(1)` was called before the bottom sheet component had fully registered both snap points. This implementation:
-- Ensures the bottom sheet is properly initialized before interaction
-- Safely handles cases where snap points aren't fully registered
-- Provides graceful fallbacks and proper error reporting
-- Prevents the app from crashing when users interact with toilet markers
-
+- `src/app/(guest)/map.tsx` (Removed `LocationErrorView` component and `LocationErrorViewProps` type. Integrated `ErrorState` directly with banner styling. Reordered styles in `StyleSheet.create`.)
 **Verification:**
-The fix ensures that when tapping on toilet markers, the bottom sheet properly expands to show details without crashing, improving the overall user experience and app stability.
+Location errors should now display as a banner at the top of the map screen. ESLint errors for unused variable and style ordering should be resolved.
 
-## 2025-05-17 10:13 UTC+8 - Enhanced MapView and Safe Area Handling
-
-**Action:** Implemented comprehensive improvements to MapView and system UI integration
+## 2025-05-17 23:06 UTC+8 - Iteration 4 (UI/UX Refactor - AnimatedMarker Style)
+**Action:** Updated `AnimatedMarker.tsx` to give individual toilet markers a "pin" shape for better visual distinction from clusters. Changed icon to 📍. Corrected color import path and usage of `palette.transparent`. Addressed ESLint style issues.
 **Files Modified:**
-- src/app/_layout.tsx (Added SafeAreaProvider and configured StatusBar)
-- src/foundations/zIndex.ts (Created dedicated z-index system)
-- src/foundations/index.ts (Updated foundation exports with new z-index system)
-- src/foundations/layout.ts (Moved z-index definitions to dedicated file)
-- src/components/map/MapView.tsx (Enhanced with proper safe area handling)
-- src/app/(guest)/map.tsx (Fixed bottom sheet visibility and interaction)
-
-**Changes Detail:**
-1. System UI Integration:
-   - Added SafeAreaProvider at the root layout level
-   - Configured translucent StatusBar for better visual integration
-   - Implemented Android-specific inset detection for navigation and status bars
-
-2. Z-Index System:
-   - Created comprehensive z-index token system with semantic naming
-   - Implemented elevation-to-z-index mapping for Android consistency
-   - Established clear stacking context hierarchy
-
-3. MapView Enhancements:
-   - Added safe area padding to prevent content from being hidden under system UI
-   - Implemented dynamic inset calculation based on device
-   - Ensured map maintains proper z-index below other UI elements
-
-4. Bottom Sheet Integration:
-   - Fixed z-index issues between map and bottom sheet
-   - Enhanced marker-to-sheet interaction with explicit expansion
-   - Applied proper elevation values for Android visibility
-
-**Rationale:**
-These improvements address two critical UX issues: Android system bars overlapping content and bottom sheet visibility problems. The solution implements a systematic approach using proper React Native practices:
-- Safe area context ensures content respects system UI across all devices
-- Dedicated z-index system provides consistent visual layering
-- Enhanced marker press handling provides immediate user feedback
-
-**Next Steps:**
-- Add visual enhancements to markers for better visibility
-- Implement transitions between marker selection states
-- Add haptic feedback for marker interactions
-
-## 2025-05-17 09:29 UTC+8 - Fixed Map UI/UX Issues
-
-**Action:** Fixed critical UI/UX issues with the map interface
-**Files Modified:**
-- src/app/(guest)/map.tsx (Improved BottomSheet visibility and interaction)
-- src/components/map/MapView.tsx (Enhanced marker interaction)
-
-**Changes Detail:**
-1. Fixed Bottom Sheet visibility:
-   - Added proper inset handling for Android navigation bar to prevent bottom sheet from being hidden
-   - Ensured minimum height accounts for system UI elements
-   - Implemented dynamic height calculation based on device dimensions
-
-2. Enhanced map marker interactions:
-   - Improved toilet selection handling with better error checking
-   - Added explicit sheet expansion when a marker is pressed
-   - Enhanced logging for better debugging
-   - Fixed event propagation to ensure proper response when markers are tapped
-
-**Rationale:**
-Users reported two key issues: the bottom sheet wasn't visible on some Android devices, and tapping toilet markers didn't display information. These fixes improve the core map experience by:
-- Ensuring the bottom sheet is always visible and accessible regardless of device
-- Providing expected feedback when users tap on toilet markers
-- Maintaining the application's visual hierarchy with proper positioning
-
-**Next Steps:**
-- Enhance marker visibility with improved colors and iconography
-- Add animation when transitioning between different toilet selections
-- Implement visual indicators for the currently selected toilet
-
-## 2025-05-17 07:54 UTC+8 - Enhanced Bottom Sheet & Toilet Card Components
-
-**Action:** Enhanced BottomSheet and ToiletCard components with new design system
-**Files Modified:**
-- src/components/shared/BottomSheet.tsx (Improved visual and interaction design)
-- src/components/toilet/ToiletCard.tsx (Enhanced visual hierarchy and animations)
-- src/foundations/colors.ts (Added overlay color for consistent modal backgrounds)
-
-**Changes Detail:**
-1. BottomSheet Enhancements:
-   - Added three-position state (expanded, mid, collapsed) for more flexible interactions
-   - Implemented proper backdrop overlay with tap-to-dismiss functionality
-   - Enhanced animations with standardized timing and easing for more polished feel
-   - Fixed gesture handling to support flick gestures and improve intuitive interactions
-   - Added semantic spacing and improved content layout
-
-2. ToiletCard Enhancements:
-   - Improved touch feedback animations with consistent timing
-   - Enhanced distance display with a pedestrian icon
-   - Optimized formatting of distance values for better readability
-   - Reordered information display for improved scanning and hierarchy
-   - Added proper spacing using design system tokens
-
-**Rationale:**
-The BottomSheet is a primary interaction component that affects the overall app feel, while the ToiletCard is the most frequently viewed content component. These enhancements:
-- Create a more polished, intuitive interaction model
-- Improve the perceived quality of the app
-- Enhance usability with better visual feedback and gesture handling
-- Apply design system tokens for visual consistency
-- Create patterns for future component enhancements
-
-**Next Steps:**
-- Apply similar enhancements to remaining UI components
-- Enhance map interaction components with the new design system
-- Implement proper loading and empty states using design tokens
-
-## 2025-05-17 01:54 UTC+8 - UI Component Enhancement: ToiletCard
-
-**Action:** Enhanced ToiletCard component using new design system
-**Files Modified:**
-- Created src/foundations/react-native-helpers.ts (Type-safe design system helpers for React Native)
-- Updated src/components/toilet/ToiletCard.tsx (Applied design system)
-
-**Changes Detail:**
-1. Created React Native specific helper utilities to ensure type safety with the design system
-2. Refactored ToiletCard to use the new design system:
-   - Improved visual hierarchy with consistent typography
-   - Added touch feedback with subtle scale animation
-   - Enhanced location display with appropriate icons
-   - Optimized component structure for better readability
-   - Improved styling using design tokens for consistency
-
-**Rationale:**
-The ToiletCard component is a critical UI element that users interact with frequently. The enhancement:
-- Improves visual aesthetics with consistent styling
-- Adds tactile feedback for better interaction
-- Ensures type safety with React Native styles
-- Creates a pattern for other component enhancements
-- Demonstrates practical application of the design system
-
-**Next Steps:**
-- Apply similar enhancements to other key components
-- Create shared styled components based on design tokens
-- Update the Rating component to use new design tokens
-
-## 2025-05-17 01:51 UTC+8 - Design System Foundation Implementation
-
-**Action:** Created comprehensive design system foundation
-**Files Modified:**
-- Created src/foundations/colors.ts (Enhanced color system with semantic colors)
-- Created src/foundations/typography.ts (Typography system with semantic text styles)
-- Created src/foundations/layout.ts (Spacing, shadows, and layout tokens)
-- Created src/foundations/animations.ts (Animation duration, easing, and utilities)
-- Created src/foundations/index.ts (Unified design system exports)
-
-**Changes Detail:**
-1. Migrated from basic color definitions to comprehensive design token system:
-   - Expanded color palette with semantic color naming
-   - Created robust typography system with consistent text styles
-   - Standardized spacing, shadows, and layout values
-   - Added animation utilities with consistent timing and easing
-   - Unified exports for simpler imports across the app
-
-2. Added helper utilities:
-   - `createComponentStyle` for consistent component styling
-   - `createTextStyle` for typography application
-   - `createShadow` for cross-platform shadow implementation
-   - Animation utility functions for consistent motion
-
-**Rationale:**
-A robust design system foundation is essential for consistent UI/UX across the app. This structured approach will:
-- Improve visual consistency
-- Simplify component development
-- Enhance design-to-code workflow
-- Support better accessibility through consistent patterns
-- Make future design updates easier to implement
-- Reduce duplication and style inconsistencies
-
-**Next Steps:**
-- Apply design tokens to existing components
-- Create styled component wrappers using the foundation
-- Implement accessibility enhancements
-- Create documentation for the design system
-
-## 2025-05-17 01:46 UTC+8 - UI/UX Enhancement Initiative
-
-**Action:** Initiated comprehensive UI/UX improvement plan
-**Files Modified:**
-- progress.md (Updated to reflect new UI/UX enhancement phase)
-
-**Changes Detail:**
-1. Created detailed UI/UX improvement roadmap with prioritized tasks
-2. Established foundation phase focusing on design system, visual components, and accessibility
-3. Set milestone targets for phase completion
-4. Structured implementation approach for systematic improvements
-
-**Rationale:**
-The app's core functionality is solid, but the UI/UX needs enhancement to improve user engagement, accessibility, and visual appeal. A systematic approach will ensure consistent improvements throughout the app.
-
-## 2025-05-17 01:30 UTC+8 - Multistory Building Support
-
-**Action:** Implemented support for toilets in multistory buildings and malls
-**Files Modified:**
-- src/components/toilet/ToiletCard.tsx (Added building and floor information display)
-- src/app/(guest)/details.tsx (Added detailed location section for buildings and floors)
-- docs/toilet-location-system.md (Updated with multistory building support documentation)
-- progress.md (Updated to reflect completion of multistory feature)
-
-**Changes Detail:**
-1. Updated ToiletCard to display building name and floor information when available
-2. Enhanced the details screen to show detailed building and floor level information
-3. Fixed all ESLint issues related to styling by reordering style properties 
-4. Added clear documentation of the multistory building support architecture
-5. Included visual improvements to help users quickly identify toilets in multi-level buildings
-
+- `src/components/map/AnimatedMarker.tsx` (Modified marker rendering logic and styles for a new pin shape, updated icon, fixed color imports and usage, removed unused styles, and reordered styles).
 **Verification:**
-The UI now properly displays building and floor information for toilets in multistory buildings, giving users a clearer understanding of toilet locations in complex structures like malls.
+Individual toilet markers should now appear as pins. TypeScript errors related to `transparent` color should be resolved. ESLint errors for unused styles and style ordering should be resolved.
 
-## 2025-05-17 01:10 UTC+8 - Toilet Map Visibility Diagnosis
-
-**Action:** Diagnosed issue with only two toilets showing on map
+## 2025-05-17 23:07 UTC+8 - Iteration 5 (UI/UX Refactor - Cluster Marker Style)
+**Action:** Updated cluster marker style in `AnimatedMarker.tsx` for better visual differentiation and readability.
 **Files Modified:**
-- src/services/supabase.ts (Added diagnostic logging)
-- src/stores/toilets.ts (Temporarily modified validation)
-- src/utils/clustering.ts (Added diagnostic reporting)
-- src/components/map/MapView.tsx (Modified marker rendering for diagnosis)
-
-**Investigation Results:**
-1. Database query is returning exactly 2 toilets (Orchard MRT and Plaza Singapura)
-2. Both toilets have valid coordinates and are correctly displayed on map
-3. No toilets are being incorrectly filtered out by validation
-4. Diagnostic logs confirmed all toilets from database are properly processed
-
-**Root Cause:**
-The issue is not a technical bug but simply that there are only 2 toilet records in the database that match the search criteria (within the specified radius of the user's location).
-
+- `src/components/map/AnimatedMarker.tsx` (Adjusted size, background color, and text style for cluster markers).
 **Verification:**
-Through diagnostic logging, we confirmed the complete data flow from database to map display works correctly.
+Cluster markers should now use the secondary brand color (teal), be slightly larger, and have more readable count text.
 
-## 2025-05-17 12:35 UTC+8 - Bottom Sheet Visibility Fix
-
-**Action:** Fixed bottom sheet not appearing on the map screen  
+## 2025-05-17 23:10 UTC+8 - Iteration 6 (UI/UX Refactor - Map Controls)
+**Action:** Refactored map controls in `src/components/map/MapView.tsx`. "My Location" button is now a FAB. Location permission request view is restyled.
 **Files Modified:**
-- src/app/(guest)/map.tsx (Enhanced BottomSheet configuration and styling)
-- App.js (Added BottomSheetModalProvider for proper bottom sheet support)
-
-**Changes Detail:**
-1. Added proper backdrop component to improve visual separation
-2. Fixed TypeScript and ESLint issues
-3. Added higher elevation and z-index to ensure sheet appears above map
-4. Improved handle styling for better visibility and touch area
-5. Added shadow properties for visual depth
-6. Configured proper gesture handling to ensure sheet is draggable
-7. Wrapped app with BottomSheetModalProvider for proper bottom sheet support
-8. Fixed styling in App.js for better performance
-
+- `src/components/map/MapView.tsx` (Imported `Pressable` and `createShadow`. Updated styles for `permissionErrorContainer`, `errorText`, `permissionButton`. Added `locationFab` and `locationFabIcon` styles. Replaced "My Location" button with `Pressable` FAB. Removed duplicate style definition.)
 **Verification:**
-The bottom sheet should now be visible on the map screen with proper styling, elevation, and gesture handling.
+"My Location" button should appear as a FAB. Location permission request UI should be updated. TypeScript and ESLint errors related to these changes should be resolved.
+
+## 2025-05-17 23:13 UTC+8 - Iteration 7 (UI/UX Refactor - Custom Map Style)
+**Action:** Added a simple desaturated custom map style to `src/components/map/MapView.tsx`.
+**Files Modified:**
+- `src/components/map/MapView.tsx` (Defined `customMapStyle` array and applied it to the `MapView` component).
+**Verification:**
+The map should now appear slightly desaturated, making markers more prominent.
+
+## 2025-05-17 23:14 UTC+8 - Iteration 8 (UI/UX Refactor - ModalToiletSheet Header & Handle)
+**Action:** Refined `ModalHeader` in `ModalToiletSheet.tsx` to use an icon for the close button and updated `ModalHandle` to be more subtle.
+**Files Modified:**
+- `src/components/toilet/ModalToiletSheet.tsx` (Updated `ModalHeader`'s close button to an icon, adjusted styles for `closeButton`, `closeButtonIcon`, `countText`, and `handle`).
+**Verification:**
+Modal header close button should be an '✕' icon. Modal pull handle should be thinner and lighter.
+
+## 2025-05-17 23:18 UTC+8 - Iteration 9 (UI/UX Refactor - ToiletList States)
+**Action:** Refined skeleton loading state in `ToiletList.tsx` to better mimic `ToiletCard` structure. Updated empty state to be a simpler text message. Corrected imports and addressed TS/ESLint errors in `LoadingState.tsx` and `ToiletList.tsx`.
+**Files Modified:**
+- `src/components/shared/LoadingState.tsx` (Enabled `children` prop, updated `SkeletonList` props, corrected color imports and usage, fixed style ordering).
+- `src/components/toilet/ToiletList.tsx` (Imported `LoadingState` and `borderRadius`. Implemented `renderSkeletonItem` for `SkeletonList`. Changed empty state to use styled `Text` components. Fixed style ordering).
+**Verification:**
+Skeleton loading in `ToiletList` should now show a more detailed representation. Empty state should be a simple text message. Errors related to these changes should be resolved.
+
+## 2025-05-17 23:23 UTC+8 - Iteration 10 (UI/UX Refactor - ToiletCard Visuals)
+**Action:** Overhauled `ToiletCard.tsx` for improved layout, visual hierarchy, and polish.
+**Files Modified:**
+- `src/components/toilet/ToiletCard.tsx` (Adjusted styles for content, distance, location, mainInfo, metaInfo, name, nameRow, pressed, ratingContainer, reviewCount. Added distanceRow and metaIcon styles. Corrected imports and ESLint style ordering issues.)
+**Verification:**
+`ToiletCard` should have a cleaner, more modern appearance with better visual hierarchy.
+
+## 2025-05-18 12:45 UTC+8 - Iteration 11 (Fix Nested NavigationContainer Error)
+**Action:** Removed nested NavigationContainer from ResponsiveNavigation component.
+**Files Modified:**
+- `src/navigation/ResponsiveNavigation.tsx` (Removed NavigationContainer import and wrapper, updated component to directly return TabletNavigation or PhoneNavigation, added documentation note)
+**Verification:**
+App should no longer show the "nested NavigationContainer" error. App should run correctly with single NavigationContainer from Expo Router.

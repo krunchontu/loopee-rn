@@ -4,6 +4,7 @@ class Debug {
   private static instance: Debug;
   private isEnabled: boolean = __DEV__;
   private startTimes: Map<string, number> = new Map();
+  private isVerbose: boolean = false; // Add verbose mode flag
 
   private constructor() {}
 
@@ -115,6 +116,61 @@ class Debug {
    */
   isDebugging(): boolean {
     return this.isEnabled;
+  }
+
+  /**
+   * Enable verbose logging mode
+   */
+  enableVerboseLogging() {
+    this.isVerbose = true;
+    this.log("Debug", "Verbose logging enabled");
+  }
+
+  /**
+   * Log visual component information - useful for troubleshooting layout issues
+   */
+  logComponentLayout(
+    component: string,
+    layout: { x: number; y: number; width: number; height: number }
+  ) {
+    if (!this.isEnabled || !this.isVerbose) return;
+    this.log("Layout", `${component} dimensions:`, layout);
+  }
+
+  /**
+   * Log component visibility state
+   */
+  logVisibility(component: string, isVisible: boolean, extraInfo?: any) {
+    if (!this.isEnabled || !this.isVerbose) return;
+    this.log(
+      "Visibility",
+      `${component} is ${isVisible ? "visible" : "hidden"}`,
+      extraInfo
+    );
+  }
+
+  /**
+   * Log z-index and positioning information
+   */
+  logZIndex(
+    component: string,
+    zIndex: number,
+    position: string,
+    extraStyles?: any
+  ) {
+    if (!this.isEnabled || !this.isVerbose) return;
+    this.log(
+      "ZIndex",
+      `${component} has z-index ${zIndex}, position: ${position}`,
+      extraStyles
+    );
+  }
+
+  /**
+   * Get verbose mode status
+   */
+  isVerboseLogging(): boolean {
+    return this.isVerbose;
   }
 }
 

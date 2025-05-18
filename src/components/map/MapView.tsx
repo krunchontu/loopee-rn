@@ -6,7 +6,12 @@ import {
   Text,
   Dimensions,
   StatusBar,
+  Pressable,
 } from "react-native";
+import {
+  getResponsiveSpacing,
+  getResponsiveFontSize,
+} from "../../foundations/responsive";
 import MapView, {
   PROVIDER_GOOGLE,
   Region,
@@ -15,7 +20,7 @@ import MapView, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AnimatedMarker } from "./AnimatedMarker";
 import { useToiletStore } from "../../stores/toilets";
-import { colors, spacing, zIndex } from "../../foundations";
+import { colors, spacing, zIndex, createShadow } from "../../foundations"; // Added createShadow
 import { Toilet } from "../../types/toilet";
 import { locationService, LocationState } from "../../services/location";
 import { Button } from "../shared/Button";
@@ -59,6 +64,33 @@ export const CustomMapView = memo(function CustomMapView({
   const [clusters, setClusters] = useState<ReturnType<typeof clusterToilets>>(
     []
   );
+
+  // Simple desaturated map style
+  const customMapStyle = [
+    {
+      featureType: "all",
+      elementType: "all",
+      stylers: [{ saturation: -70 }], // Desaturate all features
+    },
+    {
+      // Keep water somewhat blue for context
+      featureType: "water",
+      elementType: "geometry",
+      stylers: [{ saturation: -30 }, { lightness: -5 }],
+    },
+    {
+      // Ensure road labels are visible
+      featureType: "road",
+      elementType: "labels.text.fill",
+      stylers: [{ saturation: 0 }, { lightness: -20 }, { gamma: 0.8 }],
+    },
+    {
+      // Ensure POI labels are visible
+      featureType: "poi",
+      elementType: "labels.text.fill",
+      stylers: [{ saturation: 0 }, { lightness: -30 }, { gamma: 0.7 }],
+    },
+  ];
 
   const handleLocationPermission = useCallback(async () => {
     debug.log("MapView", "Requesting location permissions");
@@ -200,6 +232,7 @@ export const CustomMapView = memo(function CustomMapView({
             showsUserLocation={hasLocationPermission}
             showsMyLocationButton={false}
             showsCompass
+            customMapStyle={customMapStyle} // Apply custom style
             onPress={onMapPress}
             onRegionChangeComplete={handleRegionChange}
           >
@@ -272,21 +305,22 @@ export const CustomMapView = memo(function CustomMapView({
           </MapView>
 
           {locationError && (
-            <View style={styles.errorContainer}>
+            <View style={styles.permissionErrorContainer}>
               <Text style={styles.errorText}>{locationError}</Text>
               <Button
-                title="Grant Permission"
+                title="Grant Location Permission"
                 onPress={handleLocationPermission}
-                size="small"
-                variant="outline"
+                size="medium" // Slightly larger for better tap target
+                variant="primary" // More prominent
+                style={styles.permissionButton}
               />
             </View>
           )}
 
-          {hasLocationPermission && (
-            <View style={styles.locationButtonContainer}>
-              <Button
-                title="My Location"
+          {hasLocationPermission &&
+            !locationError && ( // Only show if permission granted AND no other location error
+              <Pressable
+                style={styles.locationFab}
                 onPress={() => {
                   if (userLocation) {
                     mapRef.current?.animateToRegion({
@@ -296,10 +330,12 @@ export const CustomMapView = memo(function CustomMapView({
                     });
                   }
                 }}
-                size="small"
-              />
-            </View>
-          )}
+                accessibilityRole="button"
+                accessibilityLabel="Center on my location"
+              >
+                <Text style={styles.locationFabIcon}>🎯</Text>
+              </Pressable>
+            )}
         </View>
       </View>
     </ErrorBoundary>
@@ -330,37 +366,39 @@ function getAndroidInsets() {
   };
 }
 
+import type { ViewStyle, TextStyle } from "react-native";
+
+type StyleProps = {
+  container: ViewStyle;
+  errorText: TextStyle;
+  listContainer: ViewStyle;
+  locationFab: ViewStyle & {
+    bottom: number;
+    height: number;
+    right: number;
+    width: number;
+  };
+  locationFabIcon: TextStyle;
+  map: ViewStyle;
+  permissionButton: ViewStyle;
+  permissionErrorContainer: ViewStyle;
+  safeAreaContainer: ViewStyle;
+};
+
 // Use safe area utilities for better positioning
-const styles = StyleSheet.create({
+const styles = StyleSheet.create<StyleProps>({
   container: {
+    backgroundColor: colors.background.primary,
     flex: 1,
-    width: "100%",
     // Lower z-index to ensure map is below other elements
+    width: "100%",
     zIndex: zIndex.map,
   },
-  errorContainer: {
-    alignItems: "center",
-    backgroundColor: colors.background.primary,
-    borderRadius: 8,
-    elevation: 3,
-    left: spacing.md,
-    padding: spacing.sm,
-    position: "absolute",
-    right: spacing.md,
-    shadowColor: colors.text.primary,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    top: spacing.md,
-    // Higher z-index for error message
-    zIndex: zIndex.mapControls,
-  },
   errorText: {
-    color: colors.status.error.foreground,
-    marginBottom: spacing.sm,
+    color: colors.text.inverse,
+    fontSize: getResponsiveFontSize(16, SCREEN_WIDTH),
+    fontWeight: "500",
+    marginBottom: getResponsiveSpacing(spacing.lg, SCREEN_HEIGHT),
     textAlign: "center",
   },
   listContainer: {
@@ -368,16 +406,44 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: spacing.md,
   },
-  locationButtonContainer: {
+  locationFab: {
+    alignItems: "center",
+    backgroundColor: colors.background.primary,
+    borderRadius: 28,
+    bottom: getResponsiveSpacing(spacing.lg, SCREEN_HEIGHT),
+    height: getResponsiveSpacing(56, SCREEN_HEIGHT),
+    justifyContent: "center",
     position: "absolute",
-    bottom: SCREEN_HEIGHT * 0.45,
-    right: spacing.md,
-    // Z-index to ensure controls are above map
+    right: getResponsiveSpacing(spacing.lg, SCREEN_WIDTH),
+    width: getResponsiveSpacing(56, SCREEN_WIDTH),
     zIndex: zIndex.mapControls,
+    ...createShadow("lg"),
+  },
+  locationFabIcon: {
+    color: colors.brand.primary,
+    fontSize: getResponsiveFontSize(24, SCREEN_WIDTH),
   },
   map: {
     flex: 1,
     width: "100%",
+  },
+  permissionButton: {
+    minWidth: getResponsiveSpacing(200, SCREEN_WIDTH),
+    paddingHorizontal: getResponsiveSpacing(spacing.xl, SCREEN_WIDTH),
+    paddingVertical: getResponsiveSpacing(spacing.md, SCREEN_HEIGHT),
+  },
+  permissionErrorContainer: {
+    // Renamed from errorContainer for clarity
+    alignItems: "center",
+    backgroundColor: colors.background.overlay, // Semi-transparent overlay
+    bottom: 0,
+    justifyContent: "center",
+    left: 0,
+    padding: spacing.lg,
+    position: "absolute",
+    right: 0,
+    top: 0,
+    zIndex: zIndex.mapControls, // Ensure it's above the map but below modals
   },
   safeAreaContainer: {
     flex: 1,

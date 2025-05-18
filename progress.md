@@ -1,7 +1,7 @@
 [System Generated - Do Not Edit Manually]
-Last Updated: 2025-05-17 01:46 UTC+8
+Last Updated: 2025-05-17 23:23 UTC+8
 
-Current Phase: 3.0 (UI/UX Enhancements)
+Current Phase: 3.0 (UI/UX Enhancements) - Map Screen Refactor
 
 ## Completed Items
 - [x] Project scaffolding and TypeScript setup
@@ -63,6 +63,9 @@ Current Phase: 3.0 (UI/UX Enhancements)
     - [x] Enhanced styling with z-index and elevation properties
     - [x] Configured proper backdrop and gesture handling
     - [x] Fixed TypeScript and ESLint issues
+  - [x] Fixed nested NavigationContainer error
+    - [x] Removed redundant NavigationContainer from ResponsiveNavigation component
+    - [x] Updated component to work with Expo Router's single NavigationContainer
 - [x] Environment configuration
   - [x] Set up proper environment variable loading with react-native-dotenv
   - [x] Added TypeScript type definitions for environment variables
@@ -117,6 +120,7 @@ Current Phase: 3.0 (UI/UX Enhancements)
 - Add analytics tracking
 - Set up CI/CD pipeline
 - Consider replacing events package with native EventEmitter
+- Replace text-based icons (🎯, ✕) with proper SVG icons.
 
 ## UI/UX Enhancement Plan (Phase 3)
 - [x] Design System Improvements
@@ -132,6 +136,11 @@ Current Phase: 3.0 (UI/UX Enhancements)
     - [x] Enhanced gesture handling and animations
     - [x] Improved visual appearance with proper elevation and shadows
     - [x] Fixed visibility issues on Android devices
+  - [x] Enhance ModalToiletSheet with improved readability and visual design
+    - [x] Implemented modular architecture with custom hooks
+    - [x] Added natural spring animations with gesture physics
+    - [x] Enhanced with swipe-down-to-dismiss functionality
+    - [x] Improved accessibility and component patterns
   - [x] Add visual feedback for user interactions
   - [x] Fix map interaction issues
     - [x] Enhanced marker touch handling
@@ -143,6 +152,28 @@ Current Phase: 3.0 (UI/UX Enhancements)
     - [x] Fixed bottom sheet "index out of range" error when clicking toilet markers
     - [x] Enhanced bottom sheet error handling with more robust expansion method
     - [x] Fixed critical bottom sheet visibility issues with multi-layered approach
+    - [x] Implemented comprehensive solution for "index out of range" bottom sheet error:
+      - [x] Added modal-based fallback that shows even when bottom sheet fails
+      - [x] Created visual debug indicator to diagnose positioning issues
+      - [x] Enhanced logging system with verbose mode and layout debugging
+      - [x] Added detailed troubleshooting documentation
+  - [x] Refine ToiletCard, ToiletList, ModalToiletSheet for clarity and aesthetics
+    - [x] Adjusted typography (line heights) to prevent "warped" fonts
+    - [x] Standardized emoji icon sizes and layout in ToiletCard
+    - [x] Improved horizontal spacing in ToiletList for better card separation
+  - [ ] **Map Screen Refactor (`src/app/(guest)/map.tsx`)**
+    - [x] Updated `MapHeader` to use white background, dark text, and subtle border.
+    - [x] Simplified layout and state management (modal visibility driven by Zustand store).
+    - [x] Improved `LocationErrorView` design and presentation (banner style).
+  - [ ] **Map View Refactor (`src/components/map/MapView.tsx`)**
+    - [x] Updated `AnimatedMarker` to use a "pin" shape for individual toilets and corrected color imports.
+    - [x] Refined cluster marker design (color, size, text style).
+    - [x] Integrated map controls more cohesively ("My Location" FAB, permission request UI).
+    - [x] Explored custom map styling (added simple desaturated style).
+  - [ ] **Toilet Details Presentation Refactor**
+    - [x] Refined `ModalToiletSheet` header (icon button) and handle (more subtle).
+    - [x] Refined `ToiletList.tsx` visuals (skeleton, error/empty states).
+    - [x] Significantly overhauled `ToiletCard.tsx` for layout, hierarchy, and visual polish.
 - [ ] Accessibility Improvements
   - [ ] Implement proper screen reader support
   - [ ] Ensure WCAG AA contrast compliance

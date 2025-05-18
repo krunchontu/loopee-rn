@@ -87,14 +87,14 @@ export const textVariants = {
     fontFamily: fontFamilies.primary.bold,
     fontSize: fontSizes.xl,
     fontWeight: fontWeights.bold,
-    lineHeight: lineHeights.tight,
+    lineHeight: lineHeights.normal, // Changed from tight
     letterSpacing: letterSpacing.normal,
   },
   h4: {
     fontFamily: fontFamilies.primary.medium,
     fontSize: fontSizes.lg,
     fontWeight: fontWeights.semibold,
-    lineHeight: lineHeights.tight,
+    lineHeight: lineHeights.normal, // Changed from tight
     letterSpacing: letterSpacing.normal,
   },
   h5: {

@@ -1,39 +1,18 @@
-import { View, Text, useWindowDimensions, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
 import { Stack } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import BottomSheet, {
-  BottomSheetBackdrop,
-  BottomSheetBackdropProps,
-} from "@gorhom/bottom-sheet";
-import { useCallback, useRef, useMemo, useEffect, useState, memo } from "react";
-import { colors, spacing, zIndex } from "../../foundations";
-import { ToiletList } from "../../components/toilet/ToiletList";
+import { useCallback, useEffect, useState, memo } from "react";
+import { colors, zIndex } from "../../foundations";
 import { CustomMapView } from "../../components/map/MapView";
 import { useToiletStore } from "../../stores/toilets";
 import { locationService } from "../../services/location";
 import { debug } from "../../utils/debug";
 import { ErrorState } from "../../components/shared/ErrorState";
 import { Toilet } from "../../types/toilet";
+import { ModalToiletSheet } from "../../components/toilet/ModalToiletSheet";
 
 // Types
-interface LocationErrorViewProps {
-  error: string;
-  onRetry: () => void;
-}
+// LocationErrorViewProps removed as the component is no longer used.
 
-interface ToiletBottomSheetProps {
-  bottomSheetRef: React.RefObject<BottomSheet | null>;
-  snapPoints: number[];
-  onChange: (index: number) => void;
-  renderBackdrop: (props: BottomSheetBackdropProps) => React.ReactElement;
-  toilets: Toilet[];
-  onToiletPress: (toilet: Toilet) => void;
-  isLoading: boolean;
-  error: string | null;
-  onRetry: () => void;
-}
-
-// Custom hooks
 /**
  * Hook to manage location services and error handling
  */
@@ -100,174 +79,6 @@ function useLocationService() {
   };
 }
 
-/**
- * Hook to manage bottom sheet configuration and interactions
- */
-function useBottomSheetController(_snapPoints: number[]) {
-  const bottomSheetRef = useRef<BottomSheet>(null);
-  const [currentSheetIndex, setCurrentSheetIndex] = useState<number>(0); // Start at index 0 for better compatibility
-  const [isSheetReady, setIsSheetReady] = useState<boolean>(false);
-  const [isForceVisible, setIsForceVisible] = useState<boolean>(false);
-
-  // Add sheet initialization detection with increased reliability
-  useEffect(() => {
-    // Immediate flag setting for component render cycle
-    if (bottomSheetRef.current) {
-      setIsSheetReady(true);
-    }
-
-    // Multiple timeouts with increasing delays for reliability
-    const timeouts = [
-      setTimeout(() => {
-        if (bottomSheetRef.current) {
-          setIsSheetReady(true);
-          debug.log(
-            "BottomSheet",
-            "Sheet initialization complete (first check)"
-          );
-        }
-      }, 250),
-
-      setTimeout(() => {
-        if (bottomSheetRef.current) {
-          setIsSheetReady(true);
-          debug.log(
-            "BottomSheet",
-            "Sheet initialization complete (second check)"
-          );
-
-          // Force a snap to index 0 to ensure visibility
-          try {
-            bottomSheetRef.current.snapToIndex(0);
-          } catch (err) {
-            // Ignore errors during initialization
-          }
-        }
-      }, 750),
-    ];
-
-    return () => {
-      timeouts.forEach(clearTimeout);
-    };
-  }, []);
-
-  // Force the bottom sheet to be visible regardless of component state
-  const forceVisible = useCallback(() => {
-    debug.log("BottomSheet", "Forcing bottom sheet visibility");
-    setIsForceVisible(true);
-
-    // Multiple approaches to ensure visibility
-    setTimeout(() => {
-      if (bottomSheetRef.current) {
-        try {
-          // Attempt multiple methods to ensure visibility
-          bottomSheetRef.current.snapToPosition("50%");
-        } catch (err) {
-          try {
-            bottomSheetRef.current.expand();
-          } catch (innerErr) {
-            try {
-              bottomSheetRef.current.snapToIndex(0);
-            } catch (finalErr) {
-              debug.error(
-                "BottomSheet",
-                "All visibility methods failed",
-                finalErr
-              );
-            }
-          }
-        }
-      }
-    }, 300);
-  }, []);
-
-  // Handle bottom sheet changes with proper logging
-  const handleSheetChanges = useCallback(
-    (index: number) => {
-      debug.log("BottomSheet", `Sheet changed to index ${index}`);
-      setCurrentSheetIndex(index);
-      // Once we've successfully changed index, we know the sheet is ready
-      if (!isSheetReady) setIsSheetReady(true);
-    },
-    [isSheetReady]
-  );
-
-  // Add method to expand sheet to show selected toilet with safe expansion
-  const expandSheet = useCallback(() => {
-    debug.log("BottomSheet", "Expanding sheet to show toilet details");
-
-    // First try the standard methods
-    setTimeout(() => {
-      if (bottomSheetRef.current) {
-        try {
-          // Try to use direct expand() method instead of snapToIndex
-          // This is more reliable and bypasses the snap points array validation
-          debug.log(
-            "BottomSheet",
-            "Using expand() method for more reliable expansion"
-          );
-          bottomSheetRef.current.expand();
-        } catch (err) {
-          debug.error("BottomSheet", "Failed to use expand() method", err);
-
-          // If standard methods fail, force visibility as a last resort
-          forceVisible();
-        }
-      } else {
-        debug.warn("BottomSheet", "Sheet ref not available for expansion");
-        // Even without a ref, we can set the force visible flag
-        setIsForceVisible(true);
-      }
-    }, 100);
-
-    // Set force visible flag for rendering visibility hints
-    setIsForceVisible(true);
-  }, [forceVisible]);
-
-  // Render custom backdrop component with improved visibility
-  const renderBackdrop = useCallback(
-    (props: BottomSheetBackdropProps) => (
-      <BottomSheetBackdrop
-        {...props}
-        disappearsOnIndex={-1}
-        appearsOnIndex={0} // Show backdrop even at index 0 for better visibility
-        opacity={0.7} // Increase opacity for better contrast
-        pressBehavior="close" // Enhanced touch behavior
-        enableTouchThrough={false} // Prevent touches going through the backdrop
-      />
-    ),
-    []
-  );
-
-  return {
-    bottomSheetRef,
-    currentSheetIndex,
-    handleSheetChanges,
-    renderBackdrop,
-    expandSheet,
-    forceVisible,
-    isForceVisible,
-  };
-}
-
-/**
- * Hook to calculate screen dimensions and snap points
- */
-function useMapConfiguration() {
-  const { height } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
-
-  // Calculate snap points based on screen dimensions, accounting for system UI elements
-  const snapPoints = useMemo(() => {
-    // Account for both top and bottom insets to handle notches and navigation bars
-    const minHeight = Math.max(300, 120 + insets.bottom); // Ensure visibility above nav bar
-    const maxHeight = height - (insets.top + 100);
-    return [minHeight, maxHeight];
-  }, [height, insets.top, insets.bottom]);
-
-  return { snapPoints };
-}
-
 // Components
 /**
  * Component to display map header using Stack.Screen
@@ -277,11 +88,13 @@ const MapHeader = memo(() => (
     options={{
       title: "Find Your Loop",
       headerStyle: {
-        backgroundColor: colors.primary,
+        backgroundColor: colors.background.primary,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: colors.ui.border,
       },
-      headerTintColor: colors.background.primary,
+      headerTintColor: colors.text.primary,
       headerTitleStyle: {
-        color: colors.background.primary,
+        color: colors.text.primary,
       },
     }}
   />
@@ -289,152 +102,110 @@ const MapHeader = memo(() => (
 
 MapHeader.displayName = "MapHeader";
 
-/**
- * Component to display location error message with retry option
- */
-const LocationErrorView = memo(({ error, onRetry }: LocationErrorViewProps) => (
-  <ErrorState
-    error={error}
-    onRetry={onRetry}
-    message="We need location access to find toilets near you"
-  />
-));
-
-LocationErrorView.displayName = "LocationErrorView";
-
-/**
- * Component that renders the bottom sheet with toilet list
- */
-const ToiletBottomSheet = memo(
-  ({
-    bottomSheetRef,
-    snapPoints,
-    onChange,
-    renderBackdrop,
-    toilets,
-    onToiletPress,
-    isLoading,
-    error,
-    onRetry,
-  }: ToiletBottomSheetProps) => (
-    <BottomSheet
-      ref={bottomSheetRef}
-      index={0} // Start with the first snap point instead of the second
-      snapPoints={snapPoints}
-      onChange={onChange}
-      handleIndicatorStyle={styles.sheetIndicator}
-      handleStyle={styles.sheetHandle}
-      backgroundStyle={styles.sheetBackground}
-      backdropComponent={renderBackdrop}
-      enablePanDownToClose={false}
-      enableOverDrag={true}
-      enableHandlePanningGesture={true}
-      android_keyboardInputMode="adjustResize"
-      keyboardBehavior="interactive"
-      keyboardBlurBehavior="restore"
-      animateOnMount={true}
-      enableContentPanningGesture={true}
-      style={styles.sheetContainer}
-    >
-      <View style={styles.listContainer}>
-        <View style={styles.listHeader}>
-          <Text style={styles.listTitle}>Nearby Toilets</Text>
-          <Text style={styles.toiletCount}>{toilets.length} found</Text>
-          <View style={styles.expandIndicator}>
-            <Text style={styles.expandIcon}>⌃</Text>
-          </View>
-        </View>
-        <ToiletList
-          toilets={toilets}
-          onToiletPress={onToiletPress}
-          isLoading={isLoading}
-          error={error}
-          onRetry={onRetry}
-        />
-      </View>
-    </BottomSheet>
-  )
-);
-
-ToiletBottomSheet.displayName = "ToiletBottomSheet";
+// LocationErrorView component definition removed as it's no longer used.
+// ErrorState is now used directly in MapScreen.
 
 /**
  * Main Map Screen Component
- * Orchestrates location services, map view, and bottom sheet with toilet data
+ * Orchestrates location services, map view, and modal with toilet data
  */
 export default function MapScreen() {
   // Global state
-  const { toilets, loading, error, selectToilet } = useToiletStore();
+  const { toilets, loading, error, selectedToilet, selectToilet } =
+    useToiletStore();
 
   // Custom hooks for different concerns
-  const { snapPoints } = useMapConfiguration();
   const { locationError, handleRetry } = useLocationService();
-  const {
-    bottomSheetRef,
-    handleSheetChanges,
-    renderBackdrop,
-    expandSheet,
-    // Include these in component scope but prefix with _ to indicate intentionally unused
-    forceVisible: _forceVisible,
-    isForceVisible: _isForceVisible,
-  } = useBottomSheetController(snapPoints);
 
-  // Handle toilet selection with proper navigation
-  const handleToiletPress = useCallback(
-    (toilet: Toilet) => {
-      debug.log("Map", "Selected toilet", toilet.id);
-
-      // Update the global state with selected toilet
-      selectToilet(toilet);
-
-      // Show the bottom sheet with toilet details
-      expandSheet();
-
-      debug.log("Map", "Toilet selection completed", {
-        name: toilet.name,
-        showingDetails: true,
-      });
-    },
-    [selectToilet, expandSheet]
-  );
-
-  // Handle map marker press by updating the selection and showing sheet
+  // Handle map marker press by updating the selection
+  // The modal will react to changes in `selectedToilet`
   const handleMapMarkerPress = useCallback(
     (toilet: Toilet) => {
-      // First handle the toilet selection
-      handleToiletPress(toilet);
-
-      // Use our safer expandSheet method that includes proper error handling
-      // expandSheet() internally handles all the safety checks and fallbacks
-      expandSheet();
+      debug.log("Map", "Marker pressed, selecting toilet", toilet.id);
+      selectToilet(toilet);
     },
-    [handleToiletPress, expandSheet]
+    [selectToilet]
   );
+
+  // Handle modal close by clearing the selected toilet
+  const handleModalClose = useCallback(() => {
+    debug.log("MapScreen", "Modal closed, deselecting toilet");
+    selectToilet(null);
+  }, [selectToilet]);
+
+  // Enable verbose logging for development and debugging
+  useEffect(() => {
+    debug.enableVerboseLogging();
+    debug.log("MapScreen", "Component mounted with enhanced modal solution");
+
+    // Auto-show modal with slight delay for testing if needed
+    // Uncomment for testing purposes
+    /*
+    if (toilets.length > 0) {
+      const timer = setTimeout(() => {
+        debug.log("MapScreen", "Auto-showing modal for testing");
+        setIsModalVisible(true);
+      }, 2000);
+      
+      return () => clearTimeout(timer);
+    }
+    */
+  }, [toilets.length]);
 
   return (
     <>
       <MapHeader />
       <View style={styles.container}>
-        {locationError ?
-          <LocationErrorView error={locationError} onRetry={handleRetry} />
-        : <>
-            <CustomMapView
-              onMarkerPress={handleMapMarkerPress}
-              style={styles.mapView}
-            />
-            <ToiletBottomSheet
-              bottomSheetRef={bottomSheetRef}
-              snapPoints={snapPoints}
-              onChange={handleSheetChanges}
-              renderBackdrop={renderBackdrop}
-              toilets={toilets}
-              onToiletPress={handleToiletPress}
-              isLoading={loading}
-              error={error}
-              onRetry={handleRetry}
-            />
-          </>
+        {/* LocationErrorView removed, will be replaced by a banner style ErrorState */}
+        {
+          !locationError ?
+            <>
+              <CustomMapView
+                onMarkerPress={handleMapMarkerPress}
+                style={styles.mapView}
+              />
+              <ModalToiletSheet
+                visible={!!selectedToilet}
+                toilets={selectedToilet ? [selectedToilet] : []}
+                selectedToilet={selectedToilet}
+                onToiletPress={(toilet) => selectToilet(toilet)}
+                onClose={handleModalClose}
+                isLoading={loading}
+                error={error}
+                onRetry={handleRetry}
+              />
+            </>
+            // If there is a locationError, we still render CustomMapView and ModalToiletSheet
+            // The error banner will overlay the map.
+          : <>
+              <CustomMapView
+                onMarkerPress={handleMapMarkerPress}
+                style={styles.mapView} // Map will be under the banner
+              />
+              <ModalToiletSheet
+                visible={!!selectedToilet}
+                toilets={selectedToilet ? [selectedToilet] : []}
+                selectedToilet={selectedToilet}
+                onToiletPress={(toilet) => selectToilet(toilet)}
+                onClose={handleModalClose}
+                isLoading={loading}
+                error={error} // This is for toilet fetching error
+                onRetry={handleRetry} // This retry might be for toilet fetching
+              />
+            </>
+
         }
+        {/* Error Banner - Rendered on top if locationError exists */}
+        {locationError && (
+          <View style={styles.errorBannerContainer}>
+            <ErrorState
+              error={locationError}
+              onRetry={handleRetry}
+              message="Location Error"
+              fullScreen={false}
+            />
+          </View>
+        )}
       </View>
     </>
   );
@@ -446,75 +217,23 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background.primary,
     flex: 1,
   },
-  expandIcon: {
-    color: colors.text.tertiary,
-    fontSize: 18,
-  },
-  expandIndicator: {
-    paddingVertical: 4,
-  },
-  listContainer: {
-    flex: 1,
-    minHeight: 250, // Ensure minimum height for the FlashList
-    paddingBottom: spacing.lg,
-  },
-  listHeader: {
-    alignItems: "center",
-    borderBottomColor: colors.border.light,
-    borderBottomWidth: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  listTitle: {
-    color: colors.text.primary,
-    fontSize: 18,
-    fontWeight: "bold",
+  errorBannerContainer: {
+    backgroundColor: colors.status.error.background, // Use a background for the banner
+    elevation: 5, // For Android shadow
+    left: 0,
+    padding: 8, // Use spacing from foundations if available e.g. spacing.sm
+    position: "absolute",
+    right: 0,
+    shadowColor: colors.text.primary, // For iOS shadow - using a theme color
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    top: 0, // Adjust as needed, e.g., below a custom header if MapHeader was not from Stack.Screen
+    zIndex: zIndex.modal, // Ensure banner is above the map, but potentially below a full modal
   },
   mapView: {
     flex: 1,
     width: "100%",
-    zIndex: zIndex.map, // Ensure map is below bottom sheet
-  },
-  sheetBackground: {
-    backgroundColor: colors.background.primary,
-    borderTopLeftRadius: 20, // Enhanced rounded corners
-    borderTopRightRadius: 20,
-  },
-  sheetContainer: {
-    borderTopColor: colors.border.medium, // Subtle border color
-    borderTopWidth: 1, // Add border for visual distinction
-    bottom: 0,
-    elevation: zIndex.bottomSheet, // Use our z-index value for consistent elevation
-    left: 0,
-    minHeight: 300, // Ensure the height is sufficient to be visible
-    position: "absolute", // Ensure absolute positioning
-    right: 0,
-    shadowColor: colors.text.primary, // Using design system color
-    shadowOffset: {
-      width: 0,
-      height: -6, // Larger offset for more pronounced shadow
-    },
-    shadowOpacity: 0.5, // Increased shadow opacity
-    shadowRadius: 12, // Larger shadow radius
-    zIndex: zIndex.bottomSheet, // Use our z-index system for consistent layering
-  },
-  sheetHandle: {
-    backgroundColor: colors.background.primary,
-    borderTopLeftRadius: 20, // Matches background radius
-    borderTopRightRadius: 20, // Matches background radius
-    height: 28, // Taller handle area for better visibility and touch target
-    paddingTop: 8, // Add top padding for better touch area
-  },
-  sheetIndicator: {
-    backgroundColor: colors.primary, // Use primary color for better visibility
-    borderRadius: 3, // Rounded corners on indicator
-    height: 5, // Thicker indicator
-    width: 50, // Wider indicator
-  },
-  toiletCount: {
-    color: colors.text.secondary,
-    fontSize: 14,
+    zIndex: zIndex.map, // Ensure map is below the error banner
   },
 });

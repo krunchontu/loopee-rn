@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from "react";
-import { Animated, StyleSheet, Text } from "react-native";
+import { Animated, StyleSheet, Text, View } from "react-native"; // Added View
 import { Marker } from "react-native-maps";
-import { colors } from "../../constants/colors";
+import { colors, palette } from "../../foundations"; // Changed import path and added palette
 import { debug } from "../../utils/debug";
 
 interface AnimatedMarkerProps {
@@ -81,7 +81,8 @@ export function AnimatedMarker({
             styles.cluster,
             {
               transform: [{ scale }],
-              backgroundColor: colors.primary,
+              // Use a distinct color for clusters, e.g., brand.secondary
+              backgroundColor: colors.brand.secondary,
             },
           ]}
         >
@@ -92,17 +93,29 @@ export function AnimatedMarker({
   }
 
   return (
-    <Marker coordinate={coordinate} onPress={onPress}>
+    <Marker coordinate={coordinate} onPress={onPress} anchor={{ x: 0.5, y: 1 }}>
       <Animated.View
         style={[
-          styles.marker,
+          styles.markerContainer, // New container for pin shape
           {
             transform: [{ scale }],
-            backgroundColor: pinColor || colors.primary,
           },
         ]}
       >
-        <Text style={styles.markerIcon}>🚻</Text>
+        <View
+          style={[
+            styles.markerPin,
+            { backgroundColor: pinColor || colors.primary },
+          ]}
+        >
+          <Text style={styles.markerIcon}>📍</Text>
+        </View>
+        <View
+          style={[
+            styles.markerPinTail,
+            { borderTopColor: pinColor || colors.primary },
+          ]}
+        />
       </Animated.View>
     </Marker>
   );
@@ -111,9 +124,9 @@ export function AnimatedMarker({
 const styles = StyleSheet.create({
   cluster: {
     alignItems: "center",
-    borderRadius: 15,
-    elevation: 5,
-    height: 30,
+    borderRadius: 18, // Slightly larger
+    elevation: 6, // Slightly more pronounced shadow
+    height: 36, // Slightly larger
     justifyContent: "center",
     shadowColor: colors.text.primary,
     shadowOffset: {
@@ -121,34 +134,50 @@ const styles = StyleSheet.create({
       width: 0,
     },
     shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    width: 30,
+    shadowRadius: 4.65, // Adjusted shadow
+    width: 36, // Slightly larger
   },
   clusterText: {
-    color: colors.background.primary,
-    fontSize: 12,
-    fontWeight: "bold",
+    color: colors.text.inverse, // Ensure good contrast with new background
+    fontSize: 14, // Slightly larger text
+    fontWeight: "600", // Medium weight
   },
-  marker: {
+  // styles.marker removed as it's no longer used
+  markerContainer: {
     alignItems: "center",
-    backgroundColor: colors.primary,
-    borderColor: colors.background.primary,
-    borderRadius: 12,
-    borderWidth: 2,
-    elevation: 5,
-    height: 24,
-    justifyContent: "center",
-    shadowColor: colors.text.primary,
-    shadowOffset: {
-      height: 2,
-      width: 0,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    width: 24,
+    height: 36, // Height of the touchable area for the pin
+    width: 30, // Width of the touchable area for the pin
   },
   markerIcon: {
     color: colors.background.primary,
-    fontSize: 14,
+    fontSize: 12, // Slightly smaller icon for the pin
+  },
+  markerPin: {
+    alignItems: "center",
+    borderColor: colors.background.primary,
+    borderRadius: 13,
+    borderWidth: 1.5,
+    elevation: 5, // Keep shadow
+    height: 26,
+    justifyContent: "center",
+    shadowColor: colors.text.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    width: 26,
+  },
+  markerPinTail: {
+    alignSelf: "center",
+    backgroundColor: palette.transparent, // Using palette.transparent
+    borderLeftColor: palette.transparent, // Using palette.transparent
+    borderLeftWidth: 6,
+    borderRightColor: palette.transparent, // Using palette.transparent
+    borderRightWidth: 6,
+    borderStyle: "solid",
+    borderTopWidth: 10, // This creates the tail
+    height: 0,
+    width: 0,
+    // borderTopColor is set dynamically
+    // No shadow for the tail, shadow is on markerPin
   },
 });

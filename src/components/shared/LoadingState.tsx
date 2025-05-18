@@ -7,13 +7,14 @@ import {
   ViewStyle,
   DimensionValue,
 } from "react-native";
-import { colors, spacing } from "../../constants/colors";
+import { colors, spacing, palette } from "../../foundations"; // Changed import, added palette
 
 interface LoadingStateProps {
   type?: "skeleton" | "spinner";
   width?: DimensionValue;
   height?: DimensionValue;
   borderRadius?: number;
+  children?: React.ReactNode; // Added children prop
 }
 
 export function LoadingState({
@@ -21,6 +22,7 @@ export function LoadingState({
   width = "100%",
   height = 100,
   borderRadius = 8,
+  children, // Added children prop
 }: LoadingStateProps) {
   const pulseAnim = React.useRef(new Animated.Value(0)).current;
 
@@ -86,25 +88,39 @@ export function LoadingState({
           height,
           borderRadius,
           opacity,
+          overflow: children ? "visible" : "hidden", // Allow children to overflow if needed, or keep hidden
         } as ViewStyle,
       ]}
-    />
+    >
+      {children}
+    </Animated.View>
   );
+}
+
+interface SkeletonListProps {
+  count?: number;
+  itemHeight?: number;
+  spacing?: number; // Renamed 'gap' back to 'spacing' for clarity in props
+  itemStyle?: ViewStyle; // Style for an optional wrapper around each LoadingState, if needed
+  renderItem?: (index: number) => React.ReactNode;
 }
 
 export function SkeletonList({
   count = 3,
   itemHeight = 100,
-  spacing: gap = spacing.md,
-}: {
-  count?: number;
-  itemHeight?: number;
-  spacing?: number;
-}) {
+  spacing: listSpacing = spacing.md, // Use 'listSpacing' to avoid conflict with 'spacing' from import
+  // itemStyle, // itemStyle is not directly used on LoadingState, would need a wrapper
+  renderItem,
+}: SkeletonListProps) {
   return (
-    <View style={{ gap } as ViewStyle}>
+    <View style={{ gap: listSpacing } as ViewStyle}>
       {Array.from({ length: count }).map((_, index) => (
-        <LoadingState key={index} height={itemHeight} />
+        // If itemStyle was meant for LoadingState, its properties (width, height, borderRadius)
+        // would need to be passed individually or LoadingState updated.
+        // For now, not applying itemStyle directly to LoadingState to fix TS error.
+        <LoadingState key={index} height={itemHeight}>
+          {renderItem ? renderItem(index) : null}
+        </LoadingState>
       ))}
     </View>
   );
@@ -112,18 +128,18 @@ export function SkeletonList({
 
 const styles = StyleSheet.create({
   container: {
-    justifyContent: "center",
     alignItems: "center",
-  },
-  spinner: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    borderTopColor: "transparent",
+    justifyContent: "center",
   },
   skeleton: {
-    backgroundColor: colors.text.light,
+    backgroundColor: colors.text.tertiary, // Corrected to use tertiary text color
+  },
+  spinner: {
+    borderColor: colors.primary,
+    borderRadius: 12,
+    borderTopColor: palette.transparent, // Using palette.transparent from foundations
+    borderWidth: 2,
+    height: 24,
+    width: 24,
   },
 });
