@@ -1,5 +1,5 @@
 [System Generated - Do Not Edit Manually]
-Last Updated: 2025-05-17 23:23 UTC+8
+Last Updated: 2025-05-18 13:18 UTC+8
 
 Current Phase: 3.0 (UI/UX Enhancements) - Map Screen Refactor
 
@@ -131,7 +131,11 @@ Current Phase: 3.0 (UI/UX Enhancements) - Map Screen Refactor
   - [ ] Document design system guidelines
 - [ ] Visual Component Enhancements
   - [ ] Redesign home screen with improved branding
-  - [x] Enhance ToiletCard with better visual hierarchy
+  - [x] Enhance ToiletCard with better visual hierarchy and minimalist design
+    - [x] Simplified to focus on essential information (name, distance, rating)
+    - [x] Improved shadow effects and spacing
+    - [x] Fixed alignment and styling issues
+    - [x] Enhanced accessibility with clear labels
   - [x] Improve bottom sheet interactions and styling
     - [x] Enhanced gesture handling and animations
     - [x] Improved visual appearance with proper elevation and shadows
@@ -161,6 +165,17 @@ Current Phase: 3.0 (UI/UX Enhancements) - Map Screen Refactor
     - [x] Adjusted typography (line heights) to prevent "warped" fonts
     - [x] Standardized emoji icon sizes and layout in ToiletCard
     - [x] Improved horizontal spacing in ToiletList for better card separation
+    - [x] Replaced ToiletCard with React Native Paper implementation for better text scaling
+      - [x] Implemented responsive typography that adapts to all screen sizes
+      - [x] Fixed "ultra tiny text" issue when card height increases
+      - [x] Improved accessibility with better typography contrast
+      - [x] Created custom Paper theme that matches app design system
+    - [x] Standardized UI with consistent PaperToiletCard component
+      - [x] Updated ModalizeToiletSheet to use PaperToiletCard instead of ToiletCard
+      - [x] Enhanced PaperToiletCard with responsive icon sizing for all screens
+      - [x] Added automatic compact mode detection for small screens (< 375px)
+      - [x] Documented UI standardization approach and benefits
+      - [x] Simplified code maintenance with single source of truth for toilet cards
   - [ ] **Map Screen Refactor (`src/app/(guest)/map.tsx`)**
     - [x] Updated `MapHeader` to use white background, dark text, and subtle border.
     - [x] Simplified layout and state management (modal visibility driven by Zustand store).
@@ -172,11 +187,22 @@ Current Phase: 3.0 (UI/UX Enhancements) - Map Screen Refactor
     - [x] Explored custom map styling (added simple desaturated style).
   - [ ] **Toilet Details Presentation Refactor**
     - [x] Refined `ModalToiletSheet` header (icon button) and handle (more subtle).
-    - [x] Refined `ToiletList.tsx` visuals (skeleton, error/empty states).
+  - [x] Fixed nested VirtualizedList error:
+    - [x] Refactored `ModalizeToiletSheet.tsx` to use Modalize's built-in FlatList support
+    - [x] Eliminated nested scrollable container structure
+    - [x] Implemented direct rendering of toilet items with proper error and loading states
+    - [x] Maintained consistent UI appearance and behavior
+    - [x] Improved performance by reducing component hierarchy depth
+  - [x] Refined `ToiletList.tsx` visuals and performance:
+    - [x] Replaced FlashList with native FlatList for simpler implementation
+    - [x] Added subtle separators between list items
+    - [x] Improved loading, error and empty states
+    - [x] Implemented performance optimizations (memoization, recycling)
+    - [x] Enhanced responsiveness across device sizes
     - [x] Significantly overhauled `ToiletCard.tsx` for layout, hierarchy, and visual polish.
 - [ ] Accessibility Improvements
   - [ ] Implement proper screen reader support
-  - [ ] Ensure WCAG AA contrast compliance
+  - [x] Ensure WCAG AA contrast compliance for ToiletCard
   - [ ] Add focus management
   - [ ] Improve touch targets for better usability
 - [ ] User Experience Refinements

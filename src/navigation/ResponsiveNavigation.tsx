@@ -2,6 +2,7 @@ import React from "react";
 import { useWindowDimensions } from "react-native";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import type { Toilet } from "../types/toilet";
 
 // Import screens
 import MapScreen from "../app/(guest)/map";
@@ -9,9 +10,21 @@ import ToiletListScreen from "../components/toilet/ToiletListScreen";
 import ToiletDetailView from "../components/toilet/ToiletDetailView";
 import MapWithBottomSheet from "../components/map/MapWithBottomSheet";
 
+// Define navigation params
+type DrawerParamList = {
+  Map: undefined;
+  ToiletList: undefined;
+  ToiletDetails: { toilet: Toilet };
+};
+
+type StackParamList = {
+  Map: undefined;
+  ToiletDetails: { toilet: Toilet };
+};
+
 // Create navigators
-const Drawer = createDrawerNavigator();
-const Stack = createNativeStackNavigator();
+const Drawer = createDrawerNavigator<DrawerParamList>();
+const Stack = createNativeStackNavigator<StackParamList>();
 
 // Tablet breakpoint - matches your responsive.ts
 const TABLET_BREAKPOINT = 768;
@@ -50,8 +63,10 @@ function TabletNavigation() {
     <Drawer.Navigator
       initialRouteName="Map"
       defaultStatus="open"
-      drawerType="permanent"
-      drawerStyle={{ width: "35%" }}
+      screenOptions={{
+        drawerType: "permanent",
+        drawerStyle: { width: "35%" },
+      }}
     >
       <Drawer.Screen
         name="Map"

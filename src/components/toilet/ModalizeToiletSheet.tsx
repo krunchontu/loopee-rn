@@ -1,19 +1,35 @@
-import React, { useRef, useEffect } from "react";
-import { View, Text, StyleSheet, Dimensions } from "react-native";
+import React, { useRef, useEffect, useCallback } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Dimensions,
+  ActivityIndicator,
+  ListRenderItemInfo,
+  RefreshControl,
+} from "react-native";
 import { Modalize } from "react-native-modalize";
 import {
   useNavigation,
   NavigationProp,
   ParamListBase,
 } from "@react-navigation/native";
-import { ToiletList } from "./ToiletList";
+import { PaperToiletCard } from "./PaperToiletCard";
+import { breakpoints } from "../../foundations/layout";
 import { Toilet } from "../../types/toilet";
-import { colors, spacing, fontSizes, fontWeights } from "../../foundations";
+import {
+  colors,
+  spacing,
+  fontSizes,
+  fontWeights,
+  textVariants,
+} from "../../foundations";
 import {
   getResponsiveSpacing,
   getResponsiveFontSize,
 } from "../../foundations/responsive";
 import { debug } from "../../utils/debug";
+import { ErrorState } from "../shared/ErrorState";
 
 interface ModalizeToiletSheetProps {
   toilets: Toilet[];
@@ -33,6 +49,10 @@ interface ModalizeToiletSheetProps {
  * - Better support for different screen sizes
  * - Improved gesture handling
  * - Higher contrast visuals for better readability
+ * - Direct FlatList integration to avoid nested scrolling errors
+ * - Responsive card UI with compact mode for small screens
+ * - Uses PaperToiletCard for consistent UI across the app
+ * - Adapts to different screen densities automatically
  */
 export const ModalizeToiletSheet: React.FC<ModalizeToiletSheetProps> = ({
   toilets,
@@ -59,6 +79,94 @@ export const ModalizeToiletSheet: React.FC<ModalizeToiletSheetProps> = ({
   const { height } = Dimensions.get("window");
   const initialSnapPoint = Math.min(height * 0.3, 300); // Smaller initial height
 
+  // Memoized render item function for performance with responsive compact mode
+  const renderItem = useCallback(
+    ({ item }: ListRenderItemInfo<Toilet>) => {
+      // Determine if compact mode should be used based on screen width
+      const { width } = Dimensions.get("window");
+      const useCompact = width < breakpoints.sm; // Small phones use compact mode
+
+      return (
+        <PaperToiletCard
+          toilet={item}
+          onPress={() => handleToiletPress(item)}
+          compact={useCompact}
+        />
+      );
+    },
+    [handleToiletPress]
+  );
+
+  // Key extractor for list items
+  const keyExtractor = useCallback((item: Toilet) => item.id, []);
+
+  // Empty component when no toilets are found
+  const EmptyComponent = useCallback(
+    () => (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyText}>No toilets found nearby</Text>
+        <Text style={styles.emptyRetryText} onPress={onRetry}>
+          Try searching again
+        </Text>
+      </View>
+    ),
+    [onRetry]
+  );
+
+  // If there's an error, show the error state
+  if (error && !isLoading) {
+    return (
+      <Modalize
+        ref={modalizeRef}
+        alwaysOpen={initialSnapPoint}
+        modalHeight={height * 0.5}
+        handlePosition="inside"
+        modalStyle={styles.modal}
+        handleStyle={styles.handle}
+        HeaderComponent={
+          <View style={styles.header}>
+            <Text style={styles.title}>Nearby Toilets</Text>
+          </View>
+        }
+      >
+        <View style={styles.errorContainer}>
+          <ErrorState
+            error={error}
+            onRetry={onRetry}
+            message="Failed to load toilets"
+          />
+        </View>
+      </Modalize>
+    );
+  }
+
+  // Loading state with initialSnapPoint height
+  if (isLoading && toilets.length === 0) {
+    return (
+      <Modalize
+        ref={modalizeRef}
+        alwaysOpen={initialSnapPoint}
+        modalHeight={height * 0.5}
+        handlePosition="inside"
+        modalStyle={styles.modal}
+        handleStyle={styles.handle}
+        HeaderComponent={
+          <View style={styles.header}>
+            <Text style={styles.title}>Nearby Toilets</Text>
+          </View>
+        }
+      >
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator
+            size="large"
+            color={colors.interactive.primary.default}
+          />
+          <Text style={styles.loadingText}>Finding toilets nearby...</Text>
+        </View>
+      </Modalize>
+    );
+  }
+
   return (
     <Modalize
       ref={modalizeRef}
@@ -67,7 +175,6 @@ export const ModalizeToiletSheet: React.FC<ModalizeToiletSheetProps> = ({
       handlePosition="inside"
       modalStyle={styles.modal}
       handleStyle={styles.handle}
-      childrenStyle={styles.content}
       overlayStyle={styles.overlay}
       HeaderComponent={
         <View style={styles.header}>
@@ -77,31 +184,70 @@ export const ModalizeToiletSheet: React.FC<ModalizeToiletSheetProps> = ({
           )}
         </View>
       }
-    >
-      <ToiletList
-        toilets={toilets}
-        onToiletPress={handleToiletPress}
-        isLoading={isLoading}
-        error={error}
-        onRetry={onRetry}
-        onRefresh={onRetry}
-        isRefreshing={isLoading}
-      />
-    </Modalize>
+      flatListProps={{
+        data: toilets,
+        renderItem: renderItem,
+        keyExtractor: keyExtractor,
+        showsVerticalScrollIndicator: true,
+        ListEmptyComponent: EmptyComponent,
+        refreshControl: (
+          <RefreshControl
+            refreshing={isLoading}
+            onRefresh={onRetry}
+            tintColor={colors.text.secondary}
+            colors={[colors.interactive.primary.default]}
+          />
+        ),
+        contentContainerStyle: [
+          styles.listContent,
+          toilets.length === 0 && styles.emptyListContent,
+        ],
+        ItemSeparatorComponent: () => <View style={styles.separator} />,
+        initialNumToRender: 8,
+        maxToRenderPerBatch: 10,
+        windowSize: 5,
+        removeClippedSubviews: true,
+      }}
+    />
   );
 };
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 const styles = StyleSheet.create({
-  content: {
-    flex: 1,
-    paddingHorizontal: getResponsiveSpacing(spacing.xs, SCREEN_WIDTH),
-  },
   count: {
     color: colors.text.secondary,
     fontSize: getResponsiveFontSize(fontSizes.lg, SCREEN_WIDTH),
     marginLeft: getResponsiveSpacing(spacing.sm, SCREEN_WIDTH),
+  },
+  emptyContainer: {
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
+    padding: getResponsiveSpacing(spacing.xl, SCREEN_WIDTH),
+  },
+  emptyListContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+  },
+  emptyRetryText: {
+    ...textVariants.bodyDefault,
+    color: colors.interactive.primary.default,
+    marginTop: getResponsiveSpacing(spacing.sm, SCREEN_HEIGHT),
+    textAlign: "center",
+    textDecorationLine: "underline",
+  },
+  emptyText: {
+    ...textVariants.bodyLarge,
+    color: colors.text.secondary,
+    marginBottom: getResponsiveSpacing(spacing.md, SCREEN_HEIGHT),
+    textAlign: "center",
+  },
+  errorContainer: {
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
+    padding: spacing.md,
   },
   handle: {
     backgroundColor: colors.border.light,
@@ -116,6 +262,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: getResponsiveSpacing(spacing.lg, SCREEN_WIDTH),
     paddingVertical: getResponsiveSpacing(spacing.md, SCREEN_WIDTH),
   },
+  listContent: {
+    paddingBottom: getResponsiveSpacing(spacing.xl, SCREEN_HEIGHT),
+    paddingHorizontal: getResponsiveSpacing(spacing.sm, SCREEN_WIDTH),
+    paddingTop: getResponsiveSpacing(spacing.sm, SCREEN_HEIGHT),
+  },
+  loadingContainer: {
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
+    padding: spacing.md,
+  },
+  loadingText: {
+    ...textVariants.bodyDefault,
+    color: colors.text.secondary,
+    marginTop: getResponsiveSpacing(spacing.md, SCREEN_HEIGHT),
+    textAlign: "center",
+  },
   modal: {
     backgroundColor: colors.background.primary,
     borderTopLeftRadius: 16,
@@ -128,6 +291,13 @@ const styles = StyleSheet.create({
   },
   overlay: {
     backgroundColor: colors.background.overlay,
+  },
+  separator: {
+    backgroundColor: colors.border.light,
+    height: 1,
+    marginVertical: getResponsiveSpacing(spacing.xs / 2, SCREEN_HEIGHT),
+    opacity: 0.5,
+    width: "100%",
   },
   title: {
     color: colors.text.primary,

@@ -1,13 +1,21 @@
-import React, { useCallback } from "react";
-import { StyleSheet, RefreshControl, View, Text } from "react-native";
-import { FlashList, ListRenderItemInfo } from "@shopify/flash-list";
-import { SkeletonList, LoadingState } from "../shared/LoadingState"; // Added LoadingState import
+import React, { useCallback, useMemo } from "react";
+import {
+  ActivityIndicator,
+  Dimensions,
+  FlatList,
+  ListRenderItemInfo,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  View,
+  ViewStyle,
+  TextStyle,
+} from "react-native";
 import { ErrorState } from "../shared/ErrorState";
 import { Toilet } from "../../types/toilet";
-import { ToiletCard } from "./ToiletCard";
-import { colors, spacing, textVariants, borderRadius } from "../../foundations";
+import { PaperToiletCard } from "./PaperToiletCard";
+import { colors, spacing, textVariants } from "../../foundations";
 import { getResponsiveSpacing } from "../../foundations/responsive";
-import { Dimensions } from "react-native";
 import { debug } from "../../utils/debug";
 
 export interface ToiletListProps {
@@ -22,13 +30,11 @@ export interface ToiletListProps {
 }
 
 /**
- * ToiletList displays a scrollable list of toilets with optimized rendering
+ * ToiletList displays a scrollable list of toilets
  *
- * Improvements:
- * - Better scrolling performance using FlashList
- * - Optimized item rendering and recycling
- * - Clear loading and error states
- * - Pull-to-refresh support
+ * A simplified, performant implementation using React Native's FlatList
+ * that provides a clean, beautiful UI with appropriate loading, error,
+ * and empty states.
  */
 export function ToiletList({
   toilets,
@@ -40,7 +46,7 @@ export function ToiletList({
   onRetry,
   compact = false,
 }: ToiletListProps) {
-  // Memoized press handler to avoid recreating on each render
+  // Memoized handlers for better performance
   const handleToiletPress = useCallback(
     (toilet: Toilet) => {
       debug.log("ToiletList", "Toilet pressed", toilet.id);
@@ -49,16 +55,52 @@ export function ToiletList({
     [onToiletPress]
   );
 
-  // Optimized render function for list items
   const renderItem = useCallback(
     ({ item }: ListRenderItemInfo<Toilet>) => (
-      <ToiletCard
+      <PaperToiletCard
         toilet={item}
         onPress={() => handleToiletPress(item)}
         compact={compact}
       />
     ),
     [handleToiletPress, compact]
+  );
+
+  const keyExtractor = useCallback((item: Toilet) => item.id, []);
+
+  // Optional item separator component
+  const ItemSeparator = useCallback(
+    () => <View style={styles.separator} />,
+    []
+  );
+
+  // Memoized empty component to avoid recreation
+  const EmptyComponent = useMemo(
+    () => (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyText}>No toilets found nearby</Text>
+        {onRetry && (
+          <Text style={styles.emptyRetryText} onPress={onRetry}>
+            Try searching again
+          </Text>
+        )}
+      </View>
+    ),
+    [onRetry]
+  );
+
+  // Memoized refresh control
+  const refreshControlElement = useMemo(
+    () =>
+      onRefresh ?
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={onRefresh}
+          tintColor={colors.text.secondary}
+          colors={[colors.interactive.primary.default]}
+        />
+      : undefined,
+    [isRefreshing, onRefresh]
   );
 
   // Handle error state
@@ -74,96 +116,53 @@ export function ToiletList({
     );
   }
 
-  // Handle loading state with skeleton UI
+  // Handle initial loading state
   if (isLoading && toilets.length === 0) {
-    const skeletonItemHeight = compact ? 76 : 110;
-    const renderSkeletonItem = () => (
-      <View style={styles.skeletonCard}>
-        <View style={styles.skeletonMainInfo}>
-          <LoadingState width="70%" height={20} borderRadius={4} />
-          <View style={{ marginTop: spacing.xs }}>
-            <LoadingState width="50%" height={16} borderRadius={4} />
-          </View>
-        </View>
-        <View style={styles.skeletonMetaInfo}>
-          <LoadingState width={50} height={20} borderRadius={4} />
-          <View style={{ marginTop: spacing.sm }}>
-            <LoadingState width={60} height={16} borderRadius={4} />
-          </View>
-        </View>
-      </View>
-    );
     return (
-      <View style={styles.container}>
-        <SkeletonList
-          count={5}
-          itemHeight={skeletonItemHeight}
-          renderItem={renderSkeletonItem}
-          spacing={compact ? spacing.sm : spacing.md}
+      <View style={styles.centerContainer}>
+        <ActivityIndicator
+          size="large"
+          color={colors.interactive.primary.default}
         />
+        <Text style={styles.loadingText}>Finding toilets nearby...</Text>
       </View>
     );
   }
 
-  // Handle empty state
-  if (toilets.length === 0) {
-    // For the empty state, use a simpler message instead of the full ErrorState component
-    // if no actual error occurred but the list is just empty.
-    // The ListEmptyComponent of FlashList will handle this if data is empty after loading.
-    // The explicit check here is for when `isLoading` is false and `toilets` is empty.
-    return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>No toilets found nearby.</Text>
-        {onRetry && ( // Optionally, still offer a way to retry/refresh
-          <Text style={styles.emptyRetryText} onPress={onRetry}>
-            Try searching again or adjusting filters.
-          </Text>
-        )}
-      </View>
-    );
-  }
-
-  // Render optimized list
+  // Render the FlatList
   return (
-    <FlashList
+    <FlatList
       data={toilets}
       renderItem={renderItem}
-      keyExtractor={(item) => item.id}
+      keyExtractor={keyExtractor}
+      contentContainerStyle={[
+        styles.listContent,
+        toilets.length === 0 && styles.emptyListContent,
+      ]}
+      ItemSeparatorComponent={ItemSeparator}
+      ListEmptyComponent={EmptyComponent}
+      refreshControl={refreshControlElement}
       showsVerticalScrollIndicator={true}
-      contentContainerStyle={styles.listContent}
-      estimatedItemSize={compact ? 88 : 120}
-      refreshControl={
-        onRefresh ?
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.text.secondary}
-            colors={[colors.interactive.primary.default]}
-          />
-        : undefined
-      }
-      ListEmptyComponent={
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No toilets found nearby</Text>
-        </View>
-      }
+      initialNumToRender={8}
+      maxToRenderPerBatch={10}
+      windowSize={5}
+      removeClippedSubviews={true}
     />
   );
 }
 
-import type { ViewStyle, TextStyle } from "react-native";
-
 type StyleProps = {
   centerContainer: ViewStyle;
-  container: ViewStyle;
   emptyContainer: ViewStyle;
+  emptyListContent: ViewStyle;
   emptyRetryText: TextStyle;
   emptyText: TextStyle;
   listContent: ViewStyle;
-  skeletonCard: ViewStyle;
-  skeletonMainInfo: ViewStyle;
-  skeletonMetaInfo: ViewStyle;
+  loadingText: TextStyle;
+  separator: ViewStyle;
 };
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 const styles = StyleSheet.create<StyleProps>({
   centerContainer: {
@@ -172,57 +171,45 @@ const styles = StyleSheet.create<StyleProps>({
     justifyContent: "center",
     padding: spacing.md,
   },
-  container: {
-    flex: 1,
-  },
   emptyContainer: {
     alignItems: "center",
     flex: 1,
     justifyContent: "center",
-    marginTop: spacing.xxl, // Add some top margin to push it down a bit
-    padding: spacing.xl,
+    padding: getResponsiveSpacing(spacing.xl, SCREEN_WIDTH),
+  },
+  emptyListContent: {
+    flexGrow: 1,
+    justifyContent: "center",
   },
   emptyRetryText: {
     ...textVariants.bodyDefault,
     color: colors.interactive.primary.default,
-    marginTop: spacing.sm,
+    marginTop: getResponsiveSpacing(spacing.sm, SCREEN_HEIGHT),
     textAlign: "center",
     textDecorationLine: "underline",
   },
   emptyText: {
-    ...textVariants.bodyLarge, // Slightly larger for emphasis
+    ...textVariants.bodyLarge,
     color: colors.text.secondary,
-    marginBottom: spacing.md,
+    marginBottom: getResponsiveSpacing(spacing.md, SCREEN_HEIGHT),
     textAlign: "center",
   },
   listContent: {
-    paddingBottom: getResponsiveSpacing(
-      spacing.xl,
-      Dimensions.get("window").height
-    ),
-    paddingHorizontal: getResponsiveSpacing(
-      spacing.sm,
-      Dimensions.get("window").width
-    ),
-    paddingTop: getResponsiveSpacing(
-      spacing.sm,
-      Dimensions.get("window").height
-    ),
+    paddingBottom: getResponsiveSpacing(spacing.xl, SCREEN_HEIGHT),
+    paddingHorizontal: getResponsiveSpacing(spacing.sm, SCREEN_WIDTH),
+    paddingTop: getResponsiveSpacing(spacing.sm, SCREEN_HEIGHT),
   },
-  skeletonCard: {
-    alignItems: "center",
-    backgroundColor: colors.background.primary,
-    borderRadius: borderRadius.card,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    minHeight: getResponsiveSpacing(60, Dimensions.get("window").height),
-    padding: getResponsiveSpacing(spacing.sm, Dimensions.get("window").width),
+  loadingText: {
+    ...textVariants.bodyDefault,
+    color: colors.text.secondary,
+    marginTop: getResponsiveSpacing(spacing.md, SCREEN_HEIGHT),
+    textAlign: "center",
   },
-  skeletonMainInfo: {
-    flex: 1,
-    marginRight: spacing.md,
-  },
-  skeletonMetaInfo: {
-    alignItems: "flex-end",
+  separator: {
+    backgroundColor: colors.border.light,
+    height: 1,
+    marginVertical: getResponsiveSpacing(spacing.xs / 2, SCREEN_HEIGHT),
+    opacity: 0.5,
+    width: "100%",
   },
 });
