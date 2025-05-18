@@ -1,7 +1,7 @@
 [System Generated - Do Not Edit Manually]
-Last Updated: 2025-05-18 13:18 UTC+8
+Last Updated: 2025-05-18 15:41 UTC+8
 
-Current Phase: 3.0 (UI/UX Enhancements) - Map Screen Refactor
+Current Phase: 3.0 (UI/UX Enhancements) - Map Screen Refactor & Business Analysis
 
 ## Completed Items
 - [x] Project scaffolding and TypeScript setup
@@ -75,6 +75,11 @@ Current Phase: 3.0 (UI/UX Enhancements) - Map Screen Refactor
   - [x] Added comprehensive debugging guide
   - [x] Documented common issues and solutions
   - [x] Added expo-doctor troubleshooting section
+  - [x] Added comprehensive business & functional analysis
+    - [x] Documented app purpose and core business logic
+    - [x] Analyzed target audiences and real-world utility
+    - [x] Assessed current strengths and improvement areas
+    - [x] Provided detailed enhancement recommendations
 
 ## Next Actions (Prioritized)
 1. [P0] Fix GestureHandler Error, Babel Configuration, and Route Structure
@@ -128,7 +133,7 @@ Current Phase: 3.0 (UI/UX Enhancements) - Map Screen Refactor
   - [x] Establish typography hierarchy
   - [x] Expand color palette with semantic colors
   - [x] Define animation and interaction patterns
-  - [ ] Document design system guidelines
+  - [x] Document design system guidelines (via app-business-analysis.md)
 - [ ] Visual Component Enhancements
   - [ ] Redesign home screen with improved branding
   - [x] Enhance ToiletCard with better visual hierarchy and minimalist design
@@ -176,16 +181,16 @@ Current Phase: 3.0 (UI/UX Enhancements) - Map Screen Refactor
       - [x] Added automatic compact mode detection for small screens (< 375px)
       - [x] Documented UI standardization approach and benefits
       - [x] Simplified code maintenance with single source of truth for toilet cards
-  - [ ] **Map Screen Refactor (`src/app/(guest)/map.tsx`)**
+  - [x] **Map Screen Refactor (`src/app/(guest)/map.tsx`)**
     - [x] Updated `MapHeader` to use white background, dark text, and subtle border.
     - [x] Simplified layout and state management (modal visibility driven by Zustand store).
     - [x] Improved `LocationErrorView` design and presentation (banner style).
-  - [ ] **Map View Refactor (`src/components/map/MapView.tsx`)**
+  - [x] **Map View Refactor (`src/components/map/MapView.tsx`)**
     - [x] Updated `AnimatedMarker` to use a "pin" shape for individual toilets and corrected color imports.
     - [x] Refined cluster marker design (color, size, text style).
     - [x] Integrated map controls more cohesively ("My Location" FAB, permission request UI).
     - [x] Explored custom map styling (added simple desaturated style).
-  - [ ] **Toilet Details Presentation Refactor**
+  - [x] **Toilet Details Presentation Refactor**
     - [x] Refined `ModalToiletSheet` header (icon button) and handle (more subtle).
   - [x] Fixed nested VirtualizedList error:
     - [x] Refactored `ModalizeToiletSheet.tsx` to use Modalize's built-in FlatList support
