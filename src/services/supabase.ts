@@ -1,5 +1,12 @@
-import { createClient } from "@supabase/supabase-js";
+import {
+  createClient,
+  AuthResponse,
+  Session,
+  User,
+  AuthChangeEvent,
+} from "@supabase/supabase-js";
 import { Toilet, Review } from "../types/toilet";
+import { UserProfile } from "../types/user";
 import { EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY } from "@env";
 import { debug } from "../utils/debug";
 
@@ -17,7 +24,188 @@ const supabase = createClient(
   EXPO_PUBLIC_SUPABASE_ANON_KEY
 );
 
+// Define the auth service types
+interface AuthSignUpParams {
+  email: string;
+  password: string;
+  metadata?: {
+    full_name?: string;
+  };
+}
+
+interface AuthSignInParams {
+  email: string;
+  password: string;
+}
+
+interface ProfileUpdateParams {
+  username?: string;
+  display_name?: string;
+  avatar_url?: string;
+  bio?: string;
+}
+
 export const supabaseService = {
+  // Auth operations
+  auth: {
+    /**
+     * Sign up a new user
+     * @param params User signup parameters
+     * @returns AuthResponse with user data or error
+     */
+    async signUp(params: AuthSignUpParams): Promise<AuthResponse> {
+      const { email, password, metadata } = params;
+      const response = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: metadata },
+      });
+
+      if (response.error) {
+        debug.error("Auth", "Sign up failed", response.error);
+      }
+
+      return response;
+    },
+
+    /**
+     * Sign in a user with email and password
+     * @param params User signin parameters
+     * @returns AuthResponse with session or error
+     */
+    async signIn(params: AuthSignInParams): Promise<AuthResponse> {
+      const { email, password } = params;
+      const response = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (response.error) {
+        debug.error("Auth", "Sign in failed", response.error);
+      }
+
+      return response;
+    },
+
+    /**
+     * Sign out the current user
+     * @returns Promise with void or error
+     */
+    async signOut(): Promise<{ error: Error | null }> {
+      return await supabase.auth.signOut();
+    },
+
+    /**
+     * Request a password reset email
+     * @param email User's email address
+     * @returns Promise with void or error
+     */
+    async resetPassword(email: string): Promise<{ error: Error | null }> {
+      return await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+    },
+
+    /**
+     * Update user's password (when they have a valid reset token)
+     * @param newPassword The new password
+     * @returns User update response
+     */
+    async updatePassword(newPassword: string): Promise<{
+      data: { user: User | null };
+      error: Error | null;
+    }> {
+      return await supabase.auth.updateUser({
+        password: newPassword,
+      });
+    },
+
+    /**
+     * Get current session
+     * @returns Current session or null
+     */
+    async getSession(): Promise<{
+      data: { session: Session | null };
+      error: Error | null;
+    }> {
+      return await supabase.auth.getSession();
+    },
+
+    /**
+     * Get current user
+     * @returns Current user or null
+     */
+    async getUser(): Promise<User | null> {
+      const { data, error } = await supabase.auth.getUser();
+      if (error) {
+        debug.error("Auth", "Get user failed", error);
+        return null;
+      }
+      return data.user;
+    },
+
+    /**
+     * Subscribe to auth state changes
+     * @param callback Function to call when auth state changes
+     * @returns Subscription object
+     */
+    onAuthStateChange(
+      callback: (event: AuthChangeEvent, session: Session | null) => void
+    ) {
+      return supabase.auth.onAuthStateChange(callback);
+    },
+
+    /**
+     * Get current user's profile
+     * @returns User profile or null
+     */
+    async getProfile(): Promise<UserProfile | null> {
+      const { data: user } = await supabase.auth.getUser();
+
+      if (!user.user) return null;
+
+      const { data, error } = await supabase
+        .from("user_profiles")
+        .select("*")
+        .eq("id", user.user.id)
+        .single();
+
+      if (error) {
+        debug.error("Auth", "Get profile failed", error);
+        return null;
+      }
+
+      return data as UserProfile;
+    },
+
+    /**
+     * Update user's profile
+     * @param params Profile fields to update
+     * @returns Updated profile or null
+     */
+    async updateProfile(
+      params: ProfileUpdateParams
+    ): Promise<UserProfile | null> {
+      const { data: user } = await supabase.auth.getUser();
+
+      if (!user.user) return null;
+
+      const { data, error } = await supabase
+        .from("user_profiles")
+        .update(params)
+        .eq("id", user.user.id)
+        .select()
+        .single();
+
+      if (error) {
+        debug.error("Auth", "Update profile failed", error);
+        return null;
+      }
+
+      return data as UserProfile;
+    },
+  },
+
   // Toilet operations
   toilets: {
     async getNearby(
