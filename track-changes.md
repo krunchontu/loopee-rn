@@ -38,88 +38,37 @@
 - Add social login options
 - Create standardized success notifications
 
-## 2025-05-18 17:43 UTC+8 - Iteration 17 (Fix Authentication System Routing Error)
-**Action:** Fixed the React useInsertionEffect navigation error in the authentication system by improving route protection logic.
+## 2025-05-18 18:58 UTC+8 - Iteration 19 (Fix Create Account Button)
+**Action:** Fixed the non-working create account button by resolving parameter structure mismatch in authentication methods.
 **Files Modified:**
-- `src/app/_layout.tsx` (Improved ProtectedRouteGuard component with deferred navigation)
+- `src/providers/AuthProvider.tsx` (Updated signUp and signIn methods)
 
 **Key Improvements:**
-1. **Fixed React Update Conflict**
-   - Deferred navigation changes using setTimeout to avoid render-phase update conflict
-   - Added isRedirecting state to prevent multiple redirects
-   - Properly handled authentication state transitions
+1. **Fixed Parameter Structure Mismatch**
+   - Updated the signUp method to correctly pass parameters to supabaseService.auth.signUp
+   - Updated the signIn method to use correct parameter structure as well
+   - Added explanatory comments to clarify parameter handling
 
-2. **Enhanced User Experience**
-   - Added loading indicator during authentication state determination
-   - Prevented screen flicker during redirects
-   - Smoothed transition between protected and auth routes
+2. **Enhanced Code Consistency**
+   - Aligned AuthProvider implementation with Supabase service expectations
+   - Maintained consistent approach across authentication methods
+   - Improved code readability with proper commenting
 
-3. **Code Quality**
-   - Fixed "useInsertionEffect must not schedule updates" error
-   - Implemented proper state management for navigation
-   - Enhanced code organization and readability
-   - Fixed ESLint style ordering issues
-
-**Verification:**
-- Authentication loading state now displays properly
-- Transitions between routes are smoother
-- No more React errors in the console during navigation
-- The login page is correctly set as the start page for unauthenticated users
-
-**Next Steps:**
-- Test the complete authentication flow with real credentials
-- Add additional feedback for login failures
-- Consider adding a "Remember me" feature
-- Implement proper form validation on auth screens
-
-## 2025-05-18 17:22 UTC+8 - Iteration 16 (Authentication System Foundation)
-**Action:** Implemented complete authentication system foundation with login, registration, and password reset screens.
-**Files Modified:**
-- `src/components/auth/AuthInput.tsx` (New reusable input component for authentication forms)
-- `src/components/auth/PasswordInput.tsx` (New specialized input with visibility toggle for password fields)
-- `src/components/auth/PaperButton.tsx` (New button component with consistent styling for auth forms)
-- `src/app/(auth)/_layout.tsx` (New layout for auth route group with consistent styling)
-- `src/app/(auth)/login.tsx` (New login screen with form validation and error handling)
-- `src/app/(auth)/register.tsx` (New registration screen with form validation)
-- `src/app/(auth)/reset-password.tsx` (New password reset screen)
-- `src/app/_layout.tsx` (Updated to include AuthProvider and route protection logic)
-- `src/providers/AuthProvider.tsx` (Enhanced with authentication state management)
-- `progress.md` (Updated to reflect authentication system implementation)
-
-**Key Improvements:**
-1. **Complete Authentication Flow**
-   - Email/password login with validation
-   - Registration with form validation
-   - Password reset functionality
-   - Protected routes based on authentication state
-
-2. **Reusable Authentication Components**
-   - AuthInput for standardized form fields
-   - PasswordInput with visibility toggle
-   - PaperButton with consistent styling
-
-3. **Route Protection**
-   - Implemented AuthProvider with Supabase integration
-   - Added route protection based on authentication state
-   - Created dedicated auth route group with consistent styling
-
-4. **User Experience**
-   - Form validation with immediate feedback
-   - Error handling for authentication errors
-   - Loading states for async operations
-   - Responsive design for all screen sizes
+3. **User Experience**
+   - Fixed critical authentication functionality
+   - Ensured new user registration works correctly
+   - Maintained consistent login behavior
 
 **Verification:**
-- Authentication components render properly and handle user input
-- Form validation works as expected
-- Authentication flow navigates correctly between screens
-- Protected routes redirect based on authentication state
+- Create account button now correctly initiates the registration process
+- Login functionality works properly with the updated parameter structure
+- Error handling remains intact for authentication failures
 
 **Next Steps:**
-- Implement profile management
-- Add social authentication options
-- Create user settings screen
-- Implement email verification flow
+- Add comprehensive testing for authentication flows
+- Consider implementing social login options
+- Add user profile management features
+- Improve authentication feedback mechanisms
 
 ## 2025-05-17 23:00 UTC+8 - Iteration 1 (UI/UX Refactor - Map Screen)
 ## 2025-05-18 13:18 - ToiletCard and ToiletList Revamp

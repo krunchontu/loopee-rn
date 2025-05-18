@@ -23,6 +23,7 @@ import { spacing, colors } from "../../foundations";
 import { AuthErrorBanner } from "../../components/auth/AuthErrorBanner";
 import { useAuthErrorHandling } from "../../components/auth/useAuthErrorHandling";
 import { debug } from "../../utils/debug";
+import { authDebug } from "../../utils/AuthDebugger";
 
 // Import FormErrors type from the hook
 import type { FormErrors } from "../../components/auth/useAuthErrorHandling";
@@ -77,6 +78,23 @@ export default function LoginScreen() {
       newErrors.password = "Password must be at least 6 characters";
     }
 
+    // Log validation results for debugging
+    if (Object.keys(newErrors).length > 0) {
+      authDebug.log("SIGNIN", "validation_error", {
+        errorFields: Object.keys(newErrors),
+        validEmail: !newErrors.email,
+        validPassword: !newErrors.password,
+        source: "ui_validation",
+      });
+    } else {
+      authDebug.log("SIGNIN", "info", {
+        action: "form_validation",
+        result: "success",
+        hasEmail: !!email,
+        passwordLength: password?.length,
+      });
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -85,7 +103,30 @@ export default function LoginScreen() {
    * Handle login form submission
    */
   const handleLogin = async () => {
-    if (!validateForm()) return;
+    // Start performance tracking for login form
+    const endTracking = authDebug.trackPerformance("login_form_submission");
+
+    // Log submission attempt with detailed info for debugging
+    authDebug.log("SIGNIN", "attempt", {
+      validationPassed: validateForm(),
+      email,
+      hasPassword: !!password,
+      passwordLength: password?.length,
+      deviceInfo: {
+        platform: Platform.OS,
+        isWeb: Platform.OS === "web",
+      },
+    });
+
+    if (!validateForm()) {
+      authDebug.log("SIGNIN", "failure", {
+        reason: "validation_failed",
+        validationErrors: Object.keys(errors),
+      });
+
+      endTracking(); // End tracking if validation fails
+      return;
+    }
 
     setLoading(true);
     setErrors({});
@@ -96,14 +137,37 @@ export default function LoginScreen() {
       if (error) {
         // Use our error handler to get a user-friendly message
         const userMessage = handleAuthError(error);
+
+        // Log detailed error for debugging
+        authDebug.log("SIGNIN", "failure", {
+          originalError: error.message,
+          errorCode: error.code,
+          userFacingMessage: userMessage,
+          email,
+        });
+
         setErrors({ form: userMessage });
         setLoading(false);
         return;
       }
 
+      // Log successful login attempt from UI
+      authDebug.log("SIGNIN", "success", {
+        email,
+        timestamp: new Date().toISOString(),
+      });
+
       // On successful login, the AuthProvider will update the auth state
       // and redirect will happen automatically through navigation guards
     } catch (error) {
+      // Log unexpected errors with detailed info
+      authDebug.log("SIGNIN", "failure", {
+        errorType: "unexpected_exception",
+        error: error as Error,
+        email,
+        timestamp: new Date().toISOString(),
+      });
+
       // Handle unexpected errors
       setErrors({
         form: "We're having trouble signing you in. Please try again later.",
@@ -111,6 +175,9 @@ export default function LoginScreen() {
       // Log the technical error for debugging
       debug.error("Auth", "Unexpected login error", error);
       setLoading(false);
+    } finally {
+      // End performance tracking
+      endTracking();
     }
   };
 
@@ -137,7 +204,16 @@ export default function LoginScreen() {
           <AuthInput
             label="Email"
             value={email}
-            onChangeText={setEmail}
+            onChangeText={(text) => {
+              setEmail(text);
+              // Log input changes for debugging
+              if (text && email !== text) {
+                authDebug.log("SIGNIN", "info", {
+                  action: "email_input_changed",
+                  isValid: /\S+@\S+\.\S+/.test(text),
+                });
+              }
+            }}
             error={errors.email}
             keyboardType="email-address"
             autoCapitalize="none"
@@ -149,7 +225,21 @@ export default function LoginScreen() {
           <PasswordInput
             label="Password"
             value={password}
-            onChangeText={setPassword}
+            onChangeText={(text) => {
+              setPassword(text);
+              // Log password strength for debugging (without revealing the password)
+              if (text && password !== text) {
+                authDebug.log("SIGNIN", "info", {
+                  action: "password_input_changed",
+                  length: text.length,
+                  hasMinLength: text.length >= 6,
+                  strength:
+                    text.length < 8 ? "weak"
+                    : text.length < 12 ? "medium"
+                    : "strong",
+                });
+              }
+            }}
             error={errors.password}
             testID="login-password-input"
           />

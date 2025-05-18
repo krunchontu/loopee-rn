@@ -23,6 +23,7 @@ import { spacing, colors } from "../../foundations";
 import { AuthErrorBanner } from "../../components/auth/AuthErrorBanner";
 import { useAuthErrorHandling } from "../../components/auth/useAuthErrorHandling";
 import { debug } from "../../utils/debug";
+import { authDebug } from "../../utils/AuthDebugger";
 import { FormErrors } from "../../components/auth/useAuthErrorHandling";
 
 // Using the FormErrors interface from useAuthErrorHandling
@@ -90,6 +91,27 @@ export default function RegisterScreen() {
       newErrors.confirmPassword = "Passwords do not match";
     }
 
+    // Log validation results for debugging
+    if (Object.keys(newErrors).length > 0) {
+      authDebug.log("SIGNUP", "validation_error", {
+        errorFields: Object.keys(newErrors),
+        validName: !newErrors.fullName,
+        validEmail: !newErrors.email,
+        validPassword: !newErrors.password,
+        passwordsMatch: !newErrors.confirmPassword,
+        source: "ui_validation",
+      });
+    } else {
+      authDebug.log("SIGNUP", "info", {
+        action: "form_validation",
+        result: "success",
+        hasName: !!fullName,
+        hasEmail: !!email,
+        passwordLength: password?.length,
+        passwordsMatch: password === confirmPassword,
+      });
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -98,7 +120,32 @@ export default function RegisterScreen() {
    * Handle registration submission
    */
   const handleRegister = async () => {
-    if (!validateForm()) return;
+    // Start performance tracking for registration form
+    const endTracking = authDebug.trackPerformance("register_form_submission");
+
+    // Log submission attempt with detailed info for debugging
+    authDebug.log("SIGNUP", "attempt", {
+      validationPassed: validateForm(),
+      email,
+      hasName: !!fullName,
+      hasPassword: !!password,
+      passwordLength: password?.length,
+      passwordsMatch: password === confirmPassword,
+      deviceInfo: {
+        platform: Platform.OS,
+        isWeb: Platform.OS === "web",
+      },
+    });
+
+    if (!validateForm()) {
+      authDebug.log("SIGNUP", "failure", {
+        reason: "validation_failed",
+        validationErrors: Object.keys(errors),
+      });
+
+      endTracking(); // End tracking if validation fails
+      return;
+    }
 
     setLoading(true);
     setErrors({});
@@ -107,37 +154,88 @@ export default function RegisterScreen() {
       // Prepare user metadata (optional)
       const metadata = fullName ? { full_name: fullName } : undefined;
 
+      authDebug.log("SIGNUP", "info", {
+        action: "submitting_to_auth_provider",
+        email,
+        hasMetadata: !!metadata,
+      });
+
       // Register user
       const { error } = await auth.signUp(email, password, metadata);
 
       if (error) {
         // Use our error handler to get user-friendly messages
+        let userMessage;
+
         if (error.message?.includes("taken")) {
-          setErrors({ email: "This email is already registered" });
+          userMessage = "This email is already registered";
+          setErrors({ email: userMessage });
         } else {
-          const userMessage = handleAuthError(error);
+          userMessage = handleAuthError(error);
           setErrors({ form: userMessage });
         }
+
+        // Log detailed error for debugging
+        authDebug.log("SIGNUP", "failure", {
+          originalError: error.message,
+          errorCode: error.code,
+          userFacingMessage: userMessage,
+          email,
+        });
+
         setLoading(false);
         return;
       }
 
+      // Log successful registration from UI
+      authDebug.log("SIGNUP", "success", {
+        email,
+        hasMetadata: !!metadata,
+        timestamp: new Date().toISOString(),
+        willShowSuccessState: true,
+      });
+
       // Registration successful - show success state
       setRegistrationComplete(true);
       setLoading(false);
+
+      // Enable this log to be the last thing we see before transitioning views
+      debug.log("UI", "Transitioning to registration success view");
     } catch (error) {
+      // Log unexpected errors with detailed info
+      authDebug.log("SIGNUP", "failure", {
+        errorType: "unexpected_exception",
+        error: error as Error,
+        email,
+        timestamp: new Date().toISOString(),
+      });
+
       setErrors({
         form: "We're having trouble creating your account. Please try again later.",
       });
       debug.error("Auth", "Unexpected registration error", error);
       setLoading(false);
+    } finally {
+      // End performance tracking
+      endTracking();
     }
   };
+
+  // useEffect to handle state changes
+  useEffect(() => {
+    if (registrationComplete) {
+      // Log transition to success view
+      authDebug.log("SIGNUP", "info", {
+        action: "showing_success_view",
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }, [registrationComplete]);
 
   // If registration is complete, show success message
   if (registrationComplete) {
     return (
-      <View style={styles.container}>
+      <View style={styles.container} testID="registration-success-view">
         <View style={styles.successContainer}>
           <Title style={styles.title}>Registration Successful!</Title>
           <Text style={styles.successText}>
@@ -146,7 +244,13 @@ export default function RegisterScreen() {
           </Text>
           <PaperButton
             title="Go to Login"
-            onPress={() => router.push("/login")}
+            onPress={() => {
+              authDebug.log("SIGNUP", "info", {
+                action: "navigating_to_login",
+                fromSuccessScreen: true,
+              });
+              router.push("/login");
+            }}
             testID="goto-login-button"
           />
         </View>
@@ -177,7 +281,17 @@ export default function RegisterScreen() {
           <AuthInput
             label="Full Name (Optional)"
             value={fullName}
-            onChangeText={setFullName}
+            onChangeText={(text) => {
+              setFullName(text);
+              // Log input changes for debugging
+              if (text && fullName !== text) {
+                authDebug.log("SIGNUP", "info", {
+                  action: "name_input_changed",
+                  isValid: text.length >= 2 || text.length === 0,
+                  length: text.length,
+                });
+              }
+            }}
             error={errors.fullName}
             autoComplete="name"
             textContentType="name"
@@ -187,7 +301,16 @@ export default function RegisterScreen() {
           <AuthInput
             label="Email Address"
             value={email}
-            onChangeText={setEmail}
+            onChangeText={(text) => {
+              setEmail(text);
+              // Log input changes for debugging
+              if (text && email !== text) {
+                authDebug.log("SIGNUP", "info", {
+                  action: "email_input_changed",
+                  isValid: /\S+@\S+\.\S+/.test(text),
+                });
+              }
+            }}
             error={errors.email}
             keyboardType="email-address"
             autoCapitalize="none"
@@ -199,7 +322,21 @@ export default function RegisterScreen() {
           <PasswordInput
             label="Password"
             value={password}
-            onChangeText={setPassword}
+            onChangeText={(text) => {
+              setPassword(text);
+              // Log password strength for debugging (without revealing the password)
+              if (text && password !== text) {
+                authDebug.log("SIGNUP", "info", {
+                  action: "password_input_changed",
+                  length: text.length,
+                  hasMinLength: text.length >= 6,
+                  strength:
+                    text.length < 8 ? "weak"
+                    : text.length < 12 ? "medium"
+                    : "strong",
+                });
+              }
+            }}
             error={errors.password}
             testID="register-password-input"
           />
@@ -207,7 +344,17 @@ export default function RegisterScreen() {
           <PasswordInput
             label="Confirm Password"
             value={confirmPassword}
-            onChangeText={setConfirmPassword}
+            onChangeText={(text) => {
+              setConfirmPassword(text);
+              // Log password matching for debugging (without revealing the passwords)
+              if (text && confirmPassword !== text) {
+                authDebug.log("SIGNUP", "info", {
+                  action: "confirm_password_changed",
+                  length: text.length,
+                  matches: text === password,
+                });
+              }
+            }}
             error={errors.confirmPassword}
             testID="register-confirm-password-input"
           />

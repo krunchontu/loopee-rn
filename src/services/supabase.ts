@@ -9,6 +9,7 @@ import { Toilet, Review } from "../types/toilet";
 import { UserProfile } from "../types/user";
 import { EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY } from "@env";
 import { debug } from "../utils/debug";
+import { authDebug } from "../utils/AuthDebugger";
 
 // Initialize Supabase client
 if (!EXPO_PUBLIC_SUPABASE_URL || !EXPO_PUBLIC_SUPABASE_ANON_KEY) {
@@ -55,17 +56,53 @@ export const supabaseService = {
      */
     async signUp(params: AuthSignUpParams): Promise<AuthResponse> {
       const { email, password, metadata } = params;
-      const response = await supabase.auth.signUp({
+
+      // Start performance tracking
+      const endTracking = authDebug.trackPerformance("signup");
+
+      // Log attempt with sanitized data
+      authDebug.log("SIGNUP", "attempt", {
         email,
-        password,
-        options: { data: metadata },
+        hasMetadata: !!metadata,
       });
 
-      if (response.error) {
-        debug.error("Auth", "Sign up failed", response.error);
-      }
+      try {
+        const response = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: metadata },
+        });
 
-      return response;
+        if (response.error) {
+          // Log detailed error information
+          authDebug.log("SIGNUP", "failure", {
+            error: {
+              code: response.error.code,
+              message: response.error.message,
+              status: response.error.status,
+            },
+            email,
+          });
+          debug.error("Auth", "Sign up failed", response.error);
+        } else {
+          // Log success with non-sensitive user info
+          authDebug.log("SIGNUP", "success", {
+            userId: response.data.user?.id,
+            emailConfirmed: !!response.data.user?.email_confirmed_at,
+            identities: response.data.user?.identities?.length || 0,
+          });
+        }
+
+        return response;
+      } catch (error) {
+        // Log unexpected errors
+        authDebug.log("SIGNUP", "network_error", { error });
+        debug.error("Auth", "Sign up failed unexpectedly", error);
+        throw error;
+      } finally {
+        // End performance tracking
+        endTracking();
+      }
     },
 
     /**
@@ -75,16 +112,51 @@ export const supabaseService = {
      */
     async signIn(params: AuthSignInParams): Promise<AuthResponse> {
       const { email, password } = params;
-      const response = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
 
-      if (response.error) {
-        debug.error("Auth", "Sign in failed", response.error);
+      // Start performance tracking
+      const endTracking = authDebug.trackPerformance("signin");
+
+      // Log attempt with sanitized data
+      authDebug.log("SIGNIN", "attempt", { email });
+
+      try {
+        const response = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (response.error) {
+          // Log detailed error information
+          authDebug.log("SIGNIN", "failure", {
+            error: {
+              code: response.error.code,
+              message: response.error.message,
+              status: response.error.status,
+            },
+            email,
+            errorType: response.error.name,
+          });
+          debug.error("Auth", "Sign in failed", response.error);
+        } else {
+          // Log success with non-sensitive session info
+          authDebug.log("SIGNIN", "success", {
+            userId: response.data.user?.id,
+            hasSession: !!response.data.session,
+            expiresAt: response.data.session?.expires_at,
+            provider: response.data.user?.app_metadata?.provider,
+          });
+        }
+
+        return response;
+      } catch (error) {
+        // Log unexpected errors
+        authDebug.log("SIGNIN", "network_error", { error });
+        debug.error("Auth", "Sign in failed unexpectedly", error);
+        throw error;
+      } finally {
+        // End performance tracking
+        endTracking();
       }
-
-      return response;
     },
 
     /**
@@ -92,7 +164,41 @@ export const supabaseService = {
      * @returns Promise with void or error
      */
     async signOut(): Promise<{ error: Error | null }> {
-      return await supabase.auth.signOut();
+      // Start performance tracking
+      const endTracking = authDebug.trackPerformance("signout");
+
+      // Log attempt
+      authDebug.log("SIGNOUT", "attempt", {
+        timestamp: new Date().toISOString(),
+      });
+
+      try {
+        const result = await supabase.auth.signOut();
+
+        if (result.error) {
+          // Log error details
+          authDebug.log("SIGNOUT", "failure", {
+            error: result.error.message,
+            stack: result.error.stack,
+          });
+          debug.error("Auth", "Sign out failed", result.error);
+        } else {
+          // Log success
+          authDebug.log("SIGNOUT", "success", {
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        return result;
+      } catch (error) {
+        // Log unexpected errors
+        authDebug.log("SIGNOUT", "network_error", { error });
+        debug.error("Auth", "Sign out failed unexpectedly", error);
+        throw error;
+      } finally {
+        // End performance tracking
+        endTracking();
+      }
     },
 
     /**
@@ -101,9 +207,39 @@ export const supabaseService = {
      * @returns Promise with void or error
      */
     async resetPassword(email: string): Promise<{ error: Error | null }> {
-      return await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
+      // Start performance tracking
+      const endTracking = authDebug.trackPerformance("password_reset");
+
+      // Log attempt
+      authDebug.log("PASSWORD_RESET", "attempt", { email });
+
+      try {
+        const result = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/reset-password`,
+        });
+
+        if (result.error) {
+          // Log error details
+          authDebug.log("PASSWORD_RESET", "failure", {
+            error: result.error.message,
+            email,
+          });
+          debug.error("Auth", "Password reset failed", result.error);
+        } else {
+          // Log success
+          authDebug.log("PASSWORD_RESET", "success", { email });
+        }
+
+        return result;
+      } catch (error) {
+        // Log unexpected errors
+        authDebug.log("PASSWORD_RESET", "network_error", { error });
+        debug.error("Auth", "Password reset failed unexpectedly", error);
+        throw error;
+      } finally {
+        // End performance tracking
+        endTracking();
+      }
     },
 
     /**
@@ -115,9 +251,45 @@ export const supabaseService = {
       data: { user: User | null };
       error: Error | null;
     }> {
-      return await supabase.auth.updateUser({
-        password: newPassword,
+      // Start performance tracking
+      const endTracking = authDebug.trackPerformance("password_update");
+
+      // Log attempt (no password in logs)
+      authDebug.log("PASSWORD_UPDATE", "attempt", {
+        timestamp: new Date().toISOString(),
+        passwordStrength: newPassword.length >= 12 ? "strong" : "moderate",
       });
+
+      try {
+        const result = await supabase.auth.updateUser({
+          password: newPassword,
+        });
+
+        if (result.error) {
+          // Log error details
+          authDebug.log("PASSWORD_UPDATE", "failure", {
+            error: result.error.message,
+            errorCode: result.error.status,
+          });
+          debug.error("Auth", "Password update failed", result.error);
+        } else {
+          // Log success
+          authDebug.log("PASSWORD_UPDATE", "success", {
+            userId: result.data.user?.id,
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        return result;
+      } catch (error) {
+        // Log unexpected errors
+        authDebug.log("PASSWORD_UPDATE", "network_error", { error });
+        debug.error("Auth", "Password update failed unexpectedly", error);
+        throw error;
+      } finally {
+        // End performance tracking
+        endTracking();
+      }
     },
 
     /**
@@ -128,7 +300,42 @@ export const supabaseService = {
       data: { session: Session | null };
       error: Error | null;
     }> {
-      return await supabase.auth.getSession();
+      // Start performance tracking
+      const endTracking = authDebug.trackPerformance("session_fetch");
+
+      // Log attempt
+      authDebug.log("SESSION_REFRESH", "attempt", {
+        timestamp: new Date().toISOString(),
+      });
+
+      try {
+        const result = await supabase.auth.getSession();
+
+        if (result.error) {
+          // Log error details
+          authDebug.log("SESSION_REFRESH", "failure", {
+            error: result.error.message,
+          });
+          debug.error("Auth", "Get session failed", result.error);
+        } else {
+          // Log session status
+          authDebug.log("SESSION_REFRESH", "success", {
+            hasSession: !!result.data.session,
+            expiresAt: result.data.session?.expires_at,
+            provider: result.data.session?.user?.app_metadata?.provider,
+          });
+        }
+
+        return result;
+      } catch (error) {
+        // Log unexpected errors
+        authDebug.log("SESSION_REFRESH", "network_error", { error });
+        debug.error("Auth", "Get session failed unexpectedly", error);
+        throw error;
+      } finally {
+        // End performance tracking
+        endTracking();
+      }
     },
 
     /**
@@ -136,12 +343,45 @@ export const supabaseService = {
      * @returns Current user or null
      */
     async getUser(): Promise<User | null> {
-      const { data, error } = await supabase.auth.getUser();
-      if (error) {
-        debug.error("Auth", "Get user failed", error);
+      // Start performance tracking
+      const endTracking = authDebug.trackPerformance("user_fetch");
+
+      try {
+        const { data, error } = await supabase.auth.getUser();
+
+        if (error) {
+          // Log error details
+          authDebug.log("STATE_CHANGE", "failure", {
+            action: "get_user",
+            error: error.message,
+          });
+          debug.error("Auth", "Get user failed", error);
+          return null;
+        }
+
+        // Log user info
+        authDebug.log("STATE_CHANGE", "info", {
+          action: "get_user",
+          userId: data.user?.id,
+          hasUser: !!data.user,
+          emailConfirmed: !!data.user?.email_confirmed_at,
+          provider: data.user?.app_metadata?.provider,
+          lastSignIn: data.user?.last_sign_in_at,
+        });
+
+        return data.user;
+      } catch (error) {
+        // Log unexpected errors
+        authDebug.log("STATE_CHANGE", "network_error", {
+          action: "get_user",
+          error,
+        });
+        debug.error("Auth", "Get user failed unexpectedly", error);
         return null;
+      } finally {
+        // End performance tracking
+        endTracking();
       }
-      return data.user;
     },
 
     /**
@@ -157,25 +397,125 @@ export const supabaseService = {
 
     /**
      * Get current user's profile
+     * If profile doesn't exist, it automatically creates one
      * @returns User profile or null
      */
     async getProfile(): Promise<UserProfile | null> {
-      const { data: user } = await supabase.auth.getUser();
+      // Start performance tracking
+      const endTracking = authDebug.trackPerformance("profile_fetch");
 
-      if (!user.user) return null;
+      // Log attempt
+      authDebug.log("PROFILE_UPDATE", "info", {
+        action: "get_profile",
+        timestamp: new Date().toISOString(),
+      });
 
-      const { data, error } = await supabase
-        .from("user_profiles")
-        .select("*")
-        .eq("id", user.user.id)
-        .single();
+      try {
+        const { data: user } = await supabase.auth.getUser();
 
-      if (error) {
-        debug.error("Auth", "Get profile failed", error);
+        if (!user.user) {
+          // Log no user found
+          authDebug.log("PROFILE_UPDATE", "info", {
+            action: "get_profile",
+            result: "no_user_found",
+          });
+          return null;
+        }
+
+        // Attempt to get profile
+        const { data, error } = await supabase
+          .from("user_profiles")
+          .select("*")
+          .eq("id", user.user.id)
+          .single();
+
+        // If profile exists, return it
+        if (!error) {
+          // Log profile retrieval success
+          authDebug.log("PROFILE_UPDATE", "success", {
+            action: "get_profile",
+            userId: user.user.id,
+            hasUsername: !!data.username,
+            hasAvatar: !!data.avatar_url,
+          });
+
+          return data as UserProfile;
+        }
+
+        // Check if error is specifically "no rows" error
+        if (error.code === "PGRST116") {
+          // Profile doesn't exist - create one
+          authDebug.log("PROFILE_UPDATE", "info", {
+            action: "auto_create_profile",
+            userId: user.user.id,
+            reason: "profile_not_found",
+          });
+
+          // Generate default profile data
+          const defaultUsername = `user_${Math.floor(Math.random() * 1000000)}`;
+          const displayName =
+            user.user.user_metadata?.full_name ||
+            user.user.email ||
+            defaultUsername;
+
+          // Insert new profile
+          const { data: newProfile, error: insertError } = await supabase
+            .from("user_profiles")
+            .insert([
+              {
+                id: user.user.id,
+                username: defaultUsername,
+                display_name: displayName,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              },
+            ])
+            .select()
+            .single();
+
+          if (insertError) {
+            // Log creation failure
+            authDebug.log("PROFILE_UPDATE", "failure", {
+              action: "auto_create_profile",
+              userId: user.user.id,
+              error: insertError.message,
+              code: insertError.code,
+            });
+            debug.error("Auth", "Auto-create profile failed", insertError);
+            return null;
+          }
+
+          // Log successful profile creation
+          authDebug.log("PROFILE_UPDATE", "success", {
+            action: "auto_create_profile",
+            userId: user.user.id,
+            username: defaultUsername,
+          });
+
+          return newProfile as UserProfile;
+        } else {
+          // Different error occurred
+          authDebug.log("PROFILE_UPDATE", "failure", {
+            action: "get_profile",
+            userId: user.user.id,
+            error: error.message,
+            code: error.code,
+          });
+          debug.error("Auth", "Get profile failed", error);
+          return null;
+        }
+      } catch (error) {
+        // Log unexpected errors
+        authDebug.log("PROFILE_UPDATE", "network_error", {
+          action: "get_profile",
+          error,
+        });
+        debug.error("Auth", "Get profile failed unexpectedly", error);
         return null;
+      } finally {
+        // End performance tracking
+        endTracking();
       }
-
-      return data as UserProfile;
     },
 
     /**
@@ -186,23 +526,68 @@ export const supabaseService = {
     async updateProfile(
       params: ProfileUpdateParams
     ): Promise<UserProfile | null> {
-      const { data: user } = await supabase.auth.getUser();
+      // Start performance tracking
+      const endTracking = authDebug.trackPerformance("profile_update");
 
-      if (!user.user) return null;
+      // Log attempt with field names (but not values)
+      authDebug.log("PROFILE_UPDATE", "attempt", {
+        action: "update_profile",
+        fields: Object.keys(params),
+      });
 
-      const { data, error } = await supabase
-        .from("user_profiles")
-        .update(params)
-        .eq("id", user.user.id)
-        .select()
-        .single();
+      try {
+        const { data: user } = await supabase.auth.getUser();
 
-      if (error) {
-        debug.error("Auth", "Update profile failed", error);
+        if (!user.user) {
+          // Log no user found
+          authDebug.log("PROFILE_UPDATE", "failure", {
+            action: "update_profile",
+            reason: "no_user_found",
+          });
+          return null;
+        }
+
+        const { data, error } = await supabase
+          .from("user_profiles")
+          .update(params)
+          .eq("id", user.user.id)
+          .select()
+          .single();
+
+        if (error) {
+          // Log error details
+          authDebug.log("PROFILE_UPDATE", "failure", {
+            action: "update_profile",
+            userId: user.user.id,
+            error: error.message,
+            code: error.code,
+            fields: Object.keys(params),
+          });
+          debug.error("Auth", "Update profile failed", error);
+          return null;
+        }
+
+        // Log profile update success
+        authDebug.log("PROFILE_UPDATE", "success", {
+          action: "update_profile",
+          userId: user.user.id,
+          updatedFields: Object.keys(params),
+          timestamp: new Date().toISOString(),
+        });
+
+        return data as UserProfile;
+      } catch (error) {
+        // Log unexpected errors
+        authDebug.log("PROFILE_UPDATE", "network_error", {
+          action: "update_profile",
+          error,
+        });
+        debug.error("Auth", "Update profile failed unexpectedly", error);
         return null;
+      } finally {
+        // End performance tracking
+        endTracking();
       }
-
-      return data as UserProfile;
     },
   },
 
