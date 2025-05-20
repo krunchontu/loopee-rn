@@ -17,8 +17,9 @@ export interface UserProfile {
   created_at: string;
   updated_at: string;
   // Stats fields
-  reviews_count?: number;
-  contributions_count?: number;
+  reviews_count: number;
+  contributions_count: number;
+  favorites_count: number;
   followers_count?: number;
 }
 

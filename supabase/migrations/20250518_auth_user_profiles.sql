@@ -26,11 +26,21 @@ CREATE POLICY "Users can update own profile"
 CREATE OR REPLACE FUNCTION public.handle_new_user() 
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.user_profiles (id, username, display_name)
+  INSERT INTO public.user_profiles (
+    id, 
+    username, 
+    display_name,
+    reviews_count,
+    contributions_count,
+    favorites_count
+  )
   VALUES (
     NEW.id, 
     'user_' || floor(random() * 1000000)::text, 
-    COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email)
+    COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email),
+    0,  -- Initialize reviews_count
+    0,  -- Initialize contributions_count
+    0   -- Initialize favorites_count
   );
   RETURN NEW;
 END;

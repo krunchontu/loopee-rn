@@ -458,7 +458,7 @@ export const supabaseService = {
             user.user.email ||
             defaultUsername;
 
-          // Insert new profile
+          // Insert new profile with stats initialized to zero
           const { data: newProfile, error: insertError } = await supabase
             .from("user_profiles")
             .insert([
@@ -468,6 +468,9 @@ export const supabaseService = {
                 display_name: displayName,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
+                reviews_count: 0,
+                contributions_count: 0,
+                favorites_count: 0,
               },
             ])
             .select()

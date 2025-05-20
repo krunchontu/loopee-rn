@@ -83,15 +83,17 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       {/* Stats section */}
       <View style={styles.statsSection}>
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>0</Text>
+          <Text style={styles.statValue}>{profile.reviews_count || 0}</Text>
           <Text style={styles.statLabel}>Reviews</Text>
         </View>
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>0</Text>
+          <Text style={styles.statValue}>
+            {profile.contributions_count || 0}
+          </Text>
           <Text style={styles.statLabel}>Contributions</Text>
         </View>
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>0</Text>
+          <Text style={styles.statValue}>{profile.favorites_count || 0}</Text>
           <Text style={styles.statLabel}>Favorites</Text>
         </View>
       </View>

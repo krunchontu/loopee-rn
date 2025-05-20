@@ -7,13 +7,19 @@
 
 import React, { useCallback, useState } from "react";
 import { StyleSheet, View, ScrollView, Alert } from "react-native";
-import { Divider, Text, Card, IconButton, Button } from "react-native-paper";
+import { Divider, Text, Card, Button } from "react-native-paper";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../providers/AuthProvider";
 import { LoadingState } from "../../components/shared/LoadingState";
 import { ErrorState } from "../../components/shared/ErrorState";
 import ProfileHeader from "../../components/profile/ProfileHeader";
+import ContentList from "../../components/profile/content/ContentList";
+import {
+  UserReview,
+  UserContribution,
+  UserFavorite,
+} from "../../types/profile-content";
 import { colors } from "../../foundations/colors";
 
 export default function ProfileScreen() {
@@ -161,26 +167,38 @@ export default function ProfileScreen() {
           {/* Tab content */}
           <View style={styles.tabContent}>
             {activeTab === 0 && (
-              <EmptyState
-                icon="note-text-outline"
-                title="No Reviews Yet"
-                message="Your reviews will appear here"
+              <ContentList
+                data={null}
+                isLoading={false}
+                emptyStateIcon="note-text-outline"
+                emptyStateTitle="No Reviews Yet"
+                emptyStateMessage="Your reviews will appear here"
+                keyExtractor={(item: UserReview) => item.id}
+                renderItem={({ item: _ }) => <View />} // Placeholder for future implementation
               />
             )}
 
             {activeTab === 1 && (
-              <EmptyState
-                icon="source-commit"
-                title="No Contributions Yet"
-                message="Your contributions will appear here"
+              <ContentList
+                data={null}
+                isLoading={false}
+                emptyStateIcon="source-commit"
+                emptyStateTitle="No Contributions Yet"
+                emptyStateMessage="Your contributions will appear here"
+                keyExtractor={(item: UserContribution) => item.id}
+                renderItem={({ item: _ }) => <View />} // Placeholder for future implementation
               />
             )}
 
             {activeTab === 2 && (
-              <EmptyState
-                icon="heart-outline"
-                title="No Favorites Yet"
-                message="Your favorite toilets will appear here"
+              <ContentList
+                data={null}
+                isLoading={false}
+                emptyStateIcon="heart-outline"
+                emptyStateTitle="No Favorites Yet"
+                emptyStateMessage="Your favorite toilets will appear here"
+                keyExtractor={(item: UserFavorite) => item.id}
+                renderItem={({ item: _ }) => <View />} // Placeholder for future implementation
               />
             )}
           </View>
@@ -203,25 +221,6 @@ export default function ProfileScreen() {
   );
 }
 
-// Simple Empty State component for tabs without content
-const EmptyState = ({
-  icon,
-  title,
-  message,
-}: {
-  icon: string;
-  title: string;
-  message: string;
-}) => (
-  <View style={styles.emptyState}>
-    <IconButton icon={icon} size={48} iconColor={colors.text.secondary} />
-    <View style={styles.emptyStateText}>
-      <Text style={styles.emptyStateTitle}>{title}</Text>
-      <Text style={styles.emptyStateMessage}>{message}</Text>
-    </View>
-  </View>
-);
-
 const styles = StyleSheet.create({
   activeTab: {
     backgroundColor: colors.interactive.primary.default,
@@ -237,28 +236,6 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 16,
-  },
-  emptyState: {
-    alignItems: "center",
-    flex: 1,
-    justifyContent: "center",
-    padding: 24,
-  },
-  emptyStateMessage: {
-    color: colors.text.secondary,
-    fontSize: 14,
-    marginTop: 4,
-    textAlign: "center",
-  },
-  emptyStateText: {
-    alignItems: "center",
-    marginTop: 16,
-  },
-  emptyStateTitle: {
-    color: colors.text.primary,
-    fontSize: 18,
-    fontWeight: "bold",
-    textAlign: "center",
   },
   header: {
     marginTop: 8,
