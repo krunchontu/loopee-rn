@@ -1,8 +1,11 @@
 import React from "react";
-import { useWindowDimensions } from "react-native";
+import { useWindowDimensions, View } from "react-native";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { useRouter } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import type { Toilet } from "../types/toilet";
+import { colors } from "../foundations/colors";
 
 // Import screens
 import MapScreen from "../app/(guest)/map";
@@ -15,6 +18,7 @@ type DrawerParamList = {
   Map: undefined;
   ToiletList: undefined;
   ToiletDetails: { toilet: Toilet };
+  Profile: undefined;
 };
 
 type StackParamList = {
@@ -51,14 +55,21 @@ export default function ResponsiveNavigation() {
 }
 
 /**
+ * Empty component used for navigation redirect items
+ */
+const EmptyRedirectComponent = () => <View />;
+
+/**
  * TabletNavigation
  *
  * Side panel approach for tablets using Drawer Navigator:
  * - Permanent side panel showing toilet list
  * - Map remains visible while browsing toilets
  * - Detail view replaces list in the same panel when a toilet is selected
+ * - Profile option to navigate to user profile
  */
 function TabletNavigation() {
+  const router = useRouter();
   return (
     <Drawer.Navigator
       initialRouteName="Map"
@@ -90,6 +101,27 @@ function TabletNavigation() {
           title: route.params?.toilet?.name || "Toilet Details",
         })}
       />
+      <Drawer.Screen
+        name="Profile"
+        component={EmptyRedirectComponent}
+        options={{
+          title: "My Profile",
+          drawerIcon: ({ color, size }) => (
+            <MaterialCommunityIcons
+              name="account-circle"
+              size={size}
+              color={color}
+            />
+          ),
+        }}
+        listeners={{
+          focus: () => {
+            // Navigate to profile page using expo-router
+            router.push("/profile");
+            return false;
+          },
+        }}
+      />
     </Drawer.Navigator>
   );
 }
@@ -100,6 +132,7 @@ function TabletNavigation() {
  * Stack-based navigation for phones:
  * - MapWithBottomSheet serves as the main screen with Modalize sheet for the list
  * - Full screen modal for detailed toilet information
+ * - Profile access is through the AppHeader component in MapWithBottomSheet
  */
 function PhoneNavigation() {
   return (

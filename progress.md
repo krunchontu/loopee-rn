@@ -1,7 +1,7 @@
 [System Generated - Do Not Edit Manually]
-Last Updated: 2025-05-18 15:41 UTC+8
+Last Updated: 2025-05-20 22:58 UTC+8
 
-Current Phase: 3.0 (UI/UX Enhancements) - Map Screen Refactor & Business Analysis
+Current Phase: 3.2 (User Experience Refinements)
 
 ## Completed Items
 - [x] Project scaffolding and TypeScript setup
@@ -80,21 +80,63 @@ Current Phase: 3.0 (UI/UX Enhancements) - Map Screen Refactor & Business Analysi
     - [x] Analyzed target audiences and real-world utility
     - [x] Assessed current strengths and improvement areas
     - [x] Provided detailed enhancement recommendations
+- [x] UI/UX Enhancement (Phase 3)
+  - [x] Design System Improvements
+    - [x] Create comprehensive design tokens system
+    - [x] Establish typography hierarchy
+    - [x] Expand color palette with semantic colors
+    - [x] Define animation and interaction patterns
+    - [x] Document design system guidelines (via app-business-analysis.md)
+  - [x] Visual Component Enhancements
+    - [x] Enhanced ToiletCard with better visual hierarchy and minimalist design
+    - [x] Improved bottom sheet interactions and styling
+    - [x] Enhanced ModalToiletSheet with improved readability and visual design
+    - [x] Add visual feedback for user interactions
+    - [x] Fix map interaction issues
+    - [x] Refine ToiletCard, ToiletList, ModalToiletSheet for clarity and aesthetics
+    - [x] Fixed nested VirtualizedList error
+    - [x] Refined ToiletList.tsx visuals and performance
+    - [x] Map Screen Refactor enhancements
+    - [x] Map View Refactor improvements
+    - [x] Toilet Details Presentation Refactor
+  - [x] Accessibility Improvements
+    - [x] Ensure WCAG AA contrast compliance for ToiletCard
+- [x] User Profile Management
+  - [x] Profile Screens
+    - [x] View profile screen
+    - [x] Edit profile screen
+    - [x] Account settings screen
+  - [x] Profile Components
+    - [x] ProfileHeader component
+    - [x] ProfileForm component
+    - [x] AvatarUpload component
+    - [x] AccountSettings component
+  - [x] Profile Features
+    - [x] Form validation
+    - [x] Avatar upload with image picker
+    - [x] Account settings management
+    - [x] Error states and loading indicators
+  - [x] User Profile Documentation
+    - [x] Implementation details
+    - [x] Component architecture
+    - [x] Data model
+- [x] User Experience Refinements
+  - [x] Profile Navigation Implementation
+    - [x] Created shared AppHeader component for consistent navigation
+    - [x] Added profile access to phone layout via header
+    - [x] Added profile access to tablet layout via drawer
+    - [x] Ensured proper accessibility for navigation elements
+    - [x] Created detailed profile navigation documentation
+    - [x] Enhanced profile button visibility on mobile (placed next to app name)
+    - [x] Refactored AppHeader to use React Native Paper components for better UI consistency
+    - [x] Added side-by-side FABs for profile access and location on mobile map view
+    - [x] Improved header labels for better user experience
+      - [x] Updated auth screens with user-friendly headers ("Sign In", "Create Account")
+      - [x] Updated profile screens with descriptive headers ("My Profile", "Edit Profile", etc.)
+      - [x] Added dynamic header titles based on current route
 
 ## Next Actions (Prioritized)
-1. [P0] Fix GestureHandler Error, Babel Configuration, and Route Structure
-   - [x] Add GestureHandlerRootView to wrap app components in App.js
-   - [x] Remove deprecated expo-router/babel plugin from babel.config.js
-   - [x] Fix route structure warnings by removing explicit (guest) and (auth) Stack.Screen entries
-
-2. [P0] Fix app configuration and database integration issues
-   - [x] Fix app.json configuration issues by removing "newArchEnabled": false and adding URL scheme
-   - [x] Fix toilet data transformation to properly handle SQL-to-TypeScript mapping
-   - [x] Fix toilet location randomization by returning actual coordinates from database
-   - [x] Implement proper error handling for empty toilet results
-   - [x] Diagnose and document issue with only 2 toilets showing on map (confirmed working as expected - only 2 toilets in database)
-
-3. [P0] Testing infrastructure
+1. [P0] Testing infrastructure
    - Set up Jest for unit testing
    - Add key component tests
    - Implement E2E testing with Detox
@@ -113,6 +155,12 @@ Current Phase: 3.0 (UI/UX Enhancements) - Map Screen Refactor & Business Analysi
    - Add performance tracking
    - Add error tracking
 
+5. [P2] User Experience Refinements (Remaining)
+   - Add onboarding flow
+   - Implement improved empty states
+   - Enhance loading indicators and transitions
+   - Add micro-interactions for better feedback
+
 ## Blockers
 - None
 
@@ -125,89 +173,13 @@ Current Phase: 3.0 (UI/UX Enhancements) - Map Screen Refactor & Business Analysi
 - Add analytics tracking
 - Set up CI/CD pipeline
 - Consider replacing events package with native EventEmitter
-- Replace text-based icons (🎯, ✕) with proper SVG icons.
+- Replace text-based icons (🎯, ✕) with proper SVG icons
 
-## UI/UX Enhancement Plan (Phase 3)
-- [x] Design System Improvements
-  - [x] Create comprehensive design tokens system
-  - [x] Establish typography hierarchy
-  - [x] Expand color palette with semantic colors
-  - [x] Define animation and interaction patterns
-  - [x] Document design system guidelines (via app-business-analysis.md)
+## UI/UX Enhancement Plan (Remaining Items)
 - [ ] Visual Component Enhancements
   - [ ] Redesign home screen with improved branding
-  - [x] Enhance ToiletCard with better visual hierarchy and minimalist design
-    - [x] Simplified to focus on essential information (name, distance, rating)
-    - [x] Improved shadow effects and spacing
-    - [x] Fixed alignment and styling issues
-    - [x] Enhanced accessibility with clear labels
-  - [x] Improve bottom sheet interactions and styling
-    - [x] Enhanced gesture handling and animations
-    - [x] Improved visual appearance with proper elevation and shadows
-    - [x] Fixed visibility issues on Android devices
-  - [x] Enhance ModalToiletSheet with improved readability and visual design
-    - [x] Implemented modular architecture with custom hooks
-    - [x] Added natural spring animations with gesture physics
-    - [x] Enhanced with swipe-down-to-dismiss functionality
-    - [x] Improved accessibility and component patterns
-  - [x] Add visual feedback for user interactions
-  - [x] Fix map interaction issues
-    - [x] Enhanced marker touch handling
-    - [x] Improved toilet selection experience
-    - [x] Fixed bottom sheet expansion on marker interaction
-    - [x] Added proper system UI integration for Android status and navigation bars
-    - [x] Implemented z-index system for consistent UI layering
-    - [x] Enhanced safe area handling for all screen sizes and device types
-    - [x] Fixed bottom sheet "index out of range" error when clicking toilet markers
-    - [x] Enhanced bottom sheet error handling with more robust expansion method
-    - [x] Fixed critical bottom sheet visibility issues with multi-layered approach
-    - [x] Implemented comprehensive solution for "index out of range" bottom sheet error:
-      - [x] Added modal-based fallback that shows even when bottom sheet fails
-      - [x] Created visual debug indicator to diagnose positioning issues
-      - [x] Enhanced logging system with verbose mode and layout debugging
-      - [x] Added detailed troubleshooting documentation
-  - [x] Refine ToiletCard, ToiletList, ModalToiletSheet for clarity and aesthetics
-    - [x] Adjusted typography (line heights) to prevent "warped" fonts
-    - [x] Standardized emoji icon sizes and layout in ToiletCard
-    - [x] Improved horizontal spacing in ToiletList for better card separation
-    - [x] Replaced ToiletCard with React Native Paper implementation for better text scaling
-      - [x] Implemented responsive typography that adapts to all screen sizes
-      - [x] Fixed "ultra tiny text" issue when card height increases
-      - [x] Improved accessibility with better typography contrast
-      - [x] Created custom Paper theme that matches app design system
-    - [x] Standardized UI with consistent PaperToiletCard component
-      - [x] Updated ModalizeToiletSheet to use PaperToiletCard instead of ToiletCard
-      - [x] Enhanced PaperToiletCard with responsive icon sizing for all screens
-      - [x] Added automatic compact mode detection for small screens (< 375px)
-      - [x] Documented UI standardization approach and benefits
-      - [x] Simplified code maintenance with single source of truth for toilet cards
-  - [x] **Map Screen Refactor (`src/app/(guest)/map.tsx`)**
-    - [x] Updated `MapHeader` to use white background, dark text, and subtle border.
-    - [x] Simplified layout and state management (modal visibility driven by Zustand store).
-    - [x] Improved `LocationErrorView` design and presentation (banner style).
-  - [x] **Map View Refactor (`src/components/map/MapView.tsx`)**
-    - [x] Updated `AnimatedMarker` to use a "pin" shape for individual toilets and corrected color imports.
-    - [x] Refined cluster marker design (color, size, text style).
-    - [x] Integrated map controls more cohesively ("My Location" FAB, permission request UI).
-    - [x] Explored custom map styling (added simple desaturated style).
-  - [x] **Toilet Details Presentation Refactor**
-    - [x] Refined `ModalToiletSheet` header (icon button) and handle (more subtle).
-  - [x] Fixed nested VirtualizedList error:
-    - [x] Refactored `ModalizeToiletSheet.tsx` to use Modalize's built-in FlatList support
-    - [x] Eliminated nested scrollable container structure
-    - [x] Implemented direct rendering of toilet items with proper error and loading states
-    - [x] Maintained consistent UI appearance and behavior
-    - [x] Improved performance by reducing component hierarchy depth
-  - [x] Refined `ToiletList.tsx` visuals and performance:
-    - [x] Replaced FlashList with native FlatList for simpler implementation
-    - [x] Added subtle separators between list items
-    - [x] Improved loading, error and empty states
-    - [x] Implemented performance optimizations (memoization, recycling)
-    - [x] Enhanced responsiveness across device sizes
-    - [x] Significantly overhauled `ToiletCard.tsx` for layout, hierarchy, and visual polish.
 - [ ] Accessibility Improvements
   - [ ] Implement proper screen reader support
-  - [x] Ensure WCAG AA contrast compliance for ToiletCard
   - [ ] Add focus management
   - [ ] Improve touch targets for better usability
 - [ ] User Experience Refinements
@@ -217,5 +189,5 @@ Current Phase: 3.0 (UI/UX Enhancements) - Map Screen Refactor & Business Analysi
   - [ ] Add micro-interactions for better feedback
 
 ## Next Milestone
-Complete Phase 3.0: UI/UX Enhancements - Foundation Stage
-Target: End of Week (2025-05-24)
+Complete Phase 3.2: User Experience Refinements and Testing Infrastructure
+Target: End of Week (2025-05-26)

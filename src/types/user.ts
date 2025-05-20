@@ -16,6 +16,10 @@ export interface UserProfile {
   bio?: string;
   created_at: string;
   updated_at: string;
+  // Stats fields
+  reviews_count?: number;
+  contributions_count?: number;
+  followers_count?: number;
 }
 
 import { User as SupabaseUser } from "@supabase/supabase-js";
@@ -36,14 +40,14 @@ export interface AuthState {
  * Provides authentication state and methods
  */
 export interface AuthContextValue extends AuthState {
-  signIn: (email: string, password: string) => Promise<{ error?: Error }>;
+  signIn: (email: string, password: string) => Promise<{ error?: unknown }>;
   signUp: (
     email: string,
     password: string,
     metadata?: { full_name?: string }
-  ) => Promise<{ error?: Error }>;
-  signOut: () => Promise<void>;
-  resetPassword: (email: string) => Promise<{ error?: Error }>;
-  updatePassword: (newPassword: string) => Promise<{ error?: Error }>;
+  ) => Promise<{ error?: unknown }>;
+  signOut: () => Promise<{ error?: unknown }>;
+  resetPassword: (email: string) => Promise<{ error?: unknown }>;
+  updatePassword: (newPassword: string) => Promise<{ error?: unknown }>;
   updateProfile: (data: Partial<UserProfile>) => Promise<UserProfile | null>;
 }

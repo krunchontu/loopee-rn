@@ -9,7 +9,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { supabaseService } from "../services/supabase";
 import { AuthState, AuthContextValue, UserProfile } from "../types/user";
-import { User, Session, AuthChangeEvent } from "@supabase/supabase-js";
+import { Session, AuthChangeEvent, AuthError } from "@supabase/supabase-js";
 import { debug } from "../utils/debug";
 import { authDebug } from "../utils/AuthDebugger";
 
@@ -236,6 +236,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setState((prev) => ({ ...prev, isLoading: true }));
 
+      // Use type assertion for the error from Supabase
       const { error } = await supabaseService.auth.signIn({
         email,
         password,
@@ -243,9 +244,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (error) {
         // Log auth failure from UI
+        // Cast to AuthError to safely access code property
+        const authError = error as AuthError;
         authDebug.log("SIGNIN", "failure", {
           email,
-          errorCode: error.code,
+          errorCode: authError.code,
           errorMessage: error.message,
         });
 
@@ -266,13 +269,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Log unexpected errors
       authDebug.log("SIGNIN", "failure", {
         email,
-        error: error as Error,
+        error,
         errorType: "unexpected_exception",
       });
 
       debug.error("Auth", "Sign in failed", error);
       setState((prev) => ({ ...prev, isLoading: false }));
-      return { error: error as Error };
+      return { error };
     } finally {
       // End performance tracking
       endTracking();
@@ -308,9 +311,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (error) {
         // Log signup failure from UI
+        // Cast to AuthError to safely access code property
+        const authError = error as AuthError;
         authDebug.log("SIGNUP", "failure", {
           email,
-          errorCode: error.code,
+          errorCode: authError.code,
           errorMessage: error.message,
         });
 
@@ -360,13 +365,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Log unexpected errors
       authDebug.log("SIGNUP", "failure", {
         email,
-        error: error as Error,
+        error,
         errorType: "unexpected_exception",
       });
 
       debug.error("Auth", "Sign up failed", error);
       setState((prev) => ({ ...prev, isLoading: false }));
-      return { error: error as Error };
+      return { error };
     } finally {
       // End performance tracking
       endTracking();
@@ -375,6 +380,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   /**
    * Sign out
+   * @returns An object containing error (if any occurred during sign out)
    */
   const signOut = async () => {
     // Start performance tracking
@@ -393,19 +399,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (error) {
         // Log signout failure
+        // Cast to AuthError to safely access code property
+        const authError = error as AuthError;
         authDebug.log("SIGNOUT", "failure", {
           errorMessage: error.message,
-          errorCode: error.code || "unknown",
+          errorCode: authError.code || "unknown",
         });
 
         debug.error("Auth", "Sign out failed", error);
-      } else {
-        // Log successful signout
-        authDebug.log("SIGNOUT", "success", {
-          timestamp: new Date().toISOString(),
-          manualStateReset: true,
-        });
+        setState((prev) => ({ ...prev, isLoading: false }));
+        return { error }; // Return the error so calling code can handle it
       }
+
+      // Log successful signout
+      authDebug.log("SIGNOUT", "success", {
+        timestamp: new Date().toISOString(),
+        manualStateReset: true,
+      });
 
       // Reset state - we don't wait for the auth state change event
       setState({
@@ -414,15 +424,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         isLoading: false,
         isAuthenticated: false,
       });
+
+      return {}; // Return empty object to indicate success
     } catch (error) {
       // Log unexpected errors
       authDebug.log("SIGNOUT", "failure", {
-        error: error as Error,
+        error,
         errorType: "unexpected_exception",
       });
 
       debug.error("Auth", "Sign out failed", error);
       setState((prev) => ({ ...prev, isLoading: false }));
+      return { error: error as Error }; // Return the error to the calling code
     } finally {
       // End performance tracking
       endTracking();
@@ -447,10 +460,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (error) {
         // Log password reset failure
+        // Cast to AuthError to safely access code property
+        const authError = error as AuthError;
         authDebug.log("PASSWORD_RESET", "failure", {
           email,
           errorMessage: error.message,
-          errorCode: error.code || "unknown",
+          errorCode: authError.code || "unknown",
         });
 
         debug.error("Auth", "Password reset failed", error);
@@ -503,9 +518,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (error) {
         // Log password update failure
+        // Cast to AuthError to safely access code property
+        const authError = error as AuthError;
         authDebug.log("PASSWORD_UPDATE", "failure", {
           errorMessage: error.message,
-          errorCode: error.code || "unknown",
+          errorCode: authError.code || "unknown",
         });
 
         debug.error("Auth", "Password update failed", error);

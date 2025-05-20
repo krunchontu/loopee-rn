@@ -1,7 +1,7 @@
 /**
- * @file Auth Layout
+ * @file Profile Layout
  *
- * Layout component for all authentication screens
+ * Layout component for all profile-related screens
  * Provides consistent styling, navigation headers and common elements
  */
 
@@ -14,28 +14,27 @@ import { colors } from "../../foundations";
 import { AppHeader } from "../../components/shared/AppHeader";
 
 /**
- * Auth layout component
+ * Profile layout component
  *
- * Applied to all screens in the (auth) route group.
+ * Applied to all screens in the profile route group.
  * Handles:
  * - Navigation header configuration with user-friendly titles
  * - SafeArea behavior
  * - Common styling elements
  */
-export default function AuthLayout() {
+export default function ProfileLayout() {
   // Get the current pathname to determine which screen we're on
   const pathname = usePathname();
 
   // Determine the appropriate header title based on the route
   const getHeaderTitle = () => {
-    if (pathname.includes("login")) {
-      return "Sign In";
-    } else if (pathname.includes("register")) {
-      return "Create Account";
-    } else if (pathname.includes("reset-password")) {
-      return "Reset Password";
+    if (pathname.includes("/profile/edit")) {
+      return "Edit Profile";
+    } else if (pathname.includes("/profile/settings")) {
+      return "Account Settings";
+    } else {
+      return "My Profile"; // More user-friendly than generic "Profile"
     }
-    return "Account";
   };
 
   return (
@@ -43,7 +42,7 @@ export default function AuthLayout() {
       <StatusBar style="dark" />
       <AppHeader
         title={getHeaderTitle()}
-        showBackButton={pathname !== "/login"}
+        showBackButton={!pathname.endsWith("/profile")}
       />
       <View style={styles.innerContainer}>
         <Stack
