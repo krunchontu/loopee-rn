@@ -11,6 +11,7 @@ import { UserProfile } from "../types/user";
 import { EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY } from "@env";
 import { debug } from "../utils/debug";
 import { authDebug } from "../utils/AuthDebugger";
+import { normalizeToiletData } from "../utils/toilet-helpers";
 
 // Initialize Supabase client
 if (!EXPO_PUBLIC_SUPABASE_URL || !EXPO_PUBLIC_SUPABASE_ANON_KEY) {
@@ -965,9 +966,10 @@ export const supabaseService = {
         }
       );
 
-      // Transform raw database results to match the Toilet interface structure
-      // This handles the mismatch between PostgreSQL results and our TypeScript model
-      const transformedData: Toilet[] = data.map((toilet) => {
+      // Process toilet data with our normalization utilities
+
+      // Pre-process to handle missing or invalid coordinates
+      const preprocessedData = data.map((toilet) => {
         // Default to using actual coordinates from the database if available
         let toiletLatitude = toilet.latitude;
         let toiletLongitude = toilet.longitude;
@@ -1020,40 +1022,45 @@ export const supabaseService = {
           );
         }
 
+        // Return the toilet with coordinates fixed but keeping all original fields
         return {
-          id: toilet.id,
-          name: toilet.name,
-          location: {
-            latitude: toiletLatitude,
-            longitude: toiletLongitude,
-          },
-          rating: parseFloat(toilet.rating),
-          reviewCount: 0, // Default value as it's not returned by the SQL function
-          isAccessible: !!toilet.is_accessible,
-          address: "", // Default value as it's not returned by the SQL function
+          ...toilet,
+          latitude: toiletLatitude,
+          longitude: toiletLongitude,
           distance:
             toilet.distance_meters ?
               parseFloat(toilet.distance_meters.toString())
             : undefined,
-          amenities: {
-            // Default values for amenities that might not be in the SQL results
-            hasBabyChanging: toilet.amenities?.babyChanging || false,
-            hasShower: toilet.amenities?.shower || false,
-            isGenderNeutral: toilet.amenities?.genderNeutral || false,
-            hasPaperTowels: toilet.amenities?.paperTowels || false,
-            hasHandDryer: toilet.amenities?.handDryer || false,
-            hasWaterSpray: toilet.amenities?.waterSpray || false,
-            hasSoap: toilet.amenities?.soap || false,
+        };
+      });
+
+      // Transform and normalize the toilet data using our utility
+      const transformedData: Toilet[] = preprocessedData.map((toilet) => {
+        // Create a standardized toilet object
+        const baseToilet = {
+          id: toilet.id,
+          name: toilet.name,
+          description: toilet.description || toilet.name,
+          location: {
+            latitude: toilet.latitude,
+            longitude: toilet.longitude,
           },
-          // Building and floor information
-          buildingId: toilet.building_id || undefined,
-          buildingName: toilet.building_name || undefined,
-          floorLevel:
-            toilet.floor_level !== undefined ? toilet.floor_level : undefined,
-          floorName: toilet.floor_name || undefined,
+          rating:
+            typeof toilet.rating === "string" ?
+              parseFloat(toilet.rating)
+            : toilet.rating || 0,
+          reviewCount: toilet.reviews_count || 0,
+          isAccessible: !!toilet.is_accessible,
+          address: toilet.address || "",
+          distance: toilet.distance,
+          buildingId: toilet.building_id,
+          buildingName: toilet.building_name,
+          floorLevel: toilet.floor_level,
+          floorName: toilet.floor_name,
+          amenities: toilet.amenities || {},
           photos: toilet.photos || [],
-          lastUpdated: new Date().toISOString(), // Default as it's not in the SQL results
-          createdAt: new Date().toISOString(), // Default as it's not in the SQL results
+          lastUpdated: toilet.updated_at || new Date().toISOString(),
+          createdAt: toilet.created_at || new Date().toISOString(),
           openingHours:
             toilet.opening_hours ?
               {
@@ -1062,6 +1069,9 @@ export const supabaseService = {
               }
             : undefined,
         };
+
+        // Use our normalization utility to standardize all fields
+        return normalizeToiletData(baseToilet);
       });
 
       return transformedData;

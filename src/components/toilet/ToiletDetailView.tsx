@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -18,6 +18,10 @@ import { Rating } from "../shared/Rating";
 import { Button } from "../shared/Button";
 import { Toilet } from "../../types/toilet";
 import { debug } from "../../utils/debug";
+import {
+  normalizeAmenities,
+  normalizeBuildingInfo,
+} from "../../utils/toilet-helpers";
 import { ReviewModal } from "./ReviewModal";
 
 /**
@@ -37,8 +41,35 @@ export default function ToiletDetailView() {
   const route = useRoute();
   const params = route.params as { toilet: Toilet };
 
-  // Make sure params exist
-  if (!params || !params.toilet) {
+  // Get toilet from params
+  const toilet = params?.toilet || null;
+
+  // Define useMemo hooks before any conditional returns (required by React Hook rules)
+  const normalizedAmenities = useMemo(
+    () =>
+      toilet ?
+        normalizeAmenities(toilet.amenities)
+      : {
+          hasBabyChanging: false,
+          hasShower: false,
+          isGenderNeutral: false,
+          hasPaperTowels: false,
+          hasHandDryer: false,
+          hasWaterSpray: false,
+          hasSoap: false,
+        },
+    [toilet?.amenities]
+  );
+  const { buildingName, floorName } = useMemo(
+    () =>
+      toilet ?
+        normalizeBuildingInfo(toilet)
+      : { buildingName: "", floorName: "" },
+    [toilet]
+  );
+
+  // Make sure toilet exists
+  if (!toilet) {
     debug.error("ToiletDetailView", "No toilet data provided");
     return (
       <View style={styles.errorContainer}>
@@ -46,8 +77,6 @@ export default function ToiletDetailView() {
       </View>
     );
   }
-
-  const { toilet } = params;
 
   // Format distance helper
   const formatDistance = (meters: number) => {
@@ -95,14 +124,8 @@ export default function ToiletDetailView() {
           <View style={styles.locationInfo}>
             <Text style={styles.sectionTitle}>Location</Text>
             <Text style={styles.address}>{toilet.address}</Text>
-            {toilet.buildingName && (
-              <Text style={styles.buildingInfo}>
-                Building: {toilet.buildingName}
-              </Text>
-            )}
-            {toilet.floorName && (
-              <Text style={styles.floorInfo}>Floor: {toilet.floorName}</Text>
-            )}
+            <Text style={styles.buildingInfo}>Building: {buildingName}</Text>
+            <Text style={styles.floorInfo}>Floor: {floorName}</Text>
             {toilet.distance && (
               <Text style={styles.distance}>
                 {formatDistance(toilet.distance)} away
@@ -113,22 +136,46 @@ export default function ToiletDetailView() {
           <View style={styles.amenitiesContainer}>
             <Text style={styles.sectionTitle}>Facilities</Text>
             <View style={styles.amenitiesList}>
-              {toilet.amenities.hasBabyChanging && (
+              {normalizedAmenities.hasBabyChanging && (
                 <View style={styles.amenityItem}>
                   <Text style={styles.amenityIcon}>👶</Text>
                   <Text style={styles.amenityText}>Baby Changing</Text>
                 </View>
               )}
-              {toilet.amenities.hasShower && (
+              {normalizedAmenities.hasShower && (
                 <View style={styles.amenityItem}>
                   <Text style={styles.amenityIcon}>🚿</Text>
                   <Text style={styles.amenityText}>Shower</Text>
                 </View>
               )}
-              {toilet.amenities.hasWaterSpray && (
+              {normalizedAmenities.hasWaterSpray && (
                 <View style={styles.amenityItem}>
                   <Text style={styles.amenityIcon}>💦</Text>
                   <Text style={styles.amenityText}>Water Spray</Text>
+                </View>
+              )}
+              {normalizedAmenities.hasSoap && (
+                <View style={styles.amenityItem}>
+                  <Text style={styles.amenityIcon}>🧼</Text>
+                  <Text style={styles.amenityText}>Soap Available</Text>
+                </View>
+              )}
+              {normalizedAmenities.hasPaperTowels && (
+                <View style={styles.amenityItem}>
+                  <Text style={styles.amenityIcon}>🧻</Text>
+                  <Text style={styles.amenityText}>Paper Towels</Text>
+                </View>
+              )}
+              {normalizedAmenities.hasHandDryer && (
+                <View style={styles.amenityItem}>
+                  <Text style={styles.amenityIcon}>💨</Text>
+                  <Text style={styles.amenityText}>Hand Dryer</Text>
+                </View>
+              )}
+              {normalizedAmenities.isGenderNeutral && (
+                <View style={styles.amenityItem}>
+                  <Text style={styles.amenityIcon}>⚧️</Text>
+                  <Text style={styles.amenityText}>Gender Neutral</Text>
                 </View>
               )}
               {toilet.isAccessible && (
