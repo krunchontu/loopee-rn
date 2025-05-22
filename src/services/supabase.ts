@@ -1108,15 +1108,44 @@ export const supabaseService = {
 
   // Review operations
   reviews: {
-    async create(review: Omit<Review, "id" | "createdAt">) {
-      const { data, error } = await supabase
-        .from("reviews")
-        .insert([review])
-        .select()
-        .single();
+    async create(review: {
+      toiletId: string;
+      rating: number;
+      comment?: string;
+      photos?: string[];
+    }): Promise<string> {
+      // Call the database function for review creation
+      const { data, error } = await supabase.rpc("create_review", {
+        p_toilet_id: review.toiletId,
+        p_rating: review.rating,
+        p_comment: review.comment || "",
+        p_photos: review.photos || [],
+      });
 
-      if (error) throw error;
-      return data as Review;
+      if (error) {
+        debug.error("Supabase", "Error creating review", error);
+        throw error;
+      }
+      return data as string;
+    },
+
+    async update(
+      reviewId: string,
+      updates: { rating?: number; comment?: string; photos?: string[] }
+    ): Promise<string> {
+      // Call the database function for review editing
+      const { data, error } = await supabase.rpc("edit_review", {
+        p_review_id: reviewId,
+        p_rating: updates.rating,
+        p_comment: updates.comment || "",
+        p_photos: updates.photos || null,
+      });
+
+      if (error) {
+        debug.error("Supabase", "Error updating review", error);
+        throw error;
+      }
+      return data as string;
     },
 
     async getByToiletId(toiletId: string) {
@@ -1125,9 +1154,9 @@ export const supabaseService = {
         .select(
           `
           *,
-          users (
-            id,
-            name,
+          user_profiles (
+            id, 
+            display_name,
             avatar_url
           )
         `
@@ -1135,8 +1164,71 @@ export const supabaseService = {
         .eq("toilet_id", toiletId)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      return data as Review[];
+      if (error) {
+        debug.error("Supabase", "Error fetching reviews by toilet ID", error);
+        throw error;
+      }
+
+      return data.map((item) => ({
+        id: item.id,
+        userId: item.user_id,
+        rating: item.rating,
+        comment: item.comment,
+        photos: item.photos || [],
+        createdAt: item.created_at,
+        isEdited: item.is_edited || false,
+        version: item.version || 1,
+        lastEditedAt: item.last_edited_at,
+        updatedAt: item.updated_at,
+        user:
+          item.user_profiles ?
+            {
+              id: item.user_profiles.id,
+              displayName: item.user_profiles.display_name,
+              avatarUrl: item.user_profiles.avatar_url,
+            }
+          : null,
+      })) as Review[];
+    },
+
+    async getCurrentUserReview(toiletId: string) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        debug.log("Supabase", "No authenticated user to get review");
+        return null;
+      }
+
+      const { data, error } = await supabase
+        .from("reviews")
+        .select("*")
+        .eq("toilet_id", toiletId)
+        .eq("user_id", user.id)
+        .single();
+
+      if (error) {
+        // If the error is "no rows found", return null instead of throwing
+        if (error.code === "PGRST116") {
+          return null;
+        }
+        debug.error("Supabase", "Error fetching current user review", error);
+        throw error;
+      }
+
+      return {
+        id: data.id,
+        userId: data.user_id,
+        rating: data.rating,
+        comment: data.comment,
+        photos: data.photos || [],
+        createdAt: data.created_at,
+        isEdited: data.is_edited || false,
+        version: data.version || 1,
+        lastEditedAt: data.last_edited_at,
+        updatedAt: data.updated_at,
+      } as Review;
     },
   },
 };

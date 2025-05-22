@@ -59,6 +59,16 @@
   - [x] Documented data type conversions and fallbacks
   - [x] Created reference tables for database schema
   - [x] Added best practices for submission format validation
+- [x] Fixed "Write a Review" button not working:
+  - [x] Implemented ReviewModal integration in ToiletDetailView
+  - [x] Added state management for modal visibility
+  - [x] Connected button press handler to open the modal
+  - [x] Added success handler to manage post-submission UI updates
+- [x] Fixed missing/invisible star rating UI in review form:
+  - [x] Refactored EditableRating component to use React Native Paper IconButton
+  - [x] Replaced custom CSS triangles with proper star icons
+  - [x] Improved accessibility and visual feedback
+  - [x] Made star sizes consistent and optimized touch targets
 
 ### Next Actions:
 1. [Priority P0] Run the fixed migration script to verify error resolution
@@ -67,6 +77,7 @@
 4. [Priority P0] Test and verify the complete duplicate submission fix in real-world scenarios
 5. [Priority P0] Test and verify the authentication fixes in real-world scenarios
 6. [Priority P0] Test and verify the optimization works in real-world scenarios
+7. [Priority P0] Test and verify review submission functionality
 7. [Priority P1] Make duplicate detection time window configurable via environment variables
 8. [Priority P1] Extend duplicate submission protection to edit/report submissions
 9. [Priority P1] Consider implementing debug settings UI to toggle specific log categories

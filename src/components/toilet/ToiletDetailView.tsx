@@ -1,10 +1,9 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
-  Pressable,
   Linking,
   Dimensions,
 } from "react-native";
@@ -19,6 +18,7 @@ import { Rating } from "../shared/Rating";
 import { Button } from "../shared/Button";
 import { Toilet } from "../../types/toilet";
 import { debug } from "../../utils/debug";
+import { ReviewModal } from "./ReviewModal";
 
 /**
  * ToiletDetailView
@@ -30,9 +30,10 @@ import { debug } from "../../utils/debug";
  * - High contrast text for better readability
  * - Organized sections for easy scanning
  * - Directions integration with Google Maps
- * - Review submission option
+ * - Review submission option with modal form
  */
 export default function ToiletDetailView() {
+  const [reviewModalVisible, setReviewModalVisible] = useState(false);
   const route = useRoute();
   const params = route.params as { toilet: Toilet };
 
@@ -149,14 +150,26 @@ export default function ToiletDetailView() {
           <Button
             title="Write a Review"
             onPress={() => {
-              // Review form would be implemented here
               debug.log("ToiletDetailView", "Write review button pressed");
+              setReviewModalVisible(true);
             }}
             style={styles.reviewButton}
             variant="secondary"
           />
         </View>
       </ScrollView>
+
+      {/* Review Modal */}
+      <ReviewModal
+        visible={reviewModalVisible}
+        toiletId={toilet.id}
+        onClose={() => setReviewModalVisible(false)}
+        onSuccess={() => {
+          debug.log("ToiletDetailView", "Review submitted successfully");
+          // Could potentially refresh toilet data here to show updated rating
+          setReviewModalVisible(false);
+        }}
+      />
 
       <View style={styles.footer}>
         <Button
