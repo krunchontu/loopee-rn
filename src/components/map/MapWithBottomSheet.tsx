@@ -189,12 +189,26 @@ export default function MapWithBottomSheet() {
           accessibilityLabel="Center on my location"
           style={styles.locationFab}
         />
+
+        {/* Add Toilet FAB */}
+        <MapActionButton
+          icon="plus"
+          onPress={() => {
+            // Navigate to add toilet screen
+            router.push("/contribute/add-toilet");
+          }}
+          accessibilityLabel="Add a new toilet"
+          style={styles.addToiletFab}
+        />
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  addToiletFab: {
+    backgroundColor: colors.primary || "#4CAF50",
+  },
   container: {
     flex: 1,
     position: "relative",

@@ -7,8 +7,9 @@ This document details the implementation of the authentication system for Loopee
 The authentication system provides:
 - User registration and login
 - Profile management
-- Session handling
+- Session handling with state persistence
 - Authorization controls
+- Proactive token management
 
 ## Feature Branch
 
@@ -54,7 +55,7 @@ CREATE TRIGGER on_auth_user_created
 ```
 src/
 ├── providers/
-│   └── AuthProvider.tsx       # Auth context provider
+│   └── AuthProvider.tsx       # Auth context provider with session monitoring
 │
 ├── components/
 │   └── auth/
@@ -69,7 +70,100 @@ src/
 │       └── ProfileScreen.tsx  # Profile management
 │
 └── services/
-    └── authService.ts         # Auth API functions
+    ├── supabase.ts           # Supabase client singleton & session utilities
+    ├── authService.ts        # Auth API functions
+    ├── contributionService.ts # User content submission with session validation
+    └── profileService.ts     # Profile management with auth integration
+```
+
+## Architecture Improvements
+
+### Supabase Client Singleton
+
+To ensure consistent authentication state across the application, we've implemented a singleton pattern:
+
+```typescript
+// src/services/supabase.ts
+export class SupabaseClientSingleton {
+  private static instance: SupabaseClient | null = null;
+  private static isRefreshing: boolean = false;
+  
+  // Get shared client instance
+  static getClient(): SupabaseClient {
+    if (!this.instance) {
+      this.instance = createClient(
+        SUPABASE_URL,
+        SUPABASE_ANON_KEY,
+        {
+          auth: {
+            autoRefreshToken: true,
+            persistSession: true,
+            storage: AsyncStorage,
+          }
+        }
+      );
+    }
+    return this.instance;
+  }
+
+  // Additional session management methods
+  static async refreshSession(): Promise<boolean> {
+    if (this.isRefreshing) return false;
+    
+    try {
+      this.isRefreshing = true;
+      const { data, error } = await this.getClient().auth.refreshSession();
+      return !!data.session && !error;
+    } catch (error) {
+      return false;
+    } finally {
+      this.isRefreshing = false;
+    }
+  }
+}
+
+// Export convenience methods
+export const getSupabaseClient = () => SupabaseClientSingleton.getClient();
+export const refreshSession = () => SupabaseClientSingleton.refreshSession();
+export const checkSession = () => SupabaseClientSingleton.checkSession();
+```
+
+### Session Health Monitoring
+
+To prevent authentication failures due to expired tokens, we've added proactive monitoring:
+
+```typescript
+// In AuthProvider.tsx
+useEffect(() => {
+  // Skip in loading state
+  if (state.isLoading) return;
+
+  // Check session every minute
+  const sessionHealthInterval = setInterval(async () => {
+    try {
+      // Skip checks if not authenticated
+      if (!state.isAuthenticated || !state.user) {
+        return;
+      }
+
+      // Get session health info
+      const sessionInfo = await checkSession();
+
+      // If session is about to expire in less than 5 minutes, refresh it
+      if (
+        sessionInfo.session &&
+        sessionInfo.expiresIn &&
+        sessionInfo.expiresIn < 300
+      ) {
+        await refreshSession();
+      }
+    } catch (error) {
+      // Log monitoring errors
+    }
+  }, 60000); // Check health every minute
+
+  return () => clearInterval(sessionHealthInterval);
+}, [state.isLoading, state.isAuthenticated, state.user]);
 ```
 
 ## Implementation Steps
@@ -79,85 +173,125 @@ src/
 1. Update Supabase configuration
 2. Configure auth providers (email, social)
 3. Set up auth redirects
+4. Configure persistent storage (AsyncStorage for React Native)
 
-### Step 2: Create Auth Provider
+### Step 2: Create Supabase Client Singleton
 
-Implement React Context for global auth state:
-- Session management
-- User information
-- Login/logout functions
-- Registration handler
+1. Implement the `SupabaseClientSingleton` class
+2. Add session management utilities
+3. Add session health check functionality
+4. Create export convenience methods
+
+### Step 3: Create Enhanced Auth Provider
+
+Implement React Context for global auth state with advanced features:
 
 ```typescript
-// src/providers/AuthProvider.tsx
+// src/providers/AuthProvider.tsx - Enhanced version
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Session, User } from '@supabase/supabase-js';
-import { supabase } from '../services/supabase';
+import { Session, User, AuthError } from '@supabase/supabase-js';
+import { 
+  supabaseService,
+  refreshSession,
+  checkSession 
+} from '../services/supabase';
+import { profileService } from '../services/profileService';
+import { debug } from '../utils/debug';
+import { authDebug } from '../utils/AuthDebugger';
 
-interface AuthContextType {
-  session: Session | null;
+// Enhanced interface with additional methods and proper typing
+interface AuthContextValue {
   user: User | null;
-  loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error?: Error }>;
-  signUp: (email: string, password: string) => Promise<{ error?: Error }>;
-  signOut: () => Promise<void>;
+  profile: UserProfile | null;
+  isLoading: boolean;
+  isAuthenticated: boolean;
+  signIn: (email: string, password: string) => Promise<{ error?: AuthError }>;
+  signUp: (email: string, password: string, metadata?: { full_name?: string }) => Promise<{ error?: AuthError }>;
+  signOut: () => Promise<{ error?: Error }>;
+  resetPassword: (email: string) => Promise<{ error?: AuthError }>;
+  updatePassword: (newPassword: string) => Promise<{ error?: AuthError }>;
+  updateProfile: (data: Partial<UserProfile>) => Promise<UserProfile | null>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+// Create context with proper typing
+const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
+export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
+  const [state, setState] = useState<AuthState>({
+    user: null,
+    profile: null,
+    isLoading: true, 
+    isAuthenticated: false,
+  });
 
-export const AuthProvider: React.FC = ({ children }) => {
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
+  // Initialize auth state with performance tracking
   useEffect(() => {
-    // Get current session
-    const fetchSession = async () => {
-      const { data, error } = await supabase.auth.getSession();
-      if (!error && data?.session) {
-        setSession(data.session);
-        setUser(data.session.user);
+    const initializeAuth = async () => {
+      // Start tracking performance
+      const endTracking = authDebug.trackPerformance("auth_initialization");
+      
+      try {
+        // Get current session with enhanced error handling
+        const { data, error } = await supabaseService.auth.getSession();
+        
+        if (error) {
+          authDebug.log("STATE_CHANGE", "failure", {
+            action: "get_session",
+            error: error.message,
+          });
+          setState((prev) => ({ ...prev, isLoading: false }));
+          return;
+        }
+        
+        // If no session, set not authenticated
+        if (!data.session) {
+          setState((prev) => ({ ...prev, isLoading: false }));
+          return;
+        }
+        
+        // Get user and profile data
+        const user = await supabaseService.auth.getUser();
+        const profile = await supabaseService.auth.getProfile();
+        
+        setState({
+          user,
+          profile,
+          isLoading: false,
+          isAuthenticated: !!user,
+        });
+      } catch (error) {
+        debug.error("Auth", "Failed to initialize auth", error);
+        setState((prev) => ({ ...prev, isLoading: false }));
+      } finally {
+        // End performance tracking
+        endTracking();
       }
-      setLoading(false);
     };
 
-    fetchSession();
-
-    // Subscribe to auth changes
-    const { data } = supabase.auth.onAuthStateChange((event, newSession) => {
-      setSession(newSession);
-      setUser(newSession?.user ?? null);
-    });
-
-    // Clean up subscription
-    return () => {
-      data.subscription.unsubscribe();
-    };
+    initializeAuth();
+    
+    // Subscribe to auth changes with enhanced logging
+    const { data } = supabaseService.auth.onAuthStateChange(
+      async (event, session) => {
+        // Handle auth state changes with proper logging
+        // and automatic profile management
+      }
+    );
+    
+    return () => data?.subscription.unsubscribe();
   }, []);
+  
+  // Add session health monitoring
+  useEffect(() => {
+    // Session health check implementation
+    // ...
+  }, [state.isLoading, state.isAuthenticated, state.user]);
 
-  // Auth methods
-  const signIn = async (email: string, password: string) => {
-    return await supabase.auth.signInWithPassword({ email, password });
-  };
-
-  const signUp = async (email: string, password: string) => {
-    return await supabase.auth.signUp({ email, password });
-  };
-
-  const signOut = async () => {
-    await supabase.auth.signOut();
-  };
+  // Enhanced auth methods with proper error handling
+  // and type safety...
 
   return (
-    <AuthContext.Provider value={{ session, user, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={...}>
       {children}
     </AuthContext.Provider>
   );
@@ -171,6 +305,7 @@ Create reusable components:
 - Login form
 - Registration form
 - Password reset flow
+- Error handling components with proper error messages
 
 ### Step 4: Implement Profile Management
 
@@ -197,10 +332,12 @@ Implement access controls:
 ## Accessibility Considerations
 
 - Proper form labeling
-- Error announcements
+- Error announcements with specific error messages
 - Keyboard navigation
 - Color contrast compliance
 - Screen reader support
+- Session timeout warnings
+- Auth state indicators
 
 ## Rollout Plan
 
@@ -209,13 +346,36 @@ Implement access controls:
 3. Add profile management
 4. Implement authorization controls
 
-## Monitoring and Analytics
+## Monitoring and Authentication Debugging
 
 Track:
 - Registration conversion rate
 - Login success/failure rates
 - Password reset usage
 - Profile completion rate
+- Session duration and health
+- Token refresh patterns
+- Authentication error types and frequency
+
+Enhanced debugging capabilities:
+```typescript
+// src/utils/AuthDebugger.ts
+export class AuthDebugger {
+  // Log authentication events with structured data
+  static log(category: string, level: string, data: any) {
+    debug.log(`[Auth] [${category}][${level}]`, data);
+  }
+  
+  // Track performance metrics
+  static trackPerformance(operation: string) {
+    const startTime = performance.now();
+    return () => {
+      const duration = performance.now() - startTime;
+      debug.log(`[Performance] ${operation}: ${duration.toFixed(2)}ms`);
+    };
+  }
+}
+```
 
 ## Rollback Plan
 

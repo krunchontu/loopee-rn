@@ -1,190 +1,143 @@
 # Authentication Debugging Guide
 
-## Overview
+## Session Persistence Issues
 
-The Loopee application includes a comprehensive authentication debugging system that provides detailed insights into login, registration, and session management processes. This guide explains how to use these tools to troubleshoot auth-related issues.
+This document outlines common authentication issues related to session persistence and provides guidance on troubleshooting and fixing them.
 
-## Architecture
+### Common Issues
 
-The auth debugging system consists of:
+1. **Session Expiration Problems**
+   - Invalid expiration timestamps causing premature session invalidation
+   - Timeout errors during session validation or refresh
+   - Failed session refresh attempts due to network issues
+   - "Authentication check failed" errors during critical operations
 
-1. **AuthDebugger** - A specialized logging utility for auth operations (`src/utils/AuthDebugger.ts`)
-2. **Enhanced service layer** - Auth operations in `src/services/supabase.ts` with detailed logging
-3. **UI component logging** - Form validation and interaction logging in auth screens
-4. **Performance tracking** - Timers for measuring auth operation performance
+2. **Authentication Error Messages**
+   - "Authentication check failed: Please log in again"
+   - "Authentication check timed out"
+   - "Operation 'session refresh' timed out after 5000ms"
+   - "Authentication expired: Please log in again"
 
-## How to Enable Auth Debugging
+### Session Validation Flow
 
-Auth debugging is automatically enabled in development builds. To enable verbose logging:
+Our application uses the following flow for validating sessions:
 
-```typescript
-import { debug } from './utils/debug';
+1. Check session validity and expiration time
+2. If session is valid and not expiring soon, proceed with operation
+3. If session is invalid or expiring soon, attempt to refresh it
+4. Verify the refreshed session is valid
+5. If all refresh attempts fail, prompt user to log in again
 
-// Enable verbose debug mode
-debug.enableVerboseLogging();
-```
+### Timeout and Retry Configuration
 
-For production troubleshooting, you can selectively enable auth debugging in your app's debug screen.
+| Operation | Timeout (ms) | Retries | Backoff Strategy |
+|-----------|--------------|---------|------------------|
+| Session validation | 10000 | 0 | N/A |
+| Session refresh | 12000 | 2 | Exponential (1s, 2s, 4s) |
+| General API operations | 15000 | 0 | N/A |
 
-## Understanding Auth Logs
+### Debugging Tips
 
-### Log Format
+#### Diagnosing Session Issues
 
-All auth logs follow a consistent format:
-
-```
-[Auth] [EVENT_TYPE][STATUS] Details...
-```
-
-For example:
-```
-[Auth] [SIGNIN][attempt] { email: "j***e@example.com", hasPassword: true }
-[Auth] [SIGNIN][success] { userId: "abc-123", hasSession: true }
-```
-
-### Event Types
-
-The system tracks these event types:
-
-- `SIGNUP` - User registration events
-- `SIGNIN` - Login attempts
-- `SIGNOUT` - Logout operations
-- `PASSWORD_RESET` - Password reset requests
-- `PASSWORD_UPDATE` - Password change operations
-- `SESSION_REFRESH` - Session token refreshes
-- `PROFILE_UPDATE` - User profile changes
-- `STATE_CHANGE` - Auth state transitions
-
-### Status Types
-
-Each event has a status:
-
-- `attempt` - Operation was initiated
-- `success` - Operation completed successfully
-- `failure` - Operation failed
-- `validation_error` - Form validation failed
-- `network_error` - Network/API communication error
-- `info` - Informational event
-
-## Performance Metrics
-
-Auth operations are automatically timed and logged:
+Look for these log patterns to identify session problems:
 
 ```
-[Performance] auth_signin: 532.00ms
-[Performance] login_form_submission: 1245.00ms
+WARN  [Supabase] Session expiration date is far in the past
+LOG   [Auth] [SESSION_REFRESH][attempt]
+ERROR [contributionService] [ensureValidSession] Session validation error
 ```
 
-Key metrics include:
+#### Debugging Invalid Timestamps
 
-- `auth_initialization` - Time to initialize auth state on app launch
-- `auth_state_update` - Time to process auth state changes
-- `signup`/`signin`/`signout` - Backend auth operations
-- `profile_fetch`/`profile_update` - User profile operations
-- `session_fetch` - Session retrieval time
-- `password_reset`/`password_update` - Password operations
-- `*_ui_flow` - End-to-end UI operation time (e.g., `sign_in_ui_flow`)
+The system now detects and handles these edge cases:
+- Expiration timestamps more than a day in the past
+- Expiration timestamps more than 30 days in the future
+- Invalid or non-parseable timestamp formats
 
-## Common Debugging Scenarios
+#### Network-Related Issues
 
-### 1. Login Failures
+To diagnose if the issue is network related:
+- Check for "timed out" messages in the logs
+- Look for retry attempts in logs (e.g., "Retry attempt 1/2")
+- Verify if all retry attempts failed with "all_attempts_failed" status
 
-When a user can't log in, check:
+### Timestamp Format Issues
 
-- `[SIGNIN][validation_error]` logs - Form validation issues
-- `[SIGNIN][failure]` logs - Backend auth failures with error codes
-- `[SIGNIN][network_error]` logs - API communication problems
+A critical issue we identified and fixed was related to timestamp format interpretation:
 
-Example issue identification:
-```
-[Auth] [SIGNIN][failure] { errorCode: "auth/invalid-email", ... }
-```
+1. **Unix Timestamp vs. ISO String Date Format**
+   - Problem: The Supabase session expiration (`expires_at`) can be returned as a Unix timestamp (seconds since epoch) or an ISO string date
+   - Symptoms: Error logs showing "Session expiration date is far in the past" with extremely negative `expiresIn` values
+   - Impact: Authentication checks failing with "Please log in again" errors, especially during data submissions
 
-### 2. Registration Issues
+2. **Timestamp Normalization Fix**
+   - Implemented a smart timestamp detection and normalization function
+   - Automatically detects and handles:
+     - Unix timestamps (seconds since epoch, ~10 digits)
+     - JavaScript timestamps (milliseconds since epoch, ~13 digits)
+     - ISO string dates (e.g., "2025-05-21T16:27:23.966Z")
+     - Other parseable date strings
+   - Provides a consistent Date object output regardless of input format
 
-When users can't register:
+3. **Detailed Session Status Reporting**
+   - Added a `detailedStatus` field to session checks with values like:
+     - `"valid"` - Everything is normal
+     - `"expired_past"` - Expiration date is far in the past
+     - `"suspicious_future"` - Expiration date is suspiciously far in the future
+     - `"just_expired"` - Session just expired
+     - `"expiring_soon"` - Session expires in less than 10 minutes
+     - `"invalid_date"` - Unparseable timestamp format
+     - `"missing_expiration"` - No expiration time found
+   - This provides more specific handling for different error conditions
 
-- `[SIGNUP][validation_error]` - Form validation problems
-- `[SIGNUP][failure]` - API registration errors (e.g., duplicate email)
+### Recent Improvements
 
-### 3. Session Problems
+We recently implemented the following enhancements to improve session persistence:
 
-When sessions expire unexpectedly:
+1. **Enhanced Session Validation**
+   - Added robust timestamp normalization and validation
+   - Implemented comprehensive timestamp format detection
+   - Added `detailedStatus` reporting for better error diagnosis
+   - Increased validation timeout from 5s to 10s for slower connections
 
-- `[SESSION_REFRESH][failure]` - Failed token refreshes
-- `[STATE_CHANGE]` events - Auth state transitions
+2. **Improved Session Refresh Mechanism**
+   - Added retry mechanism with smarter retry counts based on error type
+   - Implemented verification step after refresh to confirm success
+   - Increased refresh timeout from 5s to 12s
+   - Added up to 3 retries for timestamp-related issues
 
-### 4. Performance Bottlenecks
+3. **More Proactive Session Management**
+   - Session health monitoring every minute with detailed status checks
+   - Proactive refresh when session is <10 minutes from expiration
+   - Better error categorization for user feedback
+   - Session queue management to prevent duplicate refresh operations
 
-If auth operations are slow:
+### Fixing Common Problems
 
-- Compare performance metrics across different devices and network conditions
-- Look for consistently slow operations
-- Check UI flow timings vs. backend operation timings
+#### "Authentication check failed" Errors
 
-### 5. User Profile Issues
+If users report this error:
+1. Check if they're on a slow or unstable connection
+2. Verify if there are session expiration issues in logs
+3. Look for "all_attempts_failed" messages in logs
 
-When users encounter profile-related errors:
+#### Network Timeout Issues
 
-- Check for `[PROFILE_UPDATE][failure]` logs - Especially with code `PGRST116` which indicates missing profiles
-- Verify profile creation during registration with `[PROFILE_UPDATE][success]` logs
-- Look for `auto_create_profile` actions in logs which indicate the system found and fixed a missing profile
+For timeout-related errors:
+1. Confirm user's network stability
+2. Check if the issue happens with specific API operations
+3. Consider increasing the timeout for problematic operations
 
-For comprehensive information about the profile system and recent fixes, refer to the [Auth Profile System Documentation](./auth-profile-system.md).
+#### Session Not Persisting Between App Launches
 
-## Privacy & Security
+If session state is lost between app launches:
+1. Verify Supabase client configuration has `persistSession: true`
+2. Ensure secure storage is working correctly
+3. Check for any clearing of storage during app lifecycle events
 
-The auth debugging system is designed with privacy in mind:
+### Future Considerations
 
-- Emails are automatically masked (e.g., `j***e@example.com`)
-- Passwords are never logged
-- Authentication tokens are redacted
-- Only non-PII data is included in logs
-
-## Extending the System
-
-To add logging to new auth-related components:
-
-1. Import the auth debugger:
-   ```typescript
-   import { authDebug } from '../utils/AuthDebugger';
-   ```
-
-2. Add logging at key points:
-   ```typescript
-   authDebug.log('EVENT_TYPE', 'status', { 
-     // Include relevant debugging information
-     relevantField: value,
-     timestamp: new Date().toISOString()
-   });
-   ```
-
-3. Track performance when needed:
-   ```typescript
-   const endTracking = authDebug.trackPerformance('operation_name');
-   try {
-     // Perform operation...
-   } finally {
-     endTracking(); // Complete timing
-   }
-   ```
-
-## Troubleshooting Tips
-
-1. **Check for form validation errors first** - Often issues occur before backend calls
-2. **Look at performance metrics** - Unusually slow operations may indicate issues
-3. **Check network conditions** - Auth failures often correlate with connectivity problems
-4. **Compare failure patterns** - Look for common error codes across multiple failures
-5. **Examine state change events** - Auth state transitions can reveal unexpected behavior
-
-## Need Further Help?
-
-For complex auth debugging scenarios, analyze the logs in this order:
-
-1. UI component logs (validation, input changes)
-2. Form submission logs
-3. Auth provider logs
-4. Supabase service logs
-5. State change events
-
-This top-down approach helps isolate whether issues occur in the UI layer, state management, or backend services.
+- Implement offline submission with later synchronization
+- Add user-facing session recovery mechanisms
+- Improve network failure resilience with Circuit Breaker pattern

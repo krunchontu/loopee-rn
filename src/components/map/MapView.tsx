@@ -55,7 +55,8 @@ export const CustomMapView = memo(function CustomMapView({
 }: CustomMapViewProps) {
   const mapRef = useRef<MapView>(null);
   const insets = useSafeAreaInsets();
-  const { toilets, selectToilet, fetchNearbyToilets } = useToiletStore();
+  const { toilets, selectToilet, fetchNearbyToilets, loading } =
+    useToiletStore();
   const [hasLocationPermission, setHasLocationPermission] =
     useState<boolean>(false);
   const [locationError, setLocationError] = useState<string | null>(null);
@@ -64,6 +65,7 @@ export const CustomMapView = memo(function CustomMapView({
   const [clusters, setClusters] = useState<ReturnType<typeof clusterToilets>>(
     []
   );
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
   // Simple desaturated map style
   const customMapStyle = [
@@ -110,24 +112,42 @@ export const CustomMapView = memo(function CustomMapView({
       setUserLocation(location);
       setLocationError(null);
 
-      debug.log("MapView", "Location updated", {
-        lat: location.latitude,
-        lng: location.longitude,
+      // Throttled location logging to reduce console noise (30 second interval)
+      const LOCATION_LOG_THROTTLE = 30000; // 30 seconds
+      debug.throttledLog(
+        "MapView",
+        "location-update",
+        "Location updated",
+        {
+          lat: location.latitude,
+          lng: location.longitude,
+        },
+        LOCATION_LOG_THROTTLE
+      );
+
+      // Update user position on significant changes
+      // Map animation only happens on first location or when user presses the location button
+      // This prevents constant map movement during regular location updates
+      if (!userLocation) {
+        const newRegion = {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          ...DEFAULT_DELTA,
+        };
+
+        // Update map position with smooth animation only on first location
+        mapRef.current?.animateToRegion(newRegion);
+      }
+
+      // Location updates are now throttled in the location service (60s interval, 100m distance)
+      // and the toilet store has caching to prevent unnecessary fetches
+      setIsRefreshing(true);
+      fetchNearbyToilets(location.latitude, location.longitude).finally(() => {
+        // Clear refreshing state when done, whether successful or not
+        setIsRefreshing(false);
       });
-
-      const newRegion = {
-        latitude: location.latitude,
-        longitude: location.longitude,
-        ...DEFAULT_DELTA,
-      };
-
-      // Update map position with smooth animation
-      mapRef.current?.animateToRegion(newRegion);
-
-      // Fetch nearby toilets
-      fetchNearbyToilets(location.latitude, location.longitude);
     },
-    [fetchNearbyToilets]
+    [fetchNearbyToilets, userLocation]
   );
 
   useEffect(() => {
@@ -319,22 +339,33 @@ export const CustomMapView = memo(function CustomMapView({
 
           {hasLocationPermission &&
             !locationError && ( // Only show if permission granted AND no other location error
-              <Pressable
-                style={styles.locationFab}
-                onPress={() => {
-                  if (userLocation) {
-                    mapRef.current?.animateToRegion({
-                      latitude: userLocation.latitude,
-                      longitude: userLocation.longitude,
-                      ...DEFAULT_DELTA,
-                    });
-                  }
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Center on my location"
-              >
-                <Text style={styles.locationFabIcon}>🎯</Text>
-              </Pressable>
+              <>
+                <Pressable
+                  style={styles.locationFab}
+                  onPress={() => {
+                    if (userLocation) {
+                      mapRef.current?.animateToRegion({
+                        latitude: userLocation.latitude,
+                        longitude: userLocation.longitude,
+                        ...DEFAULT_DELTA,
+                      });
+                    }
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Center on my location"
+                >
+                  <Text style={styles.locationFabIcon}>🎯</Text>
+                </Pressable>
+
+                {/* Data refresh indicator */}
+                {(loading || isRefreshing) && (
+                  <View style={styles.refreshIndicator}>
+                    <Text style={styles.refreshText}>
+                      {loading ? "Loading toilets..." : "Updating location..."}
+                    </Text>
+                  </View>
+                )}
+              </>
             )}
         </View>
       </View>
@@ -382,6 +413,8 @@ type StyleProps = {
   map: ViewStyle;
   permissionButton: ViewStyle;
   permissionErrorContainer: ViewStyle;
+  refreshIndicator: ViewStyle;
+  refreshText: TextStyle;
   safeAreaContainer: ViewStyle;
 };
 
@@ -444,6 +477,22 @@ const styles = StyleSheet.create<StyleProps>({
     right: 0,
     top: 0,
     zIndex: zIndex.mapControls, // Ensure it's above the map but below modals
+  },
+  refreshIndicator: {
+    alignItems: "center",
+    backgroundColor: colors.background.overlay,
+    borderRadius: 8,
+    left: getResponsiveSpacing(spacing.lg, SCREEN_WIDTH),
+    padding: spacing.md,
+    position: "absolute",
+    top: getResponsiveSpacing(spacing.lg, SCREEN_HEIGHT),
+    zIndex: zIndex.mapControls,
+    ...createShadow("md"),
+  },
+  refreshText: {
+    color: colors.text.inverse,
+    fontSize: getResponsiveFontSize(14, SCREEN_WIDTH),
+    fontWeight: "500",
   },
   safeAreaContainer: {
     flex: 1,

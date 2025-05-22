@@ -4,6 +4,7 @@ import {
   Session,
   User,
   AuthChangeEvent,
+  SupabaseClient,
 } from "@supabase/supabase-js";
 import { Toilet, Review } from "../types/toilet";
 import { UserProfile } from "../types/user";
@@ -20,10 +21,339 @@ if (!EXPO_PUBLIC_SUPABASE_URL || !EXPO_PUBLIC_SUPABASE_ANON_KEY) {
   throw new Error("Supabase environment configuration is missing.");
 }
 
-const supabase = createClient(
-  EXPO_PUBLIC_SUPABASE_URL,
-  EXPO_PUBLIC_SUPABASE_ANON_KEY
-);
+/**
+ * Singleton implementation of Supabase client
+ * This ensures we use the same client instance with the same auth state throughout the app
+ */
+class SupabaseClientSingleton {
+  private static instance: SupabaseClient;
+  private static isRefreshing = false;
+
+  /**
+   * Get the shared Supabase client instance
+   * @returns A Supabase client with consistent auth state
+   */
+  static getInstance(): SupabaseClient {
+    if (!this.instance) {
+      this.instance = createClient(
+        EXPO_PUBLIC_SUPABASE_URL,
+        EXPO_PUBLIC_SUPABASE_ANON_KEY,
+        {
+          auth: {
+            autoRefreshToken: true,
+            persistSession: true,
+            detectSessionInUrl: false,
+          },
+        }
+      );
+
+      debug.log("Supabase", "Created Supabase client singleton instance");
+    }
+    return this.instance;
+  }
+
+  /**
+   * Refresh the current session with retry mechanism
+   * It uses a lock to prevent concurrent refreshes
+   * @param retryCount Number of retry attempts (default: 2)
+   * @returns True if the refresh was successful
+   */
+  static async refreshSession(retryCount: number = 2): Promise<boolean> {
+    // Prevent concurrent refresh operations
+    if (this.isRefreshing) {
+      debug.log("Supabase", "Session refresh already in progress, skipping");
+      return true;
+    }
+
+    try {
+      this.isRefreshing = true;
+
+      const client = this.getInstance();
+      authDebug.log("SESSION_REFRESH", "attempt", {
+        timestamp: new Date().toISOString(),
+        retryCount,
+      });
+
+      // Implement retry logic
+      let lastError = null;
+      for (let attempt = 0; attempt <= retryCount; attempt++) {
+        try {
+          if (attempt > 0) {
+            // Wait longer between each retry attempt (exponential backoff)
+            const backoffMs = Math.min(1000 * Math.pow(2, attempt - 1), 8000);
+            debug.log(
+              "Supabase",
+              `Retry attempt ${attempt}/${retryCount} after ${backoffMs}ms`
+            );
+            await new Promise((resolve) => setTimeout(resolve, backoffMs));
+          }
+
+          const { data, error } = await client.auth.refreshSession();
+
+          if (error) {
+            lastError = error;
+            authDebug.log("SESSION_REFRESH", "failure", {
+              error: error.message,
+              attempt: attempt + 1,
+              maxAttempts: retryCount + 1,
+              timestamp: new Date().toISOString(),
+              retryAttempt: true, // Add flag to indicate this is a retry attempt
+            });
+            continue; // Try again if we have attempts left
+          }
+
+          // Success - log and return
+          authDebug.log("SESSION_REFRESH", "success", {
+            hasSession: !!data.session,
+            expiresAt: data.session?.expires_at,
+            attempt: attempt + 1,
+            timestamp: new Date().toISOString(),
+          });
+
+          return !!data.session;
+        } catch (attemptError) {
+          lastError = attemptError;
+          authDebug.log("SESSION_REFRESH", "network_error", {
+            error: attemptError,
+            attempt: attempt + 1,
+            maxAttempts: retryCount + 1,
+            retryAttempt: true, // Add flag to indicate this is a retry attempt
+          });
+        }
+      }
+
+      // If we reached here, all attempts failed
+      authDebug.log("SESSION_REFRESH", "failure", {
+        totalAttempts: retryCount + 1,
+        lastError,
+        timestamp: new Date().toISOString(),
+        allAttemptsFailed: true, // Add flag to indicate all attempts failed
+      });
+
+      return false;
+    } catch (error) {
+      authDebug.log("SESSION_REFRESH", "network_error", { error });
+      return false;
+    } finally {
+      this.isRefreshing = false;
+    }
+  }
+
+  /**
+   * Normalizes different timestamp formats to a JavaScript Date object
+   * Handles Unix timestamps (seconds), JavaScript timestamps (milliseconds),
+   * ISO strings, and other string date formats
+   *
+   * @param timestamp The timestamp to normalize
+   * @returns A JavaScript Date object or null if invalid
+   */
+  static normalizeTimestamp(
+    timestamp: number | string | undefined | null
+  ): Date | null {
+    if (timestamp === undefined || timestamp === null) {
+      return null;
+    }
+
+    try {
+      // Handle numeric timestamps
+      if (typeof timestamp === "number") {
+        // Unix timestamps (seconds since epoch) typically have 10 digits
+        // JavaScript timestamps (milliseconds since epoch) have 13 digits
+        if (timestamp < 20000000000) {
+          // Heuristic for Unix timestamp (before year 2603)
+          return new Date(timestamp * 1000);
+        } else {
+          return new Date(timestamp);
+        }
+      }
+
+      // Handle string timestamps
+      if (typeof timestamp === "string") {
+        // Try to parse as a number first
+        const numericValue = parseInt(timestamp, 10);
+        if (!isNaN(numericValue)) {
+          return this.normalizeTimestamp(numericValue);
+        }
+
+        // Try as ISO date string or other string formats
+        const dateObject = new Date(timestamp);
+        if (this.isValidDate(dateObject)) {
+          return dateObject;
+        }
+      }
+
+      // If we get here, the timestamp couldn't be parsed
+      debug.warn("Supabase", "Unknown timestamp format", { timestamp });
+      return null;
+    } catch (error) {
+      debug.error("Supabase", "Error normalizing timestamp", {
+        timestamp,
+        error,
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Checks if a date object is valid
+   * @param date The date object to check
+   * @returns True if the date is valid
+   */
+  static isValidDate(date: Date | null | undefined): boolean {
+    return date instanceof Date && !isNaN(date.getTime());
+  }
+
+  /**
+   * Checks if an expiration time is within reasonable bounds
+   * @param expiresIn Seconds until expiration
+   * @returns Whether the expiration is reasonable
+   */
+  static isReasonableExpiration(expiresIn: number): boolean {
+    const MAX_EXPIRATION = 86400 * 90; // 90 days in seconds
+    const MIN_EXPIRATION = -300; // Allow slightly expired (5 minutes)
+
+    return expiresIn > MIN_EXPIRATION && expiresIn < MAX_EXPIRATION;
+  }
+
+  /**
+   * Check if the current session is valid
+   * Enhanced with better timestamp validation and fallback handling
+   * @returns Session information or null if no session
+   */
+  static async checkSession(): Promise<{
+    valid: boolean;
+    session: Session | null;
+    expiresIn: number | null;
+    needsForceRefresh: boolean;
+    detailedStatus?: string;
+  }> {
+    try {
+      const client = this.getInstance();
+      const { data } = await client.auth.getSession();
+
+      if (!data.session) {
+        return {
+          valid: false,
+          session: null,
+          expiresIn: null,
+          needsForceRefresh: false,
+          detailedStatus: "no_session",
+        };
+      }
+
+      // Safe date parsing with improved validation
+      let expiresIn = null;
+      let needsForceRefresh = false;
+      let detailedStatus = "valid";
+
+      try {
+        if (data.session.expires_at) {
+          // Use our timestamp normalization utility
+          const expiresAt = this.normalizeTimestamp(data.session.expires_at);
+          const now = new Date();
+
+          // Validate that expires_at is a valid date
+          if (this.isValidDate(expiresAt)) {
+            expiresIn = Math.floor(
+              (expiresAt!.getTime() - now.getTime()) / 1000
+            );
+
+            // Check if expiration time is reasonable
+            if (!this.isReasonableExpiration(expiresIn)) {
+              if (expiresIn < -300) {
+                // More than 5 minutes in the past
+                debug.warn(
+                  "Supabase",
+                  "Session expiration date is far in the past",
+                  {
+                    expiresIn,
+                    expiresAtRaw: data.session.expires_at,
+                    expiresAtNormalized: expiresAt!.toISOString(),
+                    now: now.toISOString(),
+                  }
+                );
+                detailedStatus = "expired_past";
+                needsForceRefresh = true;
+              } else if (expiresIn > 86400 * 30) {
+                // More than 30 days in future
+                debug.warn(
+                  "Supabase",
+                  "Session expiration date is suspiciously far in the future",
+                  {
+                    expiresIn,
+                    expiresAtRaw: data.session.expires_at,
+                    expiresAtNormalized: expiresAt!.toISOString(),
+                    now: now.toISOString(),
+                  }
+                );
+                detailedStatus = "suspicious_future";
+                // Don't force refresh but log the anomaly
+              }
+            } else {
+              // Expiration time is reasonable
+              if (expiresIn < 0) {
+                detailedStatus = "just_expired";
+                needsForceRefresh = true;
+              } else if (expiresIn < 600) {
+                // 10 minutes
+                detailedStatus = "expiring_soon";
+                needsForceRefresh = true;
+              }
+            }
+          } else {
+            debug.error("Supabase", "Invalid session expiration date", {
+              expiresAtRaw: data.session.expires_at,
+              normalizedResult: expiresAt,
+            });
+            expiresIn = -1; // Treat as expired
+            needsForceRefresh = true; // Force refresh
+            detailedStatus = "invalid_date";
+          }
+        } else {
+          debug.warn("Supabase", "Session missing expiration date");
+          expiresIn = -1;
+          needsForceRefresh = true;
+          detailedStatus = "missing_expiration";
+        }
+      } catch (dateError) {
+        debug.error(
+          "Supabase",
+          "Error calculating session expiration",
+          dateError
+        );
+        expiresIn = -1; // Treat as expired if we can't calculate
+        needsForceRefresh = true; // Force refresh on calculation error
+        detailedStatus = "calculation_error";
+      }
+
+      return {
+        valid: expiresIn !== null && expiresIn > 0,
+        session: data.session,
+        expiresIn,
+        needsForceRefresh,
+        detailedStatus,
+      };
+    } catch (error) {
+      authDebug.log("SESSION_REFRESH", "network_error", { error });
+      return {
+        valid: false,
+        session: null,
+        expiresIn: null,
+        needsForceRefresh: false,
+        detailedStatus: "network_error",
+      };
+    }
+  }
+}
+
+// Get the singleton instance to use throughout the file
+const supabase = SupabaseClientSingleton.getInstance();
+
+// Export the singleton accessor functions for use in other services
+export const getSupabaseClient = () => SupabaseClientSingleton.getInstance();
+export const refreshSession = (retryCount?: number) =>
+  SupabaseClientSingleton.refreshSession(retryCount);
+export const checkSession = () => SupabaseClientSingleton.checkSession();
 
 // Define the auth service types
 interface AuthSignUpParams {

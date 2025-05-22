@@ -7,7 +7,12 @@
  */
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { supabaseService } from "../services/supabase";
+import {
+  supabaseService,
+  refreshSession,
+  checkSession,
+} from "../services/supabase";
+import { profileService } from "../services/profileService";
 import { AuthState, AuthContextValue, UserProfile } from "../types/user";
 import { Session, AuthChangeEvent, AuthError } from "@supabase/supabase-js";
 import { debug } from "../utils/debug";
@@ -166,6 +171,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           const endTracking = authDebug.trackPerformance("auth_state_update");
 
           try {
+            // Ensure the user has a profile in the database
+            // This is critical for RLS policy compatibility
+            debug.log(
+              "Auth",
+              "Ensuring user profile exists after auth state change"
+            );
+            await profileService.ensureUserProfile();
+
             // Get user profile
             const profile = await supabaseService.auth.getProfile();
 
@@ -174,6 +187,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               event,
               userId: session.user.id,
               hasProfile: !!profile,
+              profileEnsured: true,
             });
 
             setState({
@@ -220,6 +234,203 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
   }, []);
 
+  // Add enhanced session health monitoring interval to proactively refresh tokens with retry
+  useEffect(() => {
+    // Skip in loading state to avoid multiple session checks
+    if (state.isLoading) return;
+
+    debug.log("Auth", "Starting enhanced session health monitoring");
+
+    // Check session every minute to ensure it's always valid
+    const sessionHealthInterval = setInterval(async () => {
+      try {
+        // Skip checks if not authenticated
+        if (!state.isAuthenticated || !state.user) {
+          return;
+        }
+
+        // Get session health info with enhanced validation
+        const sessionInfo = await checkSession();
+
+        // Log session health check
+        authDebug.log("SESSION_REFRESH", "info", {
+          action: "health_check",
+          valid: sessionInfo.valid,
+          expiresIn: sessionInfo.expiresIn,
+          needsForceRefresh: sessionInfo.needsForceRefresh,
+          timestamp: new Date().toISOString(),
+        });
+
+        // Log detailed session status to help diagnose issues
+        if (
+          sessionInfo.detailedStatus &&
+          sessionInfo.detailedStatus !== "valid"
+        ) {
+          debug.log(
+            "Auth",
+            `Session status check: ${sessionInfo.detailedStatus}`,
+            {
+              expiresIn: sessionInfo.expiresIn,
+              needsForceRefresh: sessionInfo.needsForceRefresh,
+              detailedStatus: sessionInfo.detailedStatus,
+            }
+          );
+        }
+
+        // If session has issues or is about to expire, refresh it proactively
+        if (
+          sessionInfo.session &&
+          (sessionInfo.needsForceRefresh ||
+            sessionInfo.detailedStatus === "suspicious_future" ||
+            sessionInfo.detailedStatus === "expired_past" ||
+            sessionInfo.detailedStatus === "just_expired" ||
+            sessionInfo.detailedStatus === "expiring_soon" ||
+            sessionInfo.detailedStatus === "invalid_date" ||
+            (sessionInfo.expiresIn && sessionInfo.expiresIn < 600)) // 10 minutes threshold
+        ) {
+          let reason = "";
+
+          // Generate a more detailed reason based on the status
+          if (sessionInfo.detailedStatus) {
+            switch (sessionInfo.detailedStatus) {
+              case "suspicious_future":
+                reason =
+                  "session expiration date is suspiciously far in the future";
+                break;
+              case "expired_past":
+                reason = "session expiration date is in the past";
+                break;
+              case "just_expired":
+                reason = "session just expired";
+                break;
+              case "expiring_soon":
+                reason = `expiring soon (${sessionInfo.expiresIn}s remaining)`;
+                break;
+              case "invalid_date":
+                reason = "invalid expiration date format detected";
+                break;
+              case "missing_expiration":
+                reason = "missing expiration information";
+                break;
+              default:
+                reason =
+                  sessionInfo.needsForceRefresh ?
+                    "invalid expiration timestamp detected"
+                  : `expiring soon (${sessionInfo.expiresIn}s remaining)`;
+            }
+          } else {
+            reason =
+              sessionInfo.needsForceRefresh ?
+                "invalid expiration timestamp detected"
+              : `expiring soon (${sessionInfo.expiresIn}s remaining)`;
+          }
+
+          debug.log("Auth", `Proactively refreshing session: ${reason}`, {
+            expiresIn: sessionInfo.expiresIn,
+            needsForceRefresh: sessionInfo.needsForceRefresh,
+            detailedStatus: sessionInfo.detailedStatus,
+          });
+
+          // Use retry mechanism for session refresh (up to 3 retries based on timestamp issues)
+          const refreshRetries =
+            (
+              sessionInfo.detailedStatus === "expired_past" ||
+              sessionInfo.detailedStatus === "invalid_date"
+            ) ?
+              3
+            : 2;
+
+          const refreshed = await refreshSession(refreshRetries);
+
+          if (refreshed) {
+            // Verify the refreshed session to ensure it's valid
+            const verifySession = await checkSession();
+
+            authDebug.log("SESSION_REFRESH", "info", {
+              action: "proactive_refresh",
+              success: refreshed,
+              newExpiresIn: verifySession.expiresIn,
+              newDetailedStatus: verifySession.detailedStatus,
+              stillValid: verifySession.valid,
+              timestamp: new Date().toISOString(),
+            });
+
+            if (!verifySession.valid) {
+              debug.warn(
+                "Auth",
+                "Session refresh succeeded but session is still invalid",
+                {
+                  expiresIn: verifySession.expiresIn,
+                  needsForceRefresh: verifySession.needsForceRefresh,
+                  detailedStatus: verifySession.detailedStatus,
+                }
+              );
+
+              // If we still have an invalid date/timestamp after refresh, it may be a deeper issue
+              if (
+                verifySession.detailedStatus === "invalid_date" ||
+                verifySession.detailedStatus === "expired_past" ||
+                verifySession.detailedStatus === "suspicious_future"
+              ) {
+                debug.error(
+                  "Auth",
+                  "Persistent timestamp abnormality after refresh - may require re-authentication",
+                  {
+                    detailedStatus: verifySession.detailedStatus,
+                    expiresIn: verifySession.expiresIn,
+                  }
+                );
+
+                // This is a potential candidate for forcing re-authentication
+                // but we'll let the auto-retry mechanism try again first
+              }
+            } else {
+              debug.log("Auth", "Session refresh successful and validated", {
+                newExpiresIn: verifySession.expiresIn,
+                newDetailedStatus: verifySession.detailedStatus,
+              });
+            }
+          } else {
+            debug.error("Auth", "Session refresh failed after retry attempts", {
+              originalExpiresIn: sessionInfo.expiresIn,
+              detailedStatus: sessionInfo.detailedStatus,
+            });
+
+            // If refresh fails and user's session is already expired, consider signing them out
+            if (
+              (sessionInfo.expiresIn && sessionInfo.expiresIn < 0) ||
+              sessionInfo.detailedStatus === "expired_past" ||
+              sessionInfo.detailedStatus === "just_expired"
+            ) {
+              debug.warn(
+                "Auth",
+                "Session expired and refresh failed - user needs to re-authenticate",
+                {
+                  expiresIn: sessionInfo.expiresIn,
+                  detailedStatus: sessionInfo.detailedStatus,
+                }
+              );
+
+              // Show a toast or notification to the user that they should re-login
+              // Implementation depends on your UI notification system
+            }
+          }
+        }
+      } catch (error) {
+        // Don't crash the app on monitoring errors, just log them
+        authDebug.log("SESSION_REFRESH", "failure", {
+          action: "health_check",
+          error,
+        });
+      }
+    }, 60000); // Check health every minute
+
+    return () => {
+      clearInterval(sessionHealthInterval);
+      debug.log("Auth", "Stopping session health monitoring");
+    };
+  }, [state.isLoading, state.isAuthenticated, state.user]);
+
   /**
    * Sign in with email and password
    */
@@ -244,11 +455,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (error) {
         // Log auth failure from UI
-        // Cast to AuthError to safely access code property
-        const authError = error as AuthError;
+        // Log auth failure details
         authDebug.log("SIGNIN", "failure", {
           email,
-          errorCode: authError.code,
+          errorCode: error.code || "unknown",
           errorMessage: error.message,
         });
 
@@ -311,11 +521,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (error) {
         // Log signup failure from UI
-        // Cast to AuthError to safely access code property
-        const authError = error as AuthError;
+        // Log signup failure details
         authDebug.log("SIGNUP", "failure", {
           email,
-          errorCode: authError.code,
+          errorCode: error.code || "unknown",
           errorMessage: error.message,
         });
 
@@ -398,12 +607,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const { error } = await supabaseService.auth.signOut();
 
       if (error) {
-        // Log signout failure
-        // Cast to AuthError to safely access code property
-        const authError = error as AuthError;
+        // Log signout failure details with safe property access
         authDebug.log("SIGNOUT", "failure", {
           errorMessage: error.message,
-          errorCode: authError.code || "unknown",
+          errorCode: (error as AuthError).code || "unknown",
         });
 
         debug.error("Auth", "Sign out failed", error);
@@ -460,12 +667,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (error) {
         // Log password reset failure
-        // Cast to AuthError to safely access code property
-        const authError = error as AuthError;
+        // Handle error logging with safe property access
         authDebug.log("PASSWORD_RESET", "failure", {
           email,
           errorMessage: error.message,
-          errorCode: authError.code || "unknown",
+          errorCode: (error as AuthError).code || "unknown",
         });
 
         debug.error("Auth", "Password reset failed", error);
@@ -517,12 +723,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setState((prev) => ({ ...prev, isLoading: false }));
 
       if (error) {
-        // Log password update failure
-        // Cast to AuthError to safely access code property
-        const authError = error as AuthError;
+        // Log password update failure with safe property access
         authDebug.log("PASSWORD_UPDATE", "failure", {
           errorMessage: error.message,
-          errorCode: authError.code || "unknown",
+          errorCode: (error as AuthError).code || "unknown",
         });
 
         debug.error("Auth", "Password update failed", error);
