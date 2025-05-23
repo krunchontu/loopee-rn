@@ -19,7 +19,9 @@ interface AppHeaderProps {
 }
 
 /**
- * AppHeader component provides consistent navigation header with prominent profile access
+ * AppHeader component provides consistent navigation header with prominent profile access.
+ * Used as the primary header throughout the app, replacing the default React Navigation header.
+ * This prevents group names like "(auth)" from appearing in the UI.
  *
  * @param title - Header title text (defaults to "Loopee")
  * @param showBackButton - Whether to show a back button (optional)

@@ -47,12 +47,18 @@ export default function AuthLayout() {
       />
       <View style={styles.innerContainer}>
         <Stack
+          // The root layout already sets headerShown: false globally
           screenOptions={{
-            headerShown: false, // We're using our custom AppHeader instead
             contentStyle: {
               backgroundColor: colors.background.primary,
             },
             animation: "slide_from_right",
+            // Hide route names that appear in the UI
+            title: "", // This prevents the route name from showing
+            // Ensure no default navigation elements appear
+            headerBackVisible: false, // Explicitly hide the back button
+            headerLeft: () => null, // Remove any header left items
+            navigationBarHidden: true, // Hide the navigation bar completely
           }}
         />
       </View>
