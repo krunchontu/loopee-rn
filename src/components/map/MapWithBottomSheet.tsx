@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import { View, StyleSheet, SafeAreaView, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import MapView from "react-native-maps";
+import MapView, { Region } from "react-native-maps";
 import { AppHeader } from "../shared/AppHeader";
 import { useToiletStore } from "../../stores/toilets";
 import { locationService, LocationState } from "../../services/location";
@@ -78,11 +78,26 @@ export default function MapWithBottomSheet() {
   const handleCenterLocation = useCallback(() => {
     debug.log("MapWithBottomSheet", "Center on current location");
     if (currentLocation && mapRef.current) {
-      mapRef.current.animateToRegion({
+      // Define the region for animation
+      const region: Region = {
         latitude: currentLocation.latitude,
         longitude: currentLocation.longitude,
         latitudeDelta: 0.01,
         longitudeDelta: 0.01,
+      };
+
+      // Animate to the user's current location with a smoother animation
+      mapRef.current.animateToRegion(region, 500); // 500ms animation duration
+
+      debug.log("MapWithBottomSheet", "Animating to location", {
+        lat: currentLocation.latitude,
+        lng: currentLocation.longitude,
+      });
+    } else {
+      // Log why the animation isn't happening for debugging
+      debug.warn("MapWithBottomSheet", "Cannot center map", {
+        hasCurrentLocation: !!currentLocation,
+        hasMapRef: !!mapRef.current,
       });
     }
   }, [currentLocation]);
@@ -159,8 +174,9 @@ export default function MapWithBottomSheet() {
         <AppHeader />
       </SafeAreaView>
 
-      {/* Map view */}
+      {/* Map view with forwarded ref */}
       <CustomMapView
+        ref={mapRef}
         style={styles.map}
         onMapPress={() => {}} // Empty handler to avoid sheet closing on map tap
       />
