@@ -58,19 +58,33 @@ export function AnimatedMarker({
     return null;
   }
 
-  // Debug marker rendering
+  // Debug marker rendering - throttled to reduce console noise (60 second interval)
+  const MARKER_LOG_THROTTLE = 60000; // 60 seconds
+
   if (isCluster) {
-    debug.log("AnimatedMarker", "Rendering cluster", {
-      coordinate,
-      count,
-      timestamp: new Date().toISOString(),
-    });
+    debug.throttledLog(
+      "AnimatedMarker",
+      `cluster-${coordinate.latitude.toFixed(4)}-${coordinate.longitude.toFixed(4)}`,
+      "Rendering cluster",
+      {
+        coordinate,
+        count,
+        timestamp: new Date().toISOString(),
+      },
+      MARKER_LOG_THROTTLE
+    );
   } else {
-    debug.log("AnimatedMarker", "Rendering toilet marker", {
-      coordinate,
-      pinColor,
-      timestamp: new Date().toISOString(),
-    });
+    debug.throttledLog(
+      "AnimatedMarker",
+      `marker-${coordinate.latitude.toFixed(4)}-${coordinate.longitude.toFixed(4)}`,
+      "Rendering toilet marker",
+      {
+        coordinate,
+        pinColor,
+        timestamp: new Date().toISOString(),
+      },
+      MARKER_LOG_THROTTLE
+    );
   }
 
   if (isCluster) {

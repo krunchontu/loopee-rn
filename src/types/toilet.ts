@@ -10,6 +10,15 @@ export interface Review {
   comment: string;
   createdAt: string;
   photos?: string[];
+  isEdited?: boolean;
+  version?: number;
+  lastEditedAt?: string;
+  updatedAt?: string;
+  user?: {
+    id: string;
+    displayName: string;
+    avatarUrl?: string;
+  };
 }
 
 export interface Building {
@@ -24,12 +33,16 @@ export interface Building {
 export interface Toilet {
   id: string;
   name: string;
+  description?: string;
   location: Location;
   rating: number;
   reviewCount: number;
   isAccessible: boolean;
   address: string;
   distance?: number; // Distance in meters from user's current location
+  isPublic?: boolean; // Whether it's a public toilet or private
+  isFree?: boolean; // Whether it's free to use
+  fee?: string; // Fee amount if not free
   openingHours?: {
     open: string;
     close: string;

@@ -1,4 +1,12 @@
-import { useRef, useEffect, useState, useCallback, memo, useMemo } from "react";
+import {
+  useRef,
+  useEffect,
+  useState,
+  useCallback,
+  memo,
+  useMemo,
+  forwardRef,
+} from "react";
 import {
   StyleSheet,
   Platform,
@@ -47,300 +55,362 @@ const DEFAULT_DELTA = {
   longitudeDelta: 0.01,
 };
 
-export const CustomMapView = memo(function CustomMapView({
-  onMarkerPress,
-  initialRegion = DEFAULT_REGION,
-  onMapPress,
-  style,
-}: CustomMapViewProps) {
-  const mapRef = useRef<MapView>(null);
-  const insets = useSafeAreaInsets();
-  const { toilets, selectToilet, fetchNearbyToilets } = useToiletStore();
-  const [hasLocationPermission, setHasLocationPermission] =
-    useState<boolean>(false);
-  const [locationError, setLocationError] = useState<string | null>(null);
-  const [userLocation, setUserLocation] = useState<LocationState | null>(null);
-  const [currentRegion, setCurrentRegion] = useState<Region>(initialRegion);
-  const [clusters, setClusters] = useState<ReturnType<typeof clusterToilets>>(
-    []
-  );
-
-  // Simple desaturated map style
-  const customMapStyle = [
+export const CustomMapView = memo(
+  forwardRef(function CustomMapView(
     {
-      featureType: "all",
-      elementType: "all",
-      stylers: [{ saturation: -70 }], // Desaturate all features
-    },
-    {
-      // Keep water somewhat blue for context
-      featureType: "water",
-      elementType: "geometry",
-      stylers: [{ saturation: -30 }, { lightness: -5 }],
-    },
-    {
-      // Ensure road labels are visible
-      featureType: "road",
-      elementType: "labels.text.fill",
-      stylers: [{ saturation: 0 }, { lightness: -20 }, { gamma: 0.8 }],
-    },
-    {
-      // Ensure POI labels are visible
-      featureType: "poi",
-      elementType: "labels.text.fill",
-      stylers: [{ saturation: 0 }, { lightness: -30 }, { gamma: 0.7 }],
-    },
-  ];
+      onMarkerPress,
+      initialRegion = DEFAULT_REGION,
+      onMapPress,
+      style,
+    }: CustomMapViewProps,
+    forwardedRef: React.ForwardedRef<MapView>
+  ) {
+    // Create internal ref that we'll always use
+    const internalMapRef = useRef<MapView>(null);
 
-  const handleLocationPermission = useCallback(async () => {
-    debug.log("MapView", "Requesting location permissions");
-    const granted = await locationService.requestPermissions();
-    setHasLocationPermission(granted);
-    if (!granted) {
-      const errorMsg = "Location permission is required to find nearby toilets";
-      debug.error("MapView", errorMsg);
-      setLocationError(errorMsg);
-    } else {
-      debug.log("MapView", "Location permissions granted");
-    }
-  }, []);
+    // Handle forwarded ref by syncing it with our internal ref
+    useEffect(() => {
+      if (!forwardedRef) return;
 
-  const handleLocationUpdate = useCallback(
-    (location: LocationState) => {
-      setUserLocation(location);
-      setLocationError(null);
-
-      debug.log("MapView", "Location updated", {
-        lat: location.latitude,
-        lng: location.longitude,
-      });
-
-      const newRegion = {
-        latitude: location.latitude,
-        longitude: location.longitude,
-        ...DEFAULT_DELTA,
-      };
-
-      // Update map position with smooth animation
-      mapRef.current?.animateToRegion(newRegion);
-
-      // Fetch nearby toilets
-      fetchNearbyToilets(location.latitude, location.longitude);
-    },
-    [fetchNearbyToilets]
-  );
-
-  useEffect(() => {
-    handleLocationPermission();
-  }, [handleLocationPermission]);
-
-  useEffect(() => {
-    if (!hasLocationPermission) return;
-
-    locationService.startLocationUpdates(handleLocationUpdate, (error) =>
-      setLocationError(error.message)
-    );
-
-    return () => {
-      locationService.stopLocationUpdates();
-    };
-  }, [hasLocationPermission, handleLocationUpdate]);
-
-  const handleMarkerPress = useCallback(
-    (toilet: Toilet) => {
-      debug.log("MapView", "Marker pressed", toilet.id);
-
-      // Ensure the toilet data is complete before selection
-      if (toilet && toilet.id) {
-        selectToilet(toilet);
-
-        // Explicitly invoke any additional marker press handler
-        onMarkerPress?.(toilet);
-
-        // Log selection for debugging
-        debug.log("MapView", "Toilet selected successfully", {
-          toiletId: toilet.id,
-          name: toilet.name,
-        });
+      if (typeof forwardedRef === "function") {
+        // For function refs, call with current value
+        forwardedRef(internalMapRef.current);
       } else {
-        debug.error("MapView", "Invalid toilet data on marker press", toilet);
+        // For object refs, set current value
+        forwardedRef.current = internalMapRef.current;
       }
-    },
-    [selectToilet, onMarkerPress]
-  );
+    }, [forwardedRef]);
+    const insets = useSafeAreaInsets();
+    const { toilets, selectToilet, fetchNearbyToilets, loading } =
+      useToiletStore();
+    const [hasLocationPermission, setHasLocationPermission] =
+      useState<boolean>(false);
+    const [locationError, setLocationError] = useState<string | null>(null);
+    const [userLocation, setUserLocation] = useState<LocationState | null>(
+      null
+    );
+    const [currentRegion, setCurrentRegion] = useState<Region>(initialRegion);
+    const [clusters, setClusters] = useState<ReturnType<typeof clusterToilets>>(
+      []
+    );
+    const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
-  const handleRegionChange = useCallback(
-    (region: Region) => {
-      setCurrentRegion(region);
-      const zoomLevel = getZoomLevel(region);
-      debug.log("MapView", "Region changed", { zoomLevel });
-
-      const newClusters = clusterToilets(toilets, region);
-      setClusters(newClusters);
-    },
-    [toilets]
-  );
-
-  useEffect(() => {
-    // Initial clustering
-    const initialClusters = clusterToilets(toilets, currentRegion);
-
-    // Debug clustering results
-    debug.log(
-      "MapView",
-      `Clustering resulted in ${initialClusters.length} clusters:`,
+    // Simple desaturated map style
+    const customMapStyle = [
       {
-        totalToilets: toilets.length,
-        numClusters: initialClusters.length,
-        zoomLevel: getZoomLevel(currentRegion),
-        singleMarkers: initialClusters.filter((c) => c.points.length === 1)
-          .length,
-        multiMarkers: initialClusters.filter((c) => c.points.length > 1).length,
-        region: currentRegion,
+        featureType: "all",
+        elementType: "all",
+        stylers: [{ saturation: -70 }], // Desaturate all features
+      },
+      {
+        // Keep water somewhat blue for context
+        featureType: "water",
+        elementType: "geometry",
+        stylers: [{ saturation: -30 }, { lightness: -5 }],
+      },
+      {
+        // Ensure road labels are visible
+        featureType: "road",
+        elementType: "labels.text.fill",
+        stylers: [{ saturation: 0 }, { lightness: -20 }, { gamma: 0.8 }],
+      },
+      {
+        // Ensure POI labels are visible
+        featureType: "poi",
+        elementType: "labels.text.fill",
+        stylers: [{ saturation: 0 }, { lightness: -30 }, { gamma: 0.7 }],
+      },
+    ];
+
+    const handleLocationPermission = useCallback(async () => {
+      debug.log("MapView", "Requesting location permissions");
+      const granted = await locationService.requestPermissions();
+      setHasLocationPermission(granted);
+      if (!granted) {
+        const errorMsg =
+          "Location permission is required to find nearby toilets";
+        debug.error("MapView", errorMsg);
+        setLocationError(errorMsg);
+      } else {
+        debug.log("MapView", "Location permissions granted");
       }
+    }, []);
+
+    const handleLocationUpdate = useCallback(
+      (location: LocationState) => {
+        setUserLocation(location);
+        setLocationError(null);
+
+        // Throttled location logging to reduce console noise (30 second interval)
+        const LOCATION_LOG_THROTTLE = 30000; // 30 seconds
+        debug.throttledLog(
+          "MapView",
+          "location-update",
+          "Location updated",
+          {
+            lat: location.latitude,
+            lng: location.longitude,
+          },
+          LOCATION_LOG_THROTTLE
+        );
+
+        // Update user position on significant changes
+        // Map animation only happens on first location or when user presses the location button
+        // This prevents constant map movement during regular location updates
+        if (!userLocation) {
+          const newRegion = {
+            latitude: location.latitude,
+            longitude: location.longitude,
+            ...DEFAULT_DELTA,
+          };
+
+          // Update map position with smooth animation only on first location
+          internalMapRef.current?.animateToRegion(newRegion);
+        }
+
+        // Location updates are now throttled in the location service (60s interval, 100m distance)
+        // and the toilet store has caching to prevent unnecessary fetches
+        setIsRefreshing(true);
+        fetchNearbyToilets(location.latitude, location.longitude).finally(
+          () => {
+            // Clear refreshing state when done, whether successful or not
+            setIsRefreshing(false);
+          }
+        );
+      },
+      [fetchNearbyToilets, userLocation]
     );
 
-    setClusters(initialClusters);
-  }, [toilets, currentRegion]);
+    useEffect(() => {
+      handleLocationPermission();
+    }, [handleLocationPermission]);
 
-  // Calculate safe area padding for content
-  const safeAreaPadding = useMemo(() => {
-    const androidInsets =
-      Platform.OS === "android" ?
-        getAndroidInsets()
-      : { statusBarHeight: 0, navBarHeight: 0 };
+    useEffect(() => {
+      if (!hasLocationPermission) return;
 
-    return {
-      paddingTop:
-        Platform.OS === "android" ? androidInsets.statusBarHeight : insets.top,
-      paddingBottom:
-        Platform.OS === "android" ? androidInsets.navBarHeight : insets.bottom,
-      paddingLeft: insets.left,
-      paddingRight: insets.right,
-    };
-  }, [insets]);
+      locationService.startLocationUpdates(handleLocationUpdate, (error) =>
+        setLocationError(error.message)
+      );
 
-  return (
-    <ErrorBoundary>
-      <View style={[styles.safeAreaContainer, safeAreaPadding, style]}>
-        <View style={styles.container}>
-          <MapView
-            ref={mapRef}
-            style={styles.map}
-            provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
-            initialRegion={initialRegion}
-            showsUserLocation={hasLocationPermission}
-            showsMyLocationButton={false}
-            showsCompass
-            customMapStyle={customMapStyle} // Apply custom style
-            onPress={onMapPress}
-            onRegionChangeComplete={handleRegionChange}
-          >
-            {clusters.map((cluster) => {
-              if (cluster.points.length === 1) {
-                const toilet = cluster.points[0];
+      return () => {
+        locationService.stopLocationUpdates();
+      };
+    }, [hasLocationPermission, handleLocationUpdate]);
 
-                // Log skipped markers but attempt to render all toilets for diagnosis
+    const handleMarkerPress = useCallback(
+      (toilet: Toilet) => {
+        debug.log("MapView", "Marker pressed", toilet.id);
+
+        // Ensure the toilet data is complete before selection
+        if (toilet && toilet.id) {
+          selectToilet(toilet);
+
+          // Explicitly invoke any additional marker press handler
+          onMarkerPress?.(toilet);
+
+          // Log selection for debugging
+          debug.log("MapView", "Toilet selected successfully", {
+            toiletId: toilet.id,
+            name: toilet.name,
+          });
+        } else {
+          debug.error("MapView", "Invalid toilet data on marker press", toilet);
+        }
+      },
+      [selectToilet, onMarkerPress]
+    );
+
+    const handleRegionChange = useCallback(
+      (region: Region) => {
+        setCurrentRegion(region);
+        const zoomLevel = getZoomLevel(region);
+        debug.log("MapView", "Region changed", { zoomLevel });
+
+        const newClusters = clusterToilets(toilets, region);
+        setClusters(newClusters);
+      },
+      [toilets]
+    );
+
+    useEffect(() => {
+      // Initial clustering
+      const initialClusters = clusterToilets(toilets, currentRegion);
+
+      // Debug clustering results
+      debug.log(
+        "MapView",
+        `Clustering resulted in ${initialClusters.length} clusters:`,
+        {
+          totalToilets: toilets.length,
+          numClusters: initialClusters.length,
+          zoomLevel: getZoomLevel(currentRegion),
+          singleMarkers: initialClusters.filter((c) => c.points.length === 1)
+            .length,
+          multiMarkers: initialClusters.filter((c) => c.points.length > 1)
+            .length,
+          region: currentRegion,
+        }
+      );
+
+      setClusters(initialClusters);
+    }, [toilets, currentRegion]);
+
+    // Calculate safe area padding for content
+    const safeAreaPadding = useMemo(() => {
+      const androidInsets =
+        Platform.OS === "android" ?
+          getAndroidInsets()
+        : { statusBarHeight: 0, navBarHeight: 0 };
+
+      return {
+        paddingTop:
+          Platform.OS === "android" ?
+            androidInsets.statusBarHeight
+          : insets.top,
+        paddingBottom:
+          Platform.OS === "android" ?
+            androidInsets.navBarHeight
+          : insets.bottom,
+        paddingLeft: insets.left,
+        paddingRight: insets.right,
+      };
+    }, [insets]);
+
+    return (
+      <ErrorBoundary>
+        <View style={[styles.safeAreaContainer, safeAreaPadding, style]}>
+          <View style={styles.container}>
+            <MapView
+              ref={internalMapRef}
+              style={styles.map}
+              provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
+              initialRegion={initialRegion}
+              showsUserLocation={hasLocationPermission}
+              showsMyLocationButton={false}
+              showsCompass
+              customMapStyle={customMapStyle} // Apply custom style
+              onPress={onMapPress}
+              onRegionChangeComplete={handleRegionChange}
+            >
+              {clusters.map((cluster) => {
+                if (cluster.points.length === 1) {
+                  const toilet = cluster.points[0];
+
+                  // Log skipped markers but attempt to render all toilets for diagnosis
+                  if (
+                    !toilet?.location?.latitude ||
+                    !toilet?.location?.longitude
+                  ) {
+                    debug.warn(
+                      "MapView",
+                      `TOILET DIAGNOSIS: Would normally skip marker for toilet with invalid location: ${toilet?.id}`,
+                      {
+                        toiletId: toilet?.id,
+                        hasLocation: !!toilet?.location,
+                        latitude: toilet?.location?.latitude,
+                        longitude: toilet?.location?.longitude,
+                      }
+                    );
+                    // Continue rendering to see if any coordinates are actually being set
+                  }
+
+                  return (
+                    <AnimatedMarker
+                      key={toilet.id}
+                      coordinate={{
+                        latitude: toilet.location.latitude,
+                        longitude: toilet.location.longitude,
+                      }}
+                      onPress={() => handleMarkerPress(toilet)}
+                      pinColor={
+                        toilet.isAccessible ? colors.secondary : colors.primary
+                      }
+                    />
+                  );
+                }
+
+                // Validate cluster coordinate before rendering
                 if (
-                  !toilet?.location?.latitude ||
-                  !toilet?.location?.longitude
+                  !cluster?.coordinate?.latitude ||
+                  !cluster?.coordinate?.longitude
                 ) {
                   debug.warn(
                     "MapView",
-                    `TOILET DIAGNOSIS: Would normally skip marker for toilet with invalid location: ${toilet?.id}`,
-                    {
-                      toiletId: toilet?.id,
-                      hasLocation: !!toilet?.location,
-                      latitude: toilet?.location?.latitude,
-                      longitude: toilet?.location?.longitude,
-                    }
+                    `Skipping cluster with invalid coordinate: ${cluster?.id}`
                   );
-                  // Continue rendering to see if any coordinates are actually being set
+                  return null;
                 }
 
                 return (
                   <AnimatedMarker
-                    key={toilet.id}
-                    coordinate={{
-                      latitude: toilet.location.latitude,
-                      longitude: toilet.location.longitude,
+                    key={cluster.id}
+                    coordinate={cluster.coordinate}
+                    isCluster
+                    count={cluster.points.length}
+                    onPress={() => {
+                      // Zoom in when cluster is pressed
+                      internalMapRef.current?.animateToRegion({
+                        ...cluster.coordinate,
+                        latitudeDelta: currentRegion.latitudeDelta * 0.5,
+                        longitudeDelta: currentRegion.longitudeDelta * 0.5,
+                      });
                     }}
-                    onPress={() => handleMarkerPress(toilet)}
-                    pinColor={
-                      toilet.isAccessible ? colors.secondary : colors.primary
-                    }
                   />
                 );
-              }
+              })}
+            </MapView>
 
-              // Validate cluster coordinate before rendering
-              if (
-                !cluster?.coordinate?.latitude ||
-                !cluster?.coordinate?.longitude
-              ) {
-                debug.warn(
-                  "MapView",
-                  `Skipping cluster with invalid coordinate: ${cluster?.id}`
-                );
-                return null;
-              }
-
-              return (
-                <AnimatedMarker
-                  key={cluster.id}
-                  coordinate={cluster.coordinate}
-                  isCluster
-                  count={cluster.points.length}
-                  onPress={() => {
-                    // Zoom in when cluster is pressed
-                    mapRef.current?.animateToRegion({
-                      ...cluster.coordinate,
-                      latitudeDelta: currentRegion.latitudeDelta * 0.5,
-                      longitudeDelta: currentRegion.longitudeDelta * 0.5,
-                    });
-                  }}
+            {locationError && (
+              <View style={styles.permissionErrorContainer}>
+                <Text style={styles.errorText}>{locationError}</Text>
+                <Button
+                  title="Grant Location Permission"
+                  onPress={handleLocationPermission}
+                  size="medium" // Slightly larger for better tap target
+                  variant="primary" // More prominent
+                  style={styles.permissionButton}
                 />
-              );
-            })}
-          </MapView>
-
-          {locationError && (
-            <View style={styles.permissionErrorContainer}>
-              <Text style={styles.errorText}>{locationError}</Text>
-              <Button
-                title="Grant Location Permission"
-                onPress={handleLocationPermission}
-                size="medium" // Slightly larger for better tap target
-                variant="primary" // More prominent
-                style={styles.permissionButton}
-              />
-            </View>
-          )}
-
-          {hasLocationPermission &&
-            !locationError && ( // Only show if permission granted AND no other location error
-              <Pressable
-                style={styles.locationFab}
-                onPress={() => {
-                  if (userLocation) {
-                    mapRef.current?.animateToRegion({
-                      latitude: userLocation.latitude,
-                      longitude: userLocation.longitude,
-                      ...DEFAULT_DELTA,
-                    });
-                  }
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Center on my location"
-              >
-                <Text style={styles.locationFabIcon}>🎯</Text>
-              </Pressable>
+              </View>
             )}
+
+            {hasLocationPermission &&
+              !locationError && ( // Only show if permission granted AND no other location error
+                <>
+                  <Pressable
+                    style={styles.locationFab}
+                    onPress={() => {
+                      if (userLocation) {
+                        internalMapRef.current?.animateToRegion({
+                          latitude: userLocation.latitude,
+                          longitude: userLocation.longitude,
+                          ...DEFAULT_DELTA,
+                        });
+                      }
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Center on my location"
+                  >
+                    <Text style={styles.locationFabIcon}>🎯</Text>
+                  </Pressable>
+
+                  {/* Data refresh indicator */}
+                  {(loading || isRefreshing) && (
+                    <View style={styles.refreshIndicator}>
+                      <Text style={styles.refreshText}>
+                        {loading ?
+                          "Loading toilets..."
+                        : "Updating location..."}
+                      </Text>
+                    </View>
+                  )}
+                </>
+              )}
+          </View>
         </View>
-      </View>
-    </ErrorBoundary>
-  );
-});
+      </ErrorBoundary>
+    );
+  })
+);
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -382,6 +452,8 @@ type StyleProps = {
   map: ViewStyle;
   permissionButton: ViewStyle;
   permissionErrorContainer: ViewStyle;
+  refreshIndicator: ViewStyle;
+  refreshText: TextStyle;
   safeAreaContainer: ViewStyle;
 };
 
@@ -444,6 +516,22 @@ const styles = StyleSheet.create<StyleProps>({
     right: 0,
     top: 0,
     zIndex: zIndex.mapControls, // Ensure it's above the map but below modals
+  },
+  refreshIndicator: {
+    alignItems: "center",
+    backgroundColor: colors.background.overlay,
+    borderRadius: 8,
+    left: getResponsiveSpacing(spacing.lg, SCREEN_WIDTH),
+    padding: spacing.md,
+    position: "absolute",
+    top: getResponsiveSpacing(spacing.lg, SCREEN_HEIGHT),
+    zIndex: zIndex.mapControls,
+    ...createShadow("md"),
+  },
+  refreshText: {
+    color: colors.text.inverse,
+    fontSize: getResponsiveFontSize(14, SCREEN_WIDTH),
+    fontWeight: "500",
   },
   safeAreaContainer: {
     flex: 1,

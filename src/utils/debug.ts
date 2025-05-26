@@ -5,6 +5,7 @@ class Debug {
   private isEnabled: boolean = __DEV__;
   private startTimes: Map<string, number> = new Map();
   private isVerbose: boolean = false; // Add verbose mode flag
+  private throttledLogs: Map<string, number> = new Map(); // Track throttled logs
 
   private constructor() {}
 
@@ -21,6 +22,33 @@ class Debug {
   log(category: string, message: string, data?: any) {
     if (!this.isEnabled) return;
     console.log(`[${category}] ${message}`, data || "");
+  }
+
+  /**
+   * Log a message with throttling to prevent excessive repetition
+   * @param category Log category
+   * @param key Unique identifier for this log to track throttling
+   * @param message Message to log
+   * @param data Optional data to include
+   * @param timeMs Minimum time between logs in milliseconds
+   */
+  throttledLog(
+    category: string,
+    key: string,
+    message: string,
+    data?: any,
+    timeMs: number = 1000
+  ) {
+    if (!this.isEnabled) return;
+
+    const logId = `${category}:${key}`;
+    const now = Date.now();
+    const lastLogTime = this.throttledLogs.get(logId) || 0;
+
+    if (now - lastLogTime > timeMs) {
+      console.log(`[${category}] ${message}`, data || "");
+      this.throttledLogs.set(logId, now);
+    }
   }
 
   /**

@@ -110,6 +110,12 @@ export default function RootLayout() {
             <ProtectedRouteGuard>
               <Stack
                 screenOptions={{
+                  // Hide all headers by default - we'll use custom headers in layout files
+                  headerShown: false,
+                  // Improved animation and gesture handling
+                  animation: "slide_from_right",
+                  gestureEnabled: true,
+                  // Keep these styles for screens that do show headers
                   headerStyle: {
                     backgroundColor:
                       isDark ? colors.text.primary : colors.background.primary,
@@ -119,9 +125,6 @@ export default function RootLayout() {
                   headerTitleStyle: {
                     fontWeight: "bold",
                   },
-                  // Improved animation and gesture handling
-                  animation: "slide_from_right",
-                  gestureEnabled: true,
                 }}
               >
                 <Stack.Screen

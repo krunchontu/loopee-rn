@@ -1,10 +1,16 @@
-import React, { useEffect, useState, useCallback } from "react";
-import { View, StyleSheet, Dimensions } from "react-native";
+import React, { useEffect, useState, useCallback, useRef } from "react";
+import { View, StyleSheet, SafeAreaView, Pressable } from "react-native";
+import { useRouter } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import MapView, { Region } from "react-native-maps";
+import { AppHeader } from "../shared/AppHeader";
 import { useToiletStore } from "../../stores/toilets";
 import { locationService, LocationState } from "../../services/location";
 import { CustomMapView } from "./MapView";
 import { ModalizeToiletSheet } from "../toilet/ModalizeToiletSheet";
 import { debug } from "../../utils/debug";
+import { colors } from "../../foundations/colors";
+import { zIndex } from "../../foundations/zIndex";
 
 /**
  * MapWithBottomSheet
@@ -13,12 +19,88 @@ import { debug } from "../../utils/debug";
  * an optimal mobile UI that avoids the readability issues with the previous
  * implementation. This component is used for phone layouts in the responsive
  * navigation system.
+ *
+ * Features:
+ * - Map display with custom styling
+ * - Bottom sheet for toilet listings
+ * - Header with app title
+ * - Quick access FABs for profile and location centering
  */
+
+/**
+ * Reusable Map Action Button component
+ *
+ * @param icon - MaterialCommunityIcons icon name
+ * @param onPress - Function to call when button is pressed
+ * @param accessibilityLabel - Screen reader label for accessibility
+ * @param style - Optional additional styles
+ */
+const MapActionButton = ({
+  icon,
+  onPress,
+  accessibilityLabel,
+  style,
+}: {
+  icon: any; // Using any temporarily to avoid type issues with MaterialCommunityIcons
+  onPress: () => void;
+  accessibilityLabel: string;
+  style?: any;
+}) => (
+  <Pressable
+    style={[styles.fab, style]}
+    onPress={onPress}
+    accessibilityRole="button"
+    accessibilityLabel={accessibilityLabel}
+    android_ripple={{
+      color: "rgba(0, 0, 0, 0.1)",
+      borderless: true,
+      radius: 28,
+    }}
+  >
+    <MaterialCommunityIcons name={icon} size={24} color={colors.text.primary} />
+  </Pressable>
+);
 export default function MapWithBottomSheet() {
+  const router = useRouter();
+  const mapRef = useRef<MapView>(null);
   const { toilets, loading, error, fetchNearbyToilets } = useToiletStore();
   const [currentLocation, setCurrentLocation] = useState<LocationState | null>(
     null
   );
+
+  // Navigate to profile screen
+  const handleProfilePress = useCallback(() => {
+    debug.log("MapWithBottomSheet", "Navigate to profile");
+    router.push("/profile");
+  }, [router]);
+
+  // Center map on current location
+  const handleCenterLocation = useCallback(() => {
+    debug.log("MapWithBottomSheet", "Center on current location");
+    if (currentLocation && mapRef.current) {
+      // Define the region for animation
+      const region: Region = {
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      };
+
+      // Animate to the user's current location with a smoother animation
+      mapRef.current.animateToRegion(region, 500); // 500ms animation duration
+
+      debug.log("MapWithBottomSheet", "Animating to location", {
+        lat: currentLocation.latitude,
+        lng: currentLocation.longitude,
+      });
+    } else {
+      // Log why the animation isn't happening for debugging
+      debug.warn("MapWithBottomSheet", "Cannot center map", {
+        hasCurrentLocation: !!currentLocation,
+        hasMapRef: !!mapRef.current,
+      });
+    }
+  }, [currentLocation]);
 
   // Handle location updates
   const handleLocationUpdate = useCallback(
@@ -88,24 +170,91 @@ export default function MapWithBottomSheet() {
 
   return (
     <View style={styles.container}>
+      <SafeAreaView style={styles.headerContainer}>
+        <AppHeader />
+      </SafeAreaView>
+
+      {/* Map view with forwarded ref */}
       <CustomMapView
+        ref={mapRef}
         style={styles.map}
         onMapPress={() => {}} // Empty handler to avoid sheet closing on map tap
       />
+
+      {/* Toilet bottom sheet */}
       <ModalizeToiletSheet
         toilets={toilets}
         isLoading={loading}
         error={error}
         onRetry={handleRetry}
       />
+
+      {/* FAB container for quick actions */}
+      <View style={styles.fabContainer}>
+        {/* Profile access FAB */}
+        <MapActionButton
+          icon="account-circle"
+          onPress={handleProfilePress}
+          accessibilityLabel="Go to profile"
+        />
+
+        {/* Location centering FAB */}
+        <MapActionButton
+          icon="crosshairs-gps"
+          onPress={handleCenterLocation}
+          accessibilityLabel="Center on my location"
+          style={styles.locationFab}
+        />
+
+        {/* Add Toilet FAB */}
+        <MapActionButton
+          icon="plus"
+          onPress={() => {
+            // Navigate to add toilet screen
+            router.push("/contribute/add-toilet");
+          }}
+          accessibilityLabel="Add a new toilet"
+          style={styles.addToiletFab}
+        />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  addToiletFab: {
+    backgroundColor: colors.primary || "#4CAF50",
+  },
   container: {
     flex: 1,
     position: "relative",
+  },
+  fab: {
+    alignItems: "center",
+    backgroundColor: colors.background.primary,
+    borderRadius: 28,
+    elevation: 4,
+    height: 56,
+    justifyContent: "center",
+    marginLeft: 8,
+    width: 56,
+  },
+  fabContainer: {
+    flexDirection: "row",
+    position: "absolute",
+    right: 16,
+    top: 72, // Below header
+    zIndex: zIndex.mapControls || 5,
+  },
+  headerContainer: {
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 0,
+    zIndex: 10,
+  },
+  locationFab: {
+    backgroundColor: colors.background.secondary || "#F0F0F0",
   },
   map: {
     flex: 1,

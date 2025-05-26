@@ -34,3 +34,8 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+
+# Markdown files (except README.md)
+*.md
+!README.md
+!**/README.md
