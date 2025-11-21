@@ -7,6 +7,7 @@
  */
 
 import { MD3LightTheme, MD3DarkTheme } from "react-native-paper";
+
 import { colors, palette } from "./colors";
 
 /**

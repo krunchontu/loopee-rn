@@ -5,22 +5,23 @@
  * stats, and their content/activity.
  */
 
+import { useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import { StyleSheet, View, ScrollView, Alert } from "react-native";
 import { Divider, Text, Card, Button } from "react-native-paper";
-import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAuth } from "../../providers/AuthProvider";
-import { LoadingState } from "../../components/shared/LoadingState";
-import { ErrorState } from "../../components/shared/ErrorState";
-import ProfileHeader from "../../components/profile/ProfileHeader";
+
 import ContentList from "../../components/profile/content/ContentList";
-import {
+import ProfileHeader from "../../components/profile/ProfileHeader";
+import { ErrorState } from "../../components/shared/ErrorState";
+import { LoadingState } from "../../components/shared/LoadingState";
+import { colors } from "../../foundations/colors";
+import { useAuth } from "../../providers/AuthProvider";
+import type {
   UserReview,
   UserContribution,
   UserFavorite,
 } from "../../types/profile-content";
-import { colors } from "../../foundations/colors";
 
 export default function ProfileScreen() {
   const router = useRouter();

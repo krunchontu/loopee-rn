@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
-import { Toilet } from "../types/toilet";
+
 import { supabaseService } from "../services/supabase";
+import type { Toilet } from "../types/toilet";
 import { debug } from "../utils/debug";
 
 /**

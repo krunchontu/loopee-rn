@@ -14,9 +14,10 @@ import {
   Surface,
   HelperText,
 } from "react-native-paper";
+
+import { colors, spacing } from "../../foundations";
 import { supabaseService } from "../../services/supabase";
 import { EditableRating } from "../shared/EditableRating";
-import { colors, spacing } from "../../foundations";
 
 interface ReviewFormProps {
   toiletId: string;

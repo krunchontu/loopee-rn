@@ -5,11 +5,13 @@
  */
 
 import React from "react";
-import { StyleSheet, View, StyleProp, ViewStyle } from "react-native";
+import type { StyleProp, ViewStyle } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { Text, IconButton } from "react-native-paper";
 import { Avatar } from "react-native-paper";
-import { UserProfile } from "../../types/user";
+
 import { colors } from "../../foundations/colors";
+import type { UserProfile } from "../../types/user";
 
 interface ProfileHeaderProps {
   profile: UserProfile;

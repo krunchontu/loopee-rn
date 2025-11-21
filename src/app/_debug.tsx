@@ -1,6 +1,7 @@
+import { usePathname } from "expo-router";
 import React from "react";
 import { View, Text, ScrollView, StyleSheet } from "react-native";
-import { usePathname } from "expo-router";
+
 import { debug } from "../utils/debug";
 
 /**

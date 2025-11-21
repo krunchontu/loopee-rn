@@ -1,16 +1,19 @@
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { View, StyleSheet, SafeAreaView, Pressable } from "react-native";
-import { useRouter } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import MapView, { Region } from "react-native-maps";
-import { AppHeader } from "../shared/AppHeader";
-import { useToiletStore } from "../../stores/toilets";
-import { locationService, LocationState } from "../../services/location";
+import type { Region } from "react-native-maps";
+import type MapView from "react-native-maps";
+
 import { CustomMapView } from "./MapView";
-import { ModalizeToiletSheet } from "../toilet/ModalizeToiletSheet";
-import { debug } from "../../utils/debug";
 import { colors } from "../../foundations/colors";
 import { zIndex } from "../../foundations/zIndex";
+import type { LocationState } from "../../services/location";
+import { locationService } from "../../services/location";
+import { useToiletStore } from "../../stores/toilets";
+import { debug } from "../../utils/debug";
+import { AppHeader } from "../shared/AppHeader";
+import { ModalizeToiletSheet } from "../toilet/ModalizeToiletSheet";
 
 /**
  * MapWithBottomSheet

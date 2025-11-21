@@ -1,14 +1,15 @@
 import React, { memo, useCallback } from "react";
+import type {
+  ViewStyle,
+  TextStyle} from "react-native";
 import {
   StyleSheet,
   View,
   Text,
   Pressable,
-  Dimensions,
-  ViewStyle,
-  TextStyle,
+  Dimensions
 } from "react-native";
-import { Toilet } from "../../types/toilet";
+
 import {
   colors,
   spacing,
@@ -16,13 +17,14 @@ import {
   fontWeights,
   fontSizes,
 } from "../../foundations";
+import { createShadow } from "../../foundations/layout";
+import { createTextStyle } from "../../foundations/react-native-helpers";
 import {
   getResponsiveSpacing,
   getResponsiveFontSize,
 } from "../../foundations/responsive";
-import { createTextStyle } from "../../foundations/react-native-helpers";
+import type { Toilet } from "../../types/toilet";
 import { Rating } from "../shared/Rating";
-import { createShadow } from "../../foundations/layout";
 
 export interface ToiletCardProps {
   toilet: Toilet;

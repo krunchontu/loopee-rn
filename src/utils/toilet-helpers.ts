@@ -5,7 +5,7 @@
  * Ensures consistent access to properties regardless of data source or naming conventions.
  */
 
-import { Toilet } from "../types/toilet";
+import type { Toilet } from "../types/toilet";
 
 /**
  * Normalizes toilet amenities regardless of property naming convention.

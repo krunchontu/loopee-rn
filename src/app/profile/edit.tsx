@@ -4,18 +4,19 @@
  * Screen for editing user profile information
  */
 
+import { useRouter } from "expo-router";
 import React, { useState, useCallback } from "react";
 import { StyleSheet, View, ScrollView } from "react-native";
-import { useRouter } from "expo-router";
 import { Text, Appbar } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { UserProfile } from "../../types/user";
-import { useAuth } from "../../providers/AuthProvider";
-import { LoadingState } from "../../components/shared/LoadingState";
-import { ErrorState } from "../../components/shared/ErrorState";
+
 import AvatarUpload from "../../components/profile/AvatarUpload";
 import ProfileForm from "../../components/profile/ProfileForm";
+import { ErrorState } from "../../components/shared/ErrorState";
+import { LoadingState } from "../../components/shared/LoadingState";
 import { colors, palette } from "../../foundations/colors";
+import { useAuth } from "../../providers/AuthProvider";
+import type { UserProfile } from "../../types/user";
 
 export default function EditProfileScreen() {
   const router = useRouter();

@@ -15,15 +15,15 @@ import {
   refreshSession,
   checkSession,
 } from "./supabase";
-import { Toilet } from "../types/toilet";
-import { debug } from "../utils/debug";
-import { authDebug } from "../utils/AuthDebugger";
-import {
+import type {
   ToiletSubmission,
   SubmissionPreview,
   SubmissionType,
   SubmissionStatus,
 } from "../types/contribution";
+import type { Toilet } from "../types/toilet";
+import { authDebug } from "../utils/AuthDebugger";
+import { debug } from "../utils/debug";
 
 // Use the shared Supabase client instance for consistent auth state
 const supabase = getSupabaseClient();

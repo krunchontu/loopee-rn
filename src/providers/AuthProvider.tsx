@@ -6,17 +6,18 @@
  * user profile data.
  */
 
+import type { Session, AuthChangeEvent, AuthError } from "@supabase/supabase-js";
 import React, { createContext, useContext, useState, useEffect } from "react";
+
+import { profileService } from "../services/profileService";
 import {
   supabaseService,
   refreshSession,
   checkSession,
 } from "../services/supabase";
-import { profileService } from "../services/profileService";
-import { AuthState, AuthContextValue, UserProfile } from "../types/user";
-import { Session, AuthChangeEvent, AuthError } from "@supabase/supabase-js";
-import { debug } from "../utils/debug";
+import type { AuthState, AuthContextValue, UserProfile } from "../types/user";
 import { authDebug } from "../utils/AuthDebugger";
+import { debug } from "../utils/debug";
 
 // Create the auth context with default values
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);

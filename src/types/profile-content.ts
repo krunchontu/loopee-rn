@@ -5,7 +5,7 @@
  * including reviews, contributions, and favorites.
  */
 
-import { Toilet } from "./toilet";
+import type { Toilet } from "./toilet";
 
 /**
  * Base interface for content items with common properties

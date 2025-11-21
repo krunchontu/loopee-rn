@@ -5,10 +5,12 @@
  */
 
 import React, { useState } from "react";
-import { StyleSheet, View, StyleProp, ViewStyle } from "react-native";
+import type { StyleProp, ViewStyle } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { Button, TextInput, HelperText } from "react-native-paper";
-import { UserProfile } from "../../types/user";
+
 import { colors } from "../../foundations/colors";
+import type { UserProfile } from "../../types/user";
 
 interface ProfileFormProps {
   profile: UserProfile;

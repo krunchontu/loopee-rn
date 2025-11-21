@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native"; // Added View
 import { Marker } from "react-native-maps";
+
 import { colors, palette } from "../../foundations"; // Changed import path and added palette
 import { debug } from "../../utils/debug";
 

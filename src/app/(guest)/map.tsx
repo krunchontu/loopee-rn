@@ -1,14 +1,15 @@
-import { View, StyleSheet } from "react-native";
 import { Stack } from "expo-router";
 import { useCallback, useEffect, useState, memo } from "react";
-import { colors, zIndex } from "../../foundations";
+import { View, StyleSheet } from "react-native";
+
 import { CustomMapView } from "../../components/map/MapView";
-import { useToiletStore } from "../../stores/toilets";
-import { locationService } from "../../services/location";
-import { debug } from "../../utils/debug";
 import { ErrorState } from "../../components/shared/ErrorState";
-import { Toilet } from "../../types/toilet";
 import { ModalToiletSheet } from "../../components/toilet/ModalToiletSheet";
+import { colors, zIndex } from "../../foundations";
+import { locationService } from "../../services/location";
+import { useToiletStore } from "../../stores/toilets";
+import type { Toilet } from "../../types/toilet";
+import { debug } from "../../utils/debug";
 
 // Types
 // LocationErrorViewProps removed as the component is no longer used.

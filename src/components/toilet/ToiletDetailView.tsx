@@ -1,3 +1,4 @@
+import { useRoute } from "@react-navigation/native";
 import React, { useState, useMemo } from "react";
 import {
   View,
@@ -7,22 +8,22 @@ import {
   Linking,
   Dimensions,
 } from "react-native";
-import { useRoute } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+import { ReviewModal } from "./ReviewModal";
 import { colors, spacing, fontSizes, fontWeights } from "../../foundations";
 import {
   getResponsiveSpacing,
   getResponsiveFontSize,
 } from "../../foundations/responsive";
-import { Rating } from "../shared/Rating";
-import { Button } from "../shared/Button";
-import { Toilet } from "../../types/toilet";
+import type { Toilet } from "../../types/toilet";
 import { debug } from "../../utils/debug";
 import {
   normalizeAmenities,
   normalizeBuildingInfo,
 } from "../../utils/toilet-helpers";
-import { ReviewModal } from "./ReviewModal";
+import { Button } from "../shared/Button";
+import { Rating } from "../shared/Rating";
 
 /**
  * ToiletDetailView

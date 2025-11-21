@@ -1,22 +1,23 @@
+import type {
+  NavigationProp,
+  ParamListBase} from "@react-navigation/native";
+import {
+  useNavigation
+} from "@react-navigation/native";
 import React, { useRef, useEffect, useCallback } from "react";
+import type {
+  ListRenderItemInfo} from "react-native";
 import {
   View,
   Text,
   StyleSheet,
   Dimensions,
   ActivityIndicator,
-  ListRenderItemInfo,
   RefreshControl,
 } from "react-native";
 import { Modalize } from "react-native-modalize";
-import {
-  useNavigation,
-  NavigationProp,
-  ParamListBase,
-} from "@react-navigation/native";
+
 import { PaperToiletCard } from "./PaperToiletCard";
-import { breakpoints } from "../../foundations/layout";
-import { Toilet } from "../../types/toilet";
 import {
   colors,
   spacing,
@@ -24,10 +25,12 @@ import {
   fontWeights,
   textVariants,
 } from "../../foundations";
+import { breakpoints } from "../../foundations/layout";
 import {
   getResponsiveSpacing,
   getResponsiveFontSize,
 } from "../../foundations/responsive";
+import type { Toilet } from "../../types/toilet";
 import { debug } from "../../utils/debug";
 import { ErrorState } from "../shared/ErrorState";
 

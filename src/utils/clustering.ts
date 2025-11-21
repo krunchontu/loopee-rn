@@ -1,6 +1,7 @@
-import { Region } from "react-native-maps";
-import { Toilet } from "../types/toilet";
+import type { Region } from "react-native-maps";
+
 import { debug } from "./debug";
+import type { Toilet } from "../types/toilet";
 
 interface Cluster {
   id: string;

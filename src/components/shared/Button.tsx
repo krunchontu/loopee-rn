@@ -1,10 +1,12 @@
+import type {
+  ViewStyle,
+  TextStyle} from "react-native";
 import {
   Pressable,
   Text,
-  ActivityIndicator,
-  ViewStyle,
-  TextStyle,
+  ActivityIndicator
 } from "react-native";
+
 import { colors, spacing } from "../../constants/colors";
 
 interface ButtonProps {

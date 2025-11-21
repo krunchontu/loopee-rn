@@ -16,10 +16,10 @@ export * from "./animations";
 export * from "./zIndex";
 
 // Export combined token object for easier theme access
-import * as colorTokens from "./colors";
-import * as typographyTokens from "./typography";
-import * as layoutTokens from "./layout";
 import * as animationTokens from "./animations";
+import * as colorTokens from "./colors";
+import * as layoutTokens from "./layout";
+import * as typographyTokens from "./typography";
 import * as zIndexTokens from "./zIndex";
 
 /**

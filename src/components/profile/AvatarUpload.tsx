@@ -4,17 +4,19 @@
  * Component for uploading and managing user avatar images
  */
 
+import * as ImagePicker from "expo-image-picker";
 import React, { useState, useCallback } from "react";
+import type {
+  StyleProp,
+  ViewStyle} from "react-native";
 import {
   StyleSheet,
   View,
-  StyleProp,
-  ViewStyle,
   Alert,
   Platform,
 } from "react-native";
 import { Avatar, IconButton, Text } from "react-native-paper";
-import * as ImagePicker from "expo-image-picker";
+
 import { colors } from "../../foundations/colors";
 
 interface AvatarUploadProps {

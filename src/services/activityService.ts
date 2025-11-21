@@ -5,11 +5,12 @@
  * Provides methods to fetch user activity, manage notifications, and handle their display
  */
 
-import { createClient } from "@supabase/supabase-js";
-import { supabaseService } from "./supabase";
-import { debug } from "../utils/debug";
-import { UserActivity, UserNotification } from "../types/activity";
 import { EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY } from "@env";
+import { createClient } from "@supabase/supabase-js";
+
+import { supabaseService } from "./supabase";
+import type { UserActivity, UserNotification } from "../types/activity";
+import { debug } from "../utils/debug";
 
 // Direct client for database RPC operations
 const supabase = createClient(

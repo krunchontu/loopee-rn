@@ -9,9 +9,9 @@
  */
 
 import { supabaseService } from "./supabase";
-import { UserProfile } from "../types/user";
-import { debug } from "../utils/debug";
+import type { UserProfile } from "../types/user";
 import { authDebug } from "../utils/AuthDebugger";
+import { debug } from "../utils/debug";
 
 /**
  * Profile Service - handles user profile operations

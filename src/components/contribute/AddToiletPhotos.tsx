@@ -4,13 +4,14 @@
  * Fourth step in toilet contribution process: photo upload
  */
 
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import React, { useState } from "react";
 import { View, StyleSheet, ScrollView, Image, Pressable } from "react-native";
 import { Title, Button, Text, ActivityIndicator } from "react-native-paper";
-import * as ImagePicker from "expo-image-picker";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { BaseStepProps } from "../../types/contribution";
+
 import { colors, spacing } from "../../foundations";
+import type { BaseStepProps } from "../../types/contribution";
 
 interface AddToiletPhotosProps extends BaseStepProps {
   photos?: string[];

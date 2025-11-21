@@ -4,13 +4,14 @@
  * Third step in toilet contribution process: amenities selection
  */
 
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import React from "react";
 import { View, StyleSheet, ScrollView } from "react-native";
 import { Title, Button, Text, List, Switch } from "react-native-paper";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { BaseStepProps } from "../../types/contribution";
-import { Toilet } from "../../types/toilet";
+
 import { colors, spacing } from "../../foundations";
+import type { BaseStepProps } from "../../types/contribution";
+import type { Toilet } from "../../types/toilet";
 
 interface AddToiletAmenitiesProps extends BaseStepProps {
   amenities?: Toilet["amenities"];

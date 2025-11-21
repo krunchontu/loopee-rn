@@ -1,22 +1,24 @@
 import React, { useCallback, useMemo } from "react";
+import type {
+  ListRenderItemInfo,
+  ViewStyle,
+  TextStyle} from "react-native";
 import {
   ActivityIndicator,
   Dimensions,
   FlatList,
-  ListRenderItemInfo,
   RefreshControl,
   StyleSheet,
   Text,
-  View,
-  ViewStyle,
-  TextStyle,
+  View
 } from "react-native";
-import { ErrorState } from "../shared/ErrorState";
-import { Toilet } from "../../types/toilet";
+
 import { PaperToiletCard } from "./PaperToiletCard";
 import { colors, spacing, textVariants } from "../../foundations";
 import { getResponsiveSpacing } from "../../foundations/responsive";
+import type { Toilet } from "../../types/toilet";
 import { debug } from "../../utils/debug";
+import { ErrorState } from "../shared/ErrorState";
 
 export interface ToiletListProps {
   toilets: Toilet[];

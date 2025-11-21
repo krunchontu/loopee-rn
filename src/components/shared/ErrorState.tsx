@@ -1,7 +1,8 @@
 import React from "react";
 import { StyleSheet, View, Text } from "react-native";
-import { colors, spacing } from "../../constants/colors";
+
 import { Button } from "./Button";
+import { colors, spacing } from "../../constants/colors";
 
 interface ErrorStateProps {
   error: Error | string;
@@ -38,35 +39,35 @@ export function ErrorState({
 }
 
 const styles = StyleSheet.create({
+  button: {
+    minWidth: 120,
+  },
   container: {
-    padding: spacing.md,
+    alignItems: "center",
     backgroundColor: colors.background.primary,
     borderRadius: 8,
-    alignItems: "center",
     justifyContent: "center",
-  },
-  fullScreen: {
-    flex: 1,
-    width: "100%",
+    padding: spacing.md,
   },
   content: {
     alignItems: "center",
     maxWidth: 300,
   },
+  description: {
+    color: colors.text.secondary,
+    fontSize: 14,
+    marginBottom: spacing.md,
+    textAlign: "center",
+  },
+  fullScreen: {
+    flex: 1,
+    width: "100%",
+  },
   title: {
+    color: colors.text.primary,
     fontSize: 16,
     fontWeight: "600",
-    color: colors.text.primary,
     marginBottom: spacing.xs,
     textAlign: "center",
-  },
-  description: {
-    fontSize: 14,
-    color: colors.text.secondary,
-    textAlign: "center",
-    marginBottom: spacing.md,
-  },
-  button: {
-    minWidth: 120,
   },
 });

@@ -2,7 +2,7 @@
  * @file Types related to toilet contribution system
  */
 
-import { Toilet } from "./toilet";
+import type { Toilet } from "./toilet";
 
 /**
  * Base props interface shared by all contribution form steps
