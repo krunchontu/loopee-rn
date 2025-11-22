@@ -39,3 +39,4 @@ yarn-error.*
 *.md
 !README.md
 !**/README.md
+coverage/

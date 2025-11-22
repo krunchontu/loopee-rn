@@ -4,19 +4,18 @@ import type {
   Session,
   User,
   AuthChangeEvent,
-  SupabaseClient} from "@supabase/supabase-js";
-import {
-  createClient
+  SupabaseClient,
 } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import * as Linking from "expo-linking";
 import { Platform } from "react-native";
 
+import { captureException } from "./sentry";
 import type { Toilet, Review } from "../types/toilet";
 import type { UserProfile } from "../types/user";
 import { authDebug } from "../utils/AuthDebugger";
 import { debug } from "../utils/debug";
 import { normalizeToiletData } from "../utils/toilet-helpers";
-import { captureException } from "./sentry";
 
 // Initialize Supabase client
 if (!EXPO_PUBLIC_SUPABASE_URL || !EXPO_PUBLIC_SUPABASE_ANON_KEY) {
@@ -565,8 +564,11 @@ export const supabaseService = {
 
       try {
         const redirectUrl = Platform.select({
-          web: () => typeof window !== 'undefined' ? `${window.location.origin}/reset-password` : '',
-          default: () => Linking.createURL('reset-password'),
+          web: () =>
+            typeof window !== "undefined"
+              ? `${window.location.origin}/reset-password`
+              : "",
+          default: () => Linking.createURL("reset-password"),
         })();
 
         const result = await supabase.auth.resetPasswordForEmail(email, {
@@ -994,9 +996,9 @@ export const supabaseService = {
           withValidCoords,
           missingCoords: totalToilets - withValidCoords,
           percentValid:
-            totalToilets > 0 ?
-              Math.round((withValidCoords / totalToilets) * 100)
-            : 0,
+            totalToilets > 0
+              ? Math.round((withValidCoords / totalToilets) * 100)
+              : 0,
         }
       );
 
@@ -1062,9 +1064,8 @@ export const supabaseService = {
           ...toilet,
           latitude: toiletLatitude,
           longitude: toiletLongitude,
-          distance:
-            toilet.distance_meters ?
-              parseFloat(toilet.distance_meters.toString())
+          distance: toilet.distance_meters
+            ? parseFloat(toilet.distance_meters.toString())
             : undefined,
         };
       });
@@ -1081,9 +1082,9 @@ export const supabaseService = {
             longitude: toilet.longitude,
           },
           rating:
-            typeof toilet.rating === "string" ?
-              parseFloat(toilet.rating)
-            : toilet.rating || 0,
+            typeof toilet.rating === "string"
+              ? parseFloat(toilet.rating)
+              : toilet.rating || 0,
           reviewCount: toilet.reviews_count || 0,
           isAccessible: !!toilet.is_accessible,
           address: toilet.address || "",
@@ -1096,9 +1097,8 @@ export const supabaseService = {
           photos: toilet.photos || [],
           lastUpdated: toilet.updated_at || new Date().toISOString(),
           createdAt: toilet.created_at || new Date().toISOString(),
-          openingHours:
-            toilet.opening_hours ?
-              {
+          openingHours: toilet.opening_hours
+            ? {
                 open: toilet.opening_hours.split("-")[0] || "00:00",
                 close: toilet.opening_hours.split("-")[1] || "23:59",
               }
@@ -1225,9 +1225,8 @@ export const supabaseService = {
         version: item.version || 1,
         lastEditedAt: item.last_edited_at,
         updatedAt: item.updated_at,
-        user:
-          item.user_profiles ?
-            {
+        user: item.user_profiles
+          ? {
               id: item.user_profiles.id,
               displayName: item.user_profiles.display_name,
               avatarUrl: item.user_profiles.avatar_url,

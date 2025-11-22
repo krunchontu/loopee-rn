@@ -11,15 +11,13 @@ import { StyleSheet, View, ScrollView } from "react-native";
 import { Appbar, Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import type {
-  EmailPreferences,
-} from "../../components/profile/AccountSettings";
+import type { EmailPreferences } from "../../components/profile/AccountSettings";
 import AccountSettings from "../../components/profile/AccountSettings";
 import { ErrorState } from "../../components/shared/ErrorState";
 import { LoadingState } from "../../components/shared/LoadingState";
 import { colors, palette } from "../../foundations/colors";
-import { debug } from "../../utils/debug";
 import { useAuth } from "../../providers/AuthProvider";
+import { debug } from "../../utils/debug";
 
 export default function AccountSettingsScreen() {
   const router = useRouter();
