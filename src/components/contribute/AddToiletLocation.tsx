@@ -89,7 +89,7 @@ export const AddToiletLocation: React.FC<AddToiletLocationProps> = ({
       }
     } catch (err) {
       setError("Error getting location. Please try again.");
-      console.error("Location error:", err);
+      debug.error("Component", "Location error:", err);
     } finally {
       setLoadingLocation(false);
     }
@@ -114,7 +114,7 @@ export const AddToiletLocation: React.FC<AddToiletLocationProps> = ({
         setCurrentAddress("Address not available");
       }
     } catch (err) {
-      console.error("Reverse geocoding error:", err);
+      debug.error("Component", "Reverse geocoding error:", err);
       setCurrentAddress("Address not available");
     }
   };
@@ -146,7 +146,7 @@ export const AddToiletLocation: React.FC<AddToiletLocationProps> = ({
       }
     } catch (err) {
       setError("Error searching address. Please try again.");
-      console.error("Geocoding error:", err);
+      debug.error("Component", "Geocoding error:", err);
     } finally {
       setLoadingLocation(false);
     }

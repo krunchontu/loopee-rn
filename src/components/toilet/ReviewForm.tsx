@@ -17,6 +17,7 @@ import {
 
 import { colors, spacing } from "../../foundations";
 import { supabaseService } from "../../services/supabase";
+import { debug } from "../../utils/debug";
 import { EditableRating } from "../shared/EditableRating";
 
 interface ReviewFormProps {
@@ -81,7 +82,7 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({
       setError(
         `Failed to ${isEdit ? "update" : "submit"} review. ${errorMessage}`
       );
-      console.error(err);
+      debug.error("ReviewForm", "Failed to submit review", err);
     } finally {
       setSubmitting(false);
     }

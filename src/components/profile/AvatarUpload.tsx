@@ -73,7 +73,7 @@ const AvatarUpload: React.FC<AvatarUploadProps> = ({
         handleUpload(selectedAsset.uri);
       }
     } catch (error) {
-      console.error("Error picking image:", error);
+      debug.error("Component", "Error picking image:", error);
       Alert.alert("Error", "Failed to select image. Please try again.");
     }
   }, [userId]);
@@ -91,7 +91,7 @@ const AvatarUpload: React.FC<AvatarUploadProps> = ({
       // In a real implementation, this would be the URL from the storage service
       onAvatarSelected(uri);
     } catch (error) {
-      console.error("Error uploading avatar:", error);
+      debug.error("Component", "Error uploading avatar:", error);
       Alert.alert(
         "Upload Failed",
         "Failed to upload avatar. Please try again."

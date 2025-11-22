@@ -33,7 +33,7 @@ export const UserReviewCard: React.FC<UserReviewCardProps> = ({
     try {
       return new Date(dateString).toLocaleDateString();
     } catch (error) {
-      console.error("Invalid date format:", error);
+      debug.error("Component", "Invalid date format:", error);
       return "Unknown Date";
     }
   };
