@@ -233,34 +233,74 @@ jest.mock("../../services/supabase", () => {
 
 ---
 
-### 4. Toilet Store Tests
-**File:** `src/__tests__/stores/toilets.test.ts` (NEW)
+### 4. Toilet Store Tests ✅ COMPLETED
+**File:** `src/__tests__/stores/toilets.test.ts`
 **Priority:** P1 (High)
-**Estimated Effort:** 2 hours
-**Target Coverage:** 65%
+**Effort:** 2 hours (actual)
+**Coverage:** 88.88% statements, 76.47% branches, 100% functions (exceeds 65% target)
+**Tests Passing:** 22 passing, 0 skipped
+**Status:** ✅ COMPLETE (2025-11-22)
 
 #### Test Cases:
-1. **Fetch Nearby Toilets**
-   - ✅ Loads toilets within radius
-   - ✅ Updates store state
-   - ❌ Handles empty results
-   - ❌ Handles API errors
+1. **Initial State** ✅
+   - ✅ Empty toilets array
+   - ✅ No selected toilet
+   - ✅ Not loading
+   - ✅ No error
+   - ✅ No last fetch location
+   - ✅ No last fetch time
 
-2. **Select Toilet**
+2. **Fetch Nearby Toilets** ✅
+   - ✅ Successfully fetches toilets on first call
+   - ✅ Updates last fetch location and time
+   - ✅ Uses custom radius when provided
+   - ✅ Handles empty results
+   - ✅ Handles API errors (Error objects)
+   - ✅ Handles non-Error exceptions (strings, etc.)
+   - ✅ Filters out toilets with missing IDs
+   - ✅ Filters out toilets with missing location
+   - ✅ Filters out toilets with invalid coordinates
+
+3. **Cache Validation** ✅
+   - ✅ Uses cache when location hasn't changed and cache is fresh
+   - ✅ Fetches new data when cache expired (>5 minutes)
+   - ✅ Fetches new data when moved significantly (>100m)
+   - ✅ Uses cache when moved insignificantly (<100m)
+
+4. **Select Toilet** ✅
    - ✅ Sets selected toilet
-   - ✅ Triggers detail view
-   - ❌ Handles null selection
+   - ✅ Deselects toilet when passed null
 
-3. **Search Toilets**
-   - ✅ Filters by name/description
-   - ✅ Returns matching results
-   - ❌ Handles empty query
+5. **Error Handling** ✅
+   - ✅ Clears error state with clearError()
 
-4. **Add Review**
-   - ✅ Posts new review
-   - ✅ Updates toilet rating
-   - ❌ Validates review data
-   - ❌ Handles submission errors
+#### Mock Setup:
+```typescript
+jest.mock("../../services/supabase", () => ({
+  supabaseService: {
+    toilets: {
+      getNearby: jest.fn(),
+    },
+  },
+}));
+
+jest.mock("../../utils/debug", () => ({
+  debug: {
+    log: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    throttledLog: jest.fn(),
+  },
+}));
+```
+
+#### Key Features Tested:
+- Zustand store state management
+- Cache validation logic (time-based: 5 min, distance-based: 100m)
+- Haversine distance calculation (indirectly through cache validation)
+- Data validation and filtering for invalid toilets
+- Error handling for API failures
+- Loading states
 
 ---
 
