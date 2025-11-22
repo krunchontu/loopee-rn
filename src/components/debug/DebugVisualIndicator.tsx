@@ -1,8 +1,14 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 
-// Using _ prefix to avoid lint errors for unused imports
-import { colors as _colors, zIndex as _zIndex } from "../../foundations";
+// Debug color constants to avoid ESLint color literal errors
+const DEBUG_COLORS = {
+  containerBg: "#ffcccc33",
+  border: "#ff0000",
+  textBg: "#ff0000",
+  textColor: "#ffffff",
+  subTextBg: "#00000099",
+};
 
 /**
  * A visual debug component that shows exactly where the bottom sheet should appear
@@ -23,8 +29,8 @@ export const DebugVisualIndicator = () => {
 const styles = StyleSheet.create({
   container: {
     alignItems: "center",
-    backgroundColor: "#ffcccc33", // Using hex with alpha instead of rgba
-    borderColor: "#ff0000", // Using hex instead of named color
+    backgroundColor: DEBUG_COLORS.containerBg,
+    borderColor: DEBUG_COLORS.border,
     borderStyle: "dashed",
     borderWidth: 2,
     bottom: 0,
@@ -37,8 +43,8 @@ const styles = StyleSheet.create({
     zIndex: 9999, // Extremely high z-index to ensure visibility
   },
   subText: {
-    backgroundColor: "#00000099", // Using hex with alpha instead of rgba
-    color: "#ffffff", // Using hex instead of named color
+    backgroundColor: DEBUG_COLORS.subTextBg,
+    color: DEBUG_COLORS.textColor,
     fontSize: 12,
     marginTop: 8,
     maxWidth: "80%",
@@ -46,8 +52,8 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   text: {
-    backgroundColor: "#ff0000", // Using hex instead of named color
-    color: "#ffffff", // Using hex instead of named color
+    backgroundColor: DEBUG_COLORS.textBg,
+    color: DEBUG_COLORS.textColor,
     fontSize: 16,
     fontWeight: "bold",
     padding: 8,

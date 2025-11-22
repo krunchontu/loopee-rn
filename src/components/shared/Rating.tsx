@@ -3,6 +3,9 @@ import { StyleSheet, View } from "react-native";
 
 import { colors } from "../../constants/colors";
 
+// Constants for ESLint compliance
+const TRANSPARENT = "transparent";
+
 interface RatingProps {
   value: number;
   size?: "small" | "medium" | "large";
@@ -88,42 +91,42 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   starEmpty: {
-    backgroundColor: "transparent",
+    backgroundColor: TRANSPARENT,
     borderBottomWidth: 0,
-    borderLeftColor: "transparent",
+    borderLeftColor: TRANSPARENT,
     borderLeftWidth: 0,
-    borderRightColor: "transparent",
+    borderRightColor: TRANSPARENT,
     borderRightWidth: 0,
     borderStyle: "solid",
-    borderTopColor: "transparent",
+    borderTopColor: TRANSPARENT,
     height: 0,
     position: "absolute",
     transform: [{ rotate: "180deg" }],
     width: 0,
   },
   starFill: {
-    backgroundColor: "transparent",
+    backgroundColor: TRANSPARENT,
     borderBottomWidth: 0,
-    borderLeftColor: "transparent",
+    borderLeftColor: TRANSPARENT,
     borderLeftWidth: 0,
-    borderRightColor: "transparent",
+    borderRightColor: TRANSPARENT,
     borderRightWidth: 0,
     borderStyle: "solid",
-    borderTopColor: "transparent",
+    borderTopColor: TRANSPARENT,
     height: 0,
     position: "absolute",
     transform: [{ rotate: "180deg" }],
     width: 0,
   },
   starHalf: {
-    backgroundColor: "transparent",
+    backgroundColor: TRANSPARENT,
     borderBottomWidth: 0,
-    borderLeftColor: "transparent",
+    borderLeftColor: TRANSPARENT,
     borderLeftWidth: 0,
-    borderRightColor: "transparent",
+    borderRightColor: TRANSPARENT,
     borderRightWidth: 0,
     borderStyle: "solid",
-    borderTopColor: "transparent",
+    borderTopColor: TRANSPARENT,
     height: 0,
     position: "absolute",
     transform: [{ rotate: "180deg" }, { scaleX: 0.5 }],

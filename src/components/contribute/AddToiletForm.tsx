@@ -91,7 +91,7 @@ export const AddToiletForm: React.FC<AddToiletFormProps> = ({
     >
       <Title style={styles.title}>Basic Information</Title>
       <Text style={styles.subtitle}>
-        Let's start with some basic details about the toilet
+        Let&apos;s start with some basic details about the toilet
       </Text>
 
       {/* Name/Description */}
@@ -134,7 +134,7 @@ export const AddToiletForm: React.FC<AddToiletFormProps> = ({
           • Be specific with the name/description
         </Text>
         <Text style={styles.guidanceText}>
-          • You'll add the exact location in the next step
+          • You&apos;ll add the exact location in the next step
         </Text>
         <Text style={styles.guidanceText}>
           • All submissions are reviewed before being published

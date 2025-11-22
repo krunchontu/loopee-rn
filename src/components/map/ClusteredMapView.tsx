@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import { StyleSheet, Platform, View, Text } from "react-native";
 import type { Region} from "react-native-maps";
-import MapView, { PROVIDER_GOOGLE, Marker } from "react-native-maps";
+import { PROVIDER_GOOGLE, Marker } from "react-native-maps";
 import ClusteredMapView from "react-native-maps-super-cluster";
 
 import { colors, spacing } from "../../constants/colors";
@@ -29,7 +29,8 @@ const DEFAULT_DELTA = {
   longitudeDelta: 0.01,
 };
 
-const CLUSTER_MAX_CHILDREN = 100;
+// Reserved for future use
+const _CLUSTER_MAX_CHILDREN = 100;
 const CLUSTER_RADIUS = 50;
 const CLUSTER_EDGE_PADDING = {
   top: 50,

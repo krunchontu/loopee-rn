@@ -44,7 +44,7 @@ const AvatarUpload: React.FC<AvatarUploadProps> = ({
     if (Platform.OS !== "web") {
       const { status } =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== "granted") {
+      if (status !== ImagePicker.PermissionStatus.GRANTED) {
         Alert.alert(
           "Permission Required",
           "Sorry, we need camera roll permissions to upload an avatar!"
