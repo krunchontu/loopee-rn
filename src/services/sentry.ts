@@ -6,6 +6,8 @@
 
 import * as Sentry from "@sentry/react-native";
 
+import { debug } from "../utils/debug";
+
 // Sentry configuration
 const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN;
 const ENVIRONMENT = __DEV__ ? "development" : "production";
@@ -39,7 +41,7 @@ export function initSentry() {
     // Distribution identifier
     dist: "1",
     // Before send hook to sanitize sensitive data
-    beforeSend(event, hint) {
+    beforeSend(event, _hint) {
       // Remove sensitive user data from breadcrumbs
       if (event.breadcrumbs) {
         event.breadcrumbs = event.breadcrumbs.map((breadcrumb) => {
@@ -61,7 +63,7 @@ export function initSentry() {
     },
   });
 
-  console.log(`Sentry initialized for ${ENVIRONMENT} environment`);
+  debug.log("Sentry", `Initialized for ${ENVIRONMENT} environment`);
 }
 
 /**

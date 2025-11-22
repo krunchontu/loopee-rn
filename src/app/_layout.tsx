@@ -14,6 +14,7 @@ import { ErrorBoundaryProvider } from "../components/ErrorBoundaryProvider";
 import { colors } from "../foundations/colors";
 import { getPaperTheme } from "../foundations/paper-theme";
 import { AuthProvider, useAuth } from "../providers/AuthProvider";
+import { initSentry } from "../services/sentry";
 import { debug } from "../utils/debug";
 
 // Keep the splash screen visible while we initialize resources
@@ -91,6 +92,9 @@ export default function RootLayout() {
 
   // Initialize app resources
   useEffect(() => {
+    // Initialize Sentry for error tracking
+    initSentry();
+
     // Log navigation initialization
     debug.log("Navigation", "Initializing root layout");
 
