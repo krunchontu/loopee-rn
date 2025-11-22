@@ -12,6 +12,7 @@
 import * as Location from "expo-location";
 import { Platform } from "react-native";
 
+import { captureException } from "./sentry";
 import { debug } from "../utils/debug";
 
 /**
@@ -51,6 +52,10 @@ export const getLocationPermission = async (): Promise<boolean> => {
     return newStatus === Location.PermissionStatus.GRANTED;
   } catch (error) {
     debug.error("Location", "Error requesting location permission", error);
+    captureException(error as Error, {
+      service: "location",
+      method: "getLocationPermission",
+    });
     return false;
   }
 };
@@ -79,6 +84,10 @@ export const getCurrentPosition = async (): Promise<LocationState | null> => {
     };
   } catch (error) {
     debug.error("Location", "Error getting current position", error);
+    captureException(error as Error, {
+      service: "location",
+      method: "getCurrentPosition",
+    });
     return null;
   }
 };
@@ -102,6 +111,11 @@ export const geocodeAddress = async (
     return null;
   } catch (error) {
     debug.error("Location", "Error geocoding address", error);
+    captureException(error as Error, {
+      service: "location",
+      method: "geocodeAddress",
+      address,
+    });
     return null;
   }
 };
@@ -141,6 +155,12 @@ export const reverseGeocodeCoordinates = async (
     return null;
   } catch (error) {
     debug.error("Location", "Error reverse geocoding", error);
+    captureException(error as Error, {
+      service: "location",
+      method: "reverseGeocodeCoordinates",
+      latitude,
+      longitude,
+    });
     return null;
   }
 };
@@ -260,7 +280,12 @@ class LocationService {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown location error";
       debug.error("Location", "Error starting location updates", errorMessage);
-      onError(new Error(errorMessage));
+      const err = new Error(errorMessage);
+      captureException(err, {
+        service: "location",
+        method: "startLocationUpdates",
+      });
+      onError(err);
     }
   }
 

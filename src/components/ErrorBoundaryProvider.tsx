@@ -5,25 +5,28 @@ import { BottomSheet } from "./shared/BottomSheet";
 import { ErrorBoundary, withErrorBoundary } from "./shared/ErrorBoundary";
 import { ErrorState } from "./shared/ErrorState";
 import { ToiletList } from "./toilet/ToiletList";
+import { captureException } from "../services/sentry";
 import { debug } from "../utils/debug";
 
 // Wrap key components with error boundaries
 export const SafeMapView = withErrorBoundary(CustomMapView, {
   onError: (error: Error, errorInfo: React.ErrorInfo) => {
-    // TODO: Add error reporting service integration
     debug.error("MapView", "Map Error", { error, errorInfo });
+    captureException(error, { component: "MapView", errorInfo });
   },
 });
 
 export const SafeToiletList = withErrorBoundary(ToiletList, {
   onError: (error: Error, errorInfo: React.ErrorInfo) => {
     debug.error("ToiletList", "ToiletList Error", { error, errorInfo });
+    captureException(error, { component: "ToiletList", errorInfo });
   },
 });
 
 export const SafeBottomSheet = withErrorBoundary(BottomSheet, {
   onError: (error: Error, errorInfo: React.ErrorInfo) => {
     debug.error("BottomSheet", "BottomSheet Error", { error, errorInfo });
+    captureException(error, { component: "BottomSheet", errorInfo });
   },
 });
 
@@ -35,8 +38,8 @@ export function ErrorBoundaryProvider({
   children,
 }: ErrorBoundaryProviderProps) {
   const handleAppError = (error: Error, errorInfo: React.ErrorInfo) => {
-    // TODO: Add error reporting service integration
     debug.error("App", "App Error", { error, errorInfo });
+    captureException(error, { component: "App", errorInfo });
   };
 
   return (

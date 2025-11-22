@@ -16,6 +16,7 @@ import type { UserProfile } from "../types/user";
 import { authDebug } from "../utils/AuthDebugger";
 import { debug } from "../utils/debug";
 import { normalizeToiletData } from "../utils/toilet-helpers";
+import { captureException } from "./sentry";
 
 // Initialize Supabase client
 if (!EXPO_PUBLIC_SUPABASE_URL || !EXPO_PUBLIC_SUPABASE_ANON_KEY) {
@@ -433,6 +434,11 @@ export const supabaseService = {
         // Log unexpected errors
         authDebug.log("SIGNUP", "network_error", { error });
         debug.error("Auth", "Sign up failed unexpectedly", error);
+        captureException(error as Error, {
+          service: "supabase",
+          method: "signUp",
+          email: params.email,
+        });
         throw error;
       } finally {
         // End performance tracking
@@ -487,6 +493,11 @@ export const supabaseService = {
         // Log unexpected errors
         authDebug.log("SIGNIN", "network_error", { error });
         debug.error("Auth", "Sign in failed unexpectedly", error);
+        captureException(error as Error, {
+          service: "supabase",
+          method: "signIn",
+          email,
+        });
         throw error;
       } finally {
         // End performance tracking
@@ -529,6 +540,10 @@ export const supabaseService = {
         // Log unexpected errors
         authDebug.log("SIGNOUT", "network_error", { error });
         debug.error("Auth", "Sign out failed unexpectedly", error);
+        captureException(error as Error, {
+          service: "supabase",
+          method: "signOut",
+        });
         throw error;
       } finally {
         // End performance tracking
@@ -575,6 +590,11 @@ export const supabaseService = {
         // Log unexpected errors
         authDebug.log("PASSWORD_RESET", "network_error", { error });
         debug.error("Auth", "Password reset failed unexpectedly", error);
+        captureException(error as Error, {
+          service: "supabase",
+          method: "resetPassword",
+          email,
+        });
         throw error;
       } finally {
         // End performance tracking
@@ -926,6 +946,11 @@ export const supabaseService = {
           error,
         });
         debug.error("Auth", "Update profile failed unexpectedly", error);
+        captureException(error as Error, {
+          service: "supabase",
+          method: "updateProfile",
+          fields: Object.keys(params),
+        });
         return null;
       } finally {
         // End performance tracking
