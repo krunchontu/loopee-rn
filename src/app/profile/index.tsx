@@ -17,12 +17,12 @@ import { ErrorState } from "../../components/shared/ErrorState";
 import { LoadingState } from "../../components/shared/LoadingState";
 import { colors } from "../../foundations/colors";
 import { useAuth } from "../../providers/AuthProvider";
-import { debug } from "../../utils/debug";
 import type {
   UserReview,
   UserContribution,
   UserFavorite,
 } from "../../types/profile-content";
+import { debug } from "../../utils/debug";
 
 export default function ProfileScreen() {
   const router = useRouter();

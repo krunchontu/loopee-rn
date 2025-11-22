@@ -9,8 +9,6 @@ import React, { useState } from "react";
 import { StyleSheet, View, SafeAreaView } from "react-native";
 import { Appbar } from "react-native-paper";
 
-import { debug } from "../../utils/debug";
-
 import { AddToiletAmenities } from "../../components/contribute/AddToiletAmenities";
 import { AddToiletForm } from "../../components/contribute/AddToiletForm";
 import { AddToiletLocation } from "../../components/contribute/AddToiletLocation";
@@ -20,6 +18,7 @@ import { StepIndicator } from "../../components/contribute/StepIndicator";
 import { colors } from "../../foundations";
 import { contributionService } from "../../services/contributionService";
 import type { Toilet } from "../../types/toilet";
+import { debug } from "../../utils/debug";
 
 /**
  * Screen for adding a new toilet with multi-step form
@@ -95,8 +94,9 @@ const AddToiletScreen: React.FC = () => {
   const handleSubmit = async () => {
     try {
       // Submit to the contribution service
-      const _submissionResult =
-        await contributionService.submitNewToilet(toiletData);
+      const _submissionResult = await contributionService.submitNewToilet(
+        toiletData
+      );
 
       // Navigate back to previous screen after success
       navigation.goBack();
