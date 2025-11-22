@@ -6,7 +6,8 @@
  */
 
 import React, { useState } from "react";
-import { StyleSheet, View, StyleProp, ViewStyle, Alert } from "react-native";
+import type { StyleProp, ViewStyle} from "react-native";
+import { StyleSheet, View, Alert } from "react-native";
 import {
   Button,
   Card,
@@ -16,6 +17,7 @@ import {
   TextInput,
   HelperText,
 } from "react-native-paper";
+
 import { colors, palette } from "../../foundations/colors";
 
 export interface EmailPreferences {

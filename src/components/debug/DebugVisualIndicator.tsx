@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
+
 // Using _ prefix to avoid lint errors for unused imports
 import { colors as _colors, zIndex as _zIndex } from "../../foundations";
 

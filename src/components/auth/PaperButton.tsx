@@ -6,8 +6,10 @@
  */
 
 import React from "react";
+import type { ViewStyle } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { Button, useTheme } from "react-native-paper";
-import { StyleSheet, View, ViewStyle } from "react-native";
+
 import { spacing } from "../../foundations";
 
 interface PaperButtonProps {

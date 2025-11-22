@@ -1,13 +1,14 @@
-import { View, Text, ScrollView, Image, StyleSheet } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useState, useCallback, memo } from "react";
-import { colors, spacing } from "../../constants/colors";
+import { View, Text, ScrollView, Image, StyleSheet } from "react-native";
+
+import { ErrorState } from "../../components/shared/ErrorState";
+import { LoadingState } from "../../components/shared/LoadingState";
 import { Rating } from "../../components/shared/Rating";
 import { Review } from "../../components/toilet/Review";
-import { LoadingState } from "../../components/shared/LoadingState";
-import { ErrorState } from "../../components/shared/ErrorState";
+import { colors, spacing } from "../../constants/colors";
 import { supabaseService } from "../../services/supabase";
-import { Toilet as ToiletType, Review as ReviewType } from "../../types/toilet";
+import type { Toilet as ToiletType, Review as ReviewType } from "../../types/toilet";
 import { debug } from "../../utils/debug";
 
 export default memo(function DetailsScreen() {

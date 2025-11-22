@@ -7,10 +7,11 @@
 import React, { useState } from "react";
 import { View, StyleSheet } from "react-native";
 import { Card, Text, IconButton } from "react-native-paper";
-import { Review } from "../../types/toilet";
-import { Rating } from "../shared/Rating";
+
 import { ReviewModal } from "./ReviewModal";
 import { colors, spacing } from "../../foundations";
+import type { Review } from "../../types/toilet";
+import { Rating } from "../shared/Rating";
 
 interface UserReviewCardProps {
   review: Review;

@@ -1,11 +1,14 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import { StyleSheet, Platform, View, Text } from "react-native";
-import MapView, { PROVIDER_GOOGLE, Region, Marker } from "react-native-maps";
+import type { Region} from "react-native-maps";
+import MapView, { PROVIDER_GOOGLE, Marker } from "react-native-maps";
 import ClusteredMapView from "react-native-maps-super-cluster";
-import { useToiletStore } from "../../stores/toilets";
+
 import { colors, spacing } from "../../constants/colors";
-import { Toilet } from "../../types/toilet";
-import { locationService, LocationState } from "../../services/location";
+import type { LocationState } from "../../services/location";
+import { locationService } from "../../services/location";
+import { useToiletStore } from "../../stores/toilets";
+import type { Toilet } from "../../types/toilet";
 import { Button } from "../shared/Button";
 
 interface CustomClusteredMapProps {
@@ -185,21 +188,13 @@ export function CustomClusteredMapView({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    width: "100%",
-  },
-  map: {
-    flex: 1,
-    width: "100%",
-  },
   cluster: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: colors.primary,
-    justifyContent: "center",
     alignItems: "center",
+    backgroundColor: colors.primary,
+    borderRadius: 15,
+    elevation: 5,
+    height: 30,
+    justifyContent: "center",
     shadowColor: colors.text.primary,
     shadowOffset: {
       width: 0,
@@ -207,21 +202,26 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
-    elevation: 5,
+    width: 30,
   },
   clusterText: {
     color: colors.text.inverse,
-    fontWeight: "bold",
     fontSize: 12,
+    fontWeight: "bold",
+  },
+  container: {
+    flex: 1,
+    width: "100%",
   },
   errorContainer: {
-    position: "absolute",
-    top: spacing.md,
-    left: spacing.md,
-    right: spacing.md,
+    alignItems: "center",
     backgroundColor: colors.background.primary,
-    padding: spacing.sm,
     borderRadius: 8,
+    elevation: 3,
+    left: spacing.md,
+    padding: spacing.sm,
+    position: "absolute",
+    right: spacing.md,
     shadowColor: colors.text.primary,
     shadowOffset: {
       width: 0,
@@ -229,8 +229,7 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
-    alignItems: "center",
+    top: spacing.md,
   },
   errorText: {
     color: colors.status.error,
@@ -238,8 +237,12 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   locationButtonContainer: {
-    position: "absolute",
     bottom: spacing.xl,
+    position: "absolute",
     right: spacing.md,
+  },
+  map: {
+    flex: 1,
+    width: "100%",
   },
 });

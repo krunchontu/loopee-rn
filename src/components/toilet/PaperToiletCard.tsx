@@ -1,16 +1,18 @@
 import React, { memo } from "react";
+import type {
+  ViewStyle,
+  TextStyle} from "react-native";
 import {
   StyleSheet,
   TouchableOpacity,
-  View,
-  ViewStyle,
-  TextStyle,
+  View
 } from "react-native";
+import { Dimensions } from "react-native";
 import { Card, Text, Title, Caption } from "react-native-paper";
+
 import { spacing, colors, borderRadius } from "../../foundations";
 import { getResponsiveFontSize } from "../../foundations/responsive";
-import { Dimensions } from "react-native";
-import { Toilet } from "../../types/toilet";
+import type { Toilet } from "../../types/toilet";
 import { Rating } from "../shared/Rating";
 
 export interface PaperToiletCardProps {

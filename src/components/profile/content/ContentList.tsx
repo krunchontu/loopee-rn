@@ -6,16 +6,18 @@
  */
 
 import React from "react";
+import type {
+  StyleProp,
+  ViewStyle} from "react-native";
 import {
   StyleSheet,
   View,
   FlatList,
   ActivityIndicator,
-  Text,
-  StyleProp,
-  ViewStyle,
+  Text
 } from "react-native";
 import { IconButton } from "react-native-paper";
+
 import { colors } from "../../../foundations/colors";
 
 interface ContentListProps<T> {

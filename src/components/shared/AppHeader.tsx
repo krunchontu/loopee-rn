@@ -6,10 +6,11 @@
  * Features enhanced profile access visibility in mobile view.
  */
 
+import { useRouter } from "expo-router";
 import React from "react";
 import { StyleSheet } from "react-native";
 import { Appbar } from "react-native-paper";
-import { useRouter } from "expo-router";
+
 import { colors } from "../../foundations/colors";
 
 interface AppHeaderProps {

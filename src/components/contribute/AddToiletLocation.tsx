@@ -6,12 +6,13 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { View, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
-import { Title, Button, TextInput, Text } from "react-native-paper";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
-import { BaseStepProps } from "../../types/contribution";
-import { Location as ToiletLocation } from "../../types/toilet";
+import { Title, Button, TextInput, Text } from "react-native-paper";
+
 import { colors, spacing } from "../../foundations";
 import { locationService } from "../../services/location";
+import type { BaseStepProps } from "../../types/contribution";
+import type { Location as ToiletLocation } from "../../types/toilet";
 
 interface AddToiletLocationProps extends BaseStepProps {
   location?: ToiletLocation;

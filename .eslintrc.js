@@ -147,5 +147,8 @@ module.exports = {
     ".eslintrc.js",
     "App.js",
     "index.js",
+    "__mocks__/",
+    "jest.setup.js",
+    "coverage/",
   ],
 };

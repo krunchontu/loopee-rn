@@ -5,6 +5,7 @@
  * with form validation and error handling
  */
 
+import { Link } from "expo-router";
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -14,19 +15,19 @@ import {
   ScrollView,
 } from "react-native";
 import { Text, Title } from "react-native-paper";
-import { Link } from "expo-router";
-import { AuthInput } from "../../components/auth/AuthInput";
-import { PasswordInput } from "../../components/auth/PasswordInput";
-import { PaperButton } from "../../components/auth/PaperButton";
-import { useAuth } from "../../providers/AuthProvider";
-import { spacing, colors } from "../../foundations";
+
 import { AuthErrorBanner } from "../../components/auth/AuthErrorBanner";
+import { AuthInput } from "../../components/auth/AuthInput";
+import { PaperButton } from "../../components/auth/PaperButton";
+import { PasswordInput } from "../../components/auth/PasswordInput";
 import { useAuthErrorHandling } from "../../components/auth/useAuthErrorHandling";
-import { debug } from "../../utils/debug";
+import type { FormErrors } from "../../components/auth/useAuthErrorHandling";
+import { spacing, colors } from "../../foundations";
+import { useAuth } from "../../providers/AuthProvider";
 import { authDebug } from "../../utils/AuthDebugger";
+import { debug } from "../../utils/debug";
 
 // Import FormErrors type from the hook
-import type { FormErrors } from "../../components/auth/useAuthErrorHandling";
 
 // This interface is now imported from useAuthErrorHandling
 

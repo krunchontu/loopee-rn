@@ -16,6 +16,7 @@ import Animated, {
   withSequence,
   Easing,
 } from "react-native-reanimated";
+
 import { colors, spacing } from "../../foundations";
 
 interface AuthErrorBannerProps {

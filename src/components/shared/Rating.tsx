@@ -1,5 +1,6 @@
 import React from "react";
 import { StyleSheet, View } from "react-native";
+
 import { colors } from "../../constants/colors";
 
 interface RatingProps {
@@ -79,53 +80,53 @@ export function Rating({ value, size = "medium", maxStars = 5 }: RatingProps) {
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: "row",
     alignItems: "center",
+    flexDirection: "row",
   },
   star: {
     marginRight: 2,
     position: "relative",
   },
-  starFill: {
-    position: "absolute",
-    width: 0,
-    height: 0,
+  starEmpty: {
     backgroundColor: "transparent",
-    borderStyle: "solid",
-    borderLeftWidth: 0,
-    borderRightWidth: 0,
     borderBottomWidth: 0,
-    borderTopColor: "transparent",
     borderLeftColor: "transparent",
+    borderLeftWidth: 0,
     borderRightColor: "transparent",
+    borderRightWidth: 0,
+    borderStyle: "solid",
+    borderTopColor: "transparent",
+    height: 0,
+    position: "absolute",
     transform: [{ rotate: "180deg" }],
+    width: 0,
+  },
+  starFill: {
+    backgroundColor: "transparent",
+    borderBottomWidth: 0,
+    borderLeftColor: "transparent",
+    borderLeftWidth: 0,
+    borderRightColor: "transparent",
+    borderRightWidth: 0,
+    borderStyle: "solid",
+    borderTopColor: "transparent",
+    height: 0,
+    position: "absolute",
+    transform: [{ rotate: "180deg" }],
+    width: 0,
   },
   starHalf: {
-    position: "absolute",
-    width: 0,
-    height: 0,
     backgroundColor: "transparent",
-    borderStyle: "solid",
-    borderLeftWidth: 0,
-    borderRightWidth: 0,
     borderBottomWidth: 0,
-    borderTopColor: "transparent",
     borderLeftColor: "transparent",
+    borderLeftWidth: 0,
     borderRightColor: "transparent",
+    borderRightWidth: 0,
+    borderStyle: "solid",
+    borderTopColor: "transparent",
+    height: 0,
+    position: "absolute",
     transform: [{ rotate: "180deg" }, { scaleX: 0.5 }],
-  },
-  starEmpty: {
-    position: "absolute",
     width: 0,
-    height: 0,
-    backgroundColor: "transparent",
-    borderStyle: "solid",
-    borderLeftWidth: 0,
-    borderRightWidth: 0,
-    borderBottomWidth: 0,
-    borderTopColor: "transparent",
-    borderLeftColor: "transparent",
-    borderRightColor: "transparent",
-    transform: [{ rotate: "180deg" }],
   },
 });

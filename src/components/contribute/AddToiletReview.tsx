@@ -5,14 +5,15 @@
  * Includes safeguards against duplicate submissions
  */
 
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useState, useRef } from "react";
 import { View, StyleSheet, ScrollView, Image, Alert } from "react-native";
 import { Title, Button, Text, Divider, Card } from "react-native-paper";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { BaseStepProps } from "../../types/contribution";
-import { Toilet } from "../../types/toilet";
+
 import { colors, spacing } from "../../foundations";
 import { contributionService } from "../../services/contributionService";
+import type { BaseStepProps } from "../../types/contribution";
+import type { Toilet } from "../../types/toilet";
 import { debug } from "../../utils/debug";
 
 interface AddToiletReviewProps extends Omit<BaseStepProps, "onNext"> {

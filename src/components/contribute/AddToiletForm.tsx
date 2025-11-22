@@ -14,9 +14,10 @@ import {
   Text,
   HelperText,
 } from "react-native-paper";
-import { BaseStepProps } from "../../types/contribution";
-import { Toilet } from "../../types/toilet";
+
 import { colors, spacing } from "../../foundations";
+import type { BaseStepProps } from "../../types/contribution";
+import type { Toilet } from "../../types/toilet";
 
 interface AddToiletFormProps extends BaseStepProps {
   toiletData: Partial<Toilet>;
@@ -157,8 +158,8 @@ export const AddToiletForm: React.FC<AddToiletFormProps> = ({
 
 const styles = StyleSheet.create({
   button: {
-    marginTop: spacing.md,
     marginBottom: spacing.sm,
+    marginTop: spacing.md,
   },
   buttonContainer: {
     marginTop: spacing.lg,

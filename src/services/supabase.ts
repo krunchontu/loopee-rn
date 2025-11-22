@@ -1,16 +1,20 @@
-import {
-  createClient,
+import { EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY } from "@env";
+import type {
   AuthResponse,
   Session,
   User,
   AuthChangeEvent,
-  SupabaseClient,
+  SupabaseClient} from "@supabase/supabase-js";
+import {
+  createClient
 } from "@supabase/supabase-js";
-import { Toilet, Review } from "../types/toilet";
-import { UserProfile } from "../types/user";
-import { EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY } from "@env";
-import { debug } from "../utils/debug";
+import * as Linking from "expo-linking";
+import { Platform } from "react-native";
+
+import type { Toilet, Review } from "../types/toilet";
+import type { UserProfile } from "../types/user";
 import { authDebug } from "../utils/AuthDebugger";
+import { debug } from "../utils/debug";
 import { normalizeToiletData } from "../utils/toilet-helpers";
 
 // Initialize Supabase client
@@ -545,8 +549,13 @@ export const supabaseService = {
       authDebug.log("PASSWORD_RESET", "attempt", { email });
 
       try {
+        const redirectUrl = Platform.select({
+          web: () => typeof window !== 'undefined' ? `${window.location.origin}/reset-password` : '',
+          default: () => Linking.createURL('reset-password'),
+        })();
+
         const result = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/reset-password`,
+          redirectTo: redirectUrl,
         });
 
         if (result.error) {

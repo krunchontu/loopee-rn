@@ -1,4 +1,5 @@
 import { Stack, SplashScreen, useSegments, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import {
   useColorScheme,
   StatusBar,
@@ -6,14 +7,14 @@ import {
   View,
   StyleSheet,
 } from "react-native";
-import { useEffect, useState } from "react";
-import { SafeAreaProvider } from "react-native-safe-area-context";
 import { PaperProvider } from "react-native-paper";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+
 import { ErrorBoundaryProvider } from "../components/ErrorBoundaryProvider";
-import { AuthProvider, useAuth } from "../providers/AuthProvider";
 import { colors } from "../foundations/colors";
-import { debug } from "../utils/debug";
 import { getPaperTheme } from "../foundations/paper-theme";
+import { AuthProvider, useAuth } from "../providers/AuthProvider";
+import { debug } from "../utils/debug";
 
 // Keep the splash screen visible while we initialize resources
 SplashScreen.preventAutoHideAsync();

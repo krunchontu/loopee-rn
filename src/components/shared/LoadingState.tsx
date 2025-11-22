@@ -1,12 +1,14 @@
 import React from "react";
+import type {
+  ViewStyle,
+  DimensionValue} from "react-native";
 import {
   StyleSheet,
   View,
   Animated,
-  Easing,
-  ViewStyle,
-  DimensionValue,
+  Easing
 } from "react-native";
+
 import { colors, spacing, palette } from "../../foundations"; // Changed import, added palette
 
 interface LoadingStateProps {

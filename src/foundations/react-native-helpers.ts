@@ -6,7 +6,8 @@
  * style system.
  */
 
-import { ViewStyle, TextStyle } from "react-native";
+import type { ViewStyle, TextStyle } from "react-native";
+
 import {
   createComponentStyle as baseCreateComponentStyle,
   createTextStyle as baseCreateTextStyle,

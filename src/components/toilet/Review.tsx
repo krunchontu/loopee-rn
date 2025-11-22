@@ -1,7 +1,8 @@
 import { View, Text, Image } from "react-native";
+
 import { colors, spacing } from "../../constants/colors";
+import type { Review as ReviewType } from "../../types/toilet";
 import { Rating } from "../shared/Rating";
-import { Review as ReviewType } from "../../types/toilet";
 
 interface ReviewProps {
   review: ReviewType;

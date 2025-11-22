@@ -1,15 +1,17 @@
+import type {
+  NavigationProp,
+  ParamListBase} from "@react-navigation/native";
+import {
+  useNavigation
+} from "@react-navigation/native";
 import React from "react";
 import { View, StyleSheet, Dimensions } from "react-native";
+
 import { ToiletList } from "./ToiletList";
-import {
-  useNavigation,
-  NavigationProp,
-  ParamListBase,
-} from "@react-navigation/native";
-import { useToiletStore } from "../../stores/toilets";
-import { Toilet } from "../../types/toilet";
 import { colors, spacing } from "../../foundations";
 import { getResponsiveSpacing } from "../../foundations/responsive";
+import { useToiletStore } from "../../stores/toilets";
+import type { Toilet } from "../../types/toilet";
 import { debug } from "../../utils/debug";
 
 /**

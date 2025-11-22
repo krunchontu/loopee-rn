@@ -1,9 +1,10 @@
 import React from "react";
-import { ErrorBoundary, withErrorBoundary } from "./shared/ErrorBoundary";
+
 import { CustomMapView } from "./map/MapView";
-import { ToiletList } from "./toilet/ToiletList";
 import { BottomSheet } from "./shared/BottomSheet";
+import { ErrorBoundary, withErrorBoundary } from "./shared/ErrorBoundary";
 import { ErrorState } from "./shared/ErrorState";
+import { ToiletList } from "./toilet/ToiletList";
 
 // Wrap key components with error boundaries
 export const SafeMapView = withErrorBoundary(CustomMapView, {

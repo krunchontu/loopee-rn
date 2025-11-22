@@ -5,8 +5,9 @@
  * This serves as a wrapper around the AddToiletScreen component.
  */
 
-import React from "react";
 import { Stack } from "expo-router";
+import React from "react";
+
 import AddToiletScreen from "../../screens/contribute/AddToiletScreen";
 
 /**

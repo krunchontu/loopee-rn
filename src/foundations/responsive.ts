@@ -8,7 +8,9 @@
  */
 
 import { useEffect, useState } from "react";
-import { Dimensions, ScaledSize, Platform } from "react-native";
+import type { ScaledSize} from "react-native";
+import { Dimensions, Platform } from "react-native";
+
 import { breakpoints } from "./layout";
 
 // Types

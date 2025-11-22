@@ -5,13 +5,14 @@
  * Provides consistent styling, navigation headers and common elements
  */
 
-import React from "react";
 import { Stack, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import React from "react";
 import { View, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { colors } from "../../foundations";
+
 import { AppHeader } from "../../components/shared/AppHeader";
+import { colors } from "../../foundations";
 
 /**
  * Profile layout component

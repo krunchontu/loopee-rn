@@ -14,6 +14,7 @@ import {
   PanResponder,
   TouchableWithoutFeedback,
 } from "react-native";
+
 import {
   colors,
   spacing,

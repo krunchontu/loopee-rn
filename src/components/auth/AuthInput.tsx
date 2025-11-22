@@ -6,13 +6,16 @@
  */
 
 import React, { useState } from "react";
+import type { ViewStyle } from "react-native";
+import { StyleSheet, View } from "react-native";
+import type {
+  TextInputProps} from "react-native-paper";
 import {
   TextInput,
   HelperText,
-  useTheme,
-  TextInputProps,
+  useTheme
 } from "react-native-paper";
-import { StyleSheet, View, ViewStyle } from "react-native";
+
 import { spacing } from "../../foundations";
 
 interface AuthInputProps extends Omit<TextInputProps, "theme" | "error"> {

@@ -8,6 +8,7 @@
 import React from "react";
 import { StyleSheet, View } from "react-native";
 import { IconButton } from "react-native-paper";
+
 import { colors } from "../../foundations";
 
 interface EditableRatingProps {

@@ -16,25 +16,28 @@ import {
   StatusBar,
   Pressable,
 } from "react-native";
+import type {
+  Region,
+  MapPressEvent} from "react-native-maps";
+import MapView, {
+  PROVIDER_GOOGLE
+} from "react-native-maps";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { AnimatedMarker } from "./AnimatedMarker";
+import { colors, spacing, zIndex, createShadow } from "../../foundations"; // Added createShadow
 import {
   getResponsiveSpacing,
   getResponsiveFontSize,
 } from "../../foundations/responsive";
-import MapView, {
-  PROVIDER_GOOGLE,
-  Region,
-  MapPressEvent,
-} from "react-native-maps";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { AnimatedMarker } from "./AnimatedMarker";
+import type { LocationState } from "../../services/location";
+import { locationService } from "../../services/location";
 import { useToiletStore } from "../../stores/toilets";
-import { colors, spacing, zIndex, createShadow } from "../../foundations"; // Added createShadow
-import { Toilet } from "../../types/toilet";
-import { locationService, LocationState } from "../../services/location";
-import { Button } from "../shared/Button";
-import { ErrorBoundary } from "../shared/ErrorBoundary";
+import type { Toilet } from "../../types/toilet";
 import { clusterToilets, getZoomLevel } from "../../utils/clustering";
 import { debug } from "../../utils/debug";
+import { Button } from "../shared/Button";
+import { ErrorBoundary } from "../shared/ErrorBoundary";
 
 interface CustomMapViewProps {
   onMarkerPress?: (toilet: Toilet) => void;

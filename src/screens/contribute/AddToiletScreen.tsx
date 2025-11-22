@@ -4,19 +4,20 @@
  * Main screen for adding a new toilet. Contains a multi-step form process.
  */
 
+import { useNavigation } from "@react-navigation/native";
 import React, { useState } from "react";
 import { StyleSheet, View, SafeAreaView } from "react-native";
 import { Appbar } from "react-native-paper";
-import { useNavigation } from "@react-navigation/native";
+
+import { AddToiletAmenities } from "../../components/contribute/AddToiletAmenities";
 import { AddToiletForm } from "../../components/contribute/AddToiletForm";
 import { AddToiletLocation } from "../../components/contribute/AddToiletLocation";
-import { AddToiletAmenities } from "../../components/contribute/AddToiletAmenities";
 import { AddToiletPhotos } from "../../components/contribute/AddToiletPhotos";
 import { AddToiletReview } from "../../components/contribute/AddToiletReview";
 import { StepIndicator } from "../../components/contribute/StepIndicator";
-import { contributionService } from "../../services/contributionService";
-import { Toilet } from "../../types/toilet";
 import { colors } from "../../foundations";
+import { contributionService } from "../../services/contributionService";
+import type { Toilet } from "../../types/toilet";
 
 /**
  * Screen for adding a new toilet with multi-step form

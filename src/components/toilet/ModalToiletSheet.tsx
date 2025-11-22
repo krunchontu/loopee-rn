@@ -13,6 +13,8 @@ import {
   KeyboardAvoidingView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+import { ToiletList } from "./ToiletList";
 import {
   colors,
   spacing,
@@ -29,17 +31,16 @@ import {
   lineHeights,
 } from "../../foundations";
 import {
+  createComponentStyle,
+  createTextStyle,
+} from "../../foundations/react-native-helpers";
+import {
   useResponsiveLayout,
   getResponsiveValue,
   getResponsiveFontSize,
   getResponsiveSpacing,
 } from "../../foundations/responsive";
-import {
-  createComponentStyle,
-  createTextStyle,
-} from "../../foundations/react-native-helpers";
-import { ToiletList } from "./ToiletList";
-import { Toilet } from "../../types/toilet";
+import type { Toilet } from "../../types/toilet";
 import { debug } from "../../utils/debug";
 
 // Animation configuration
