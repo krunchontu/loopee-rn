@@ -17,6 +17,7 @@ import { ErrorState } from "../../components/shared/ErrorState";
 import { LoadingState } from "../../components/shared/LoadingState";
 import { colors } from "../../foundations/colors";
 import { useAuth } from "../../providers/AuthProvider";
+import { debug } from "../../utils/debug";
 import type {
   UserReview,
   UserContribution,
@@ -50,7 +51,7 @@ export default function ProfileScreen() {
             const { error } = await signOut();
 
             if (error) {
-              console.error("Logout failed:", error);
+              debug.error("Profile", "Logout failed", error);
               Alert.alert("Error", "Failed to logout. Please try again.");
               return;
             }
@@ -58,7 +59,7 @@ export default function ProfileScreen() {
             // Only navigate if logout was successful
             router.replace("/(auth)/login");
           } catch (error) {
-            console.error("Logout failed with exception:", error);
+            debug.error("Profile", "Logout failed with exception", error);
             Alert.alert(
               "Error",
               "An unexpected error occurred. Please try again."

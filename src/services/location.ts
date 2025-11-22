@@ -12,6 +12,8 @@
 import * as Location from "expo-location";
 import { Platform } from "react-native";
 
+import { debug } from "../utils/debug";
+
 /**
  * Location state interface representing geographical coordinates
  */
@@ -48,7 +50,7 @@ export const getLocationPermission = async (): Promise<boolean> => {
     // Return true if permission is granted
     return newStatus === Location.PermissionStatus.GRANTED;
   } catch (error) {
-    console.error("Error requesting location permission:", error);
+    debug.error("Location", "Error requesting location permission", error);
     return false;
   }
 };
@@ -76,7 +78,7 @@ export const getCurrentPosition = async (): Promise<LocationState | null> => {
       longitude: position.coords.longitude,
     };
   } catch (error) {
-    console.error("Error getting current position:", error);
+    debug.error("Location", "Error getting current position", error);
     return null;
   }
 };
@@ -99,7 +101,7 @@ export const geocodeAddress = async (
 
     return null;
   } catch (error) {
-    console.error("Error geocoding address:", error);
+    debug.error("Location", "Error geocoding address", error);
     return null;
   }
 };
@@ -138,7 +140,7 @@ export const reverseGeocodeCoordinates = async (
 
     return null;
   } catch (error) {
-    console.error("Error reverse geocoding:", error);
+    debug.error("Location", "Error reverse geocoding", error);
     return null;
   }
 };
@@ -257,7 +259,7 @@ class LocationService {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown location error";
-      console.error("Error starting location updates:", errorMessage);
+      debug.error("Location", "Error starting location updates", errorMessage);
       onError(new Error(errorMessage));
     }
   }

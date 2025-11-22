@@ -18,6 +18,7 @@ import AccountSettings from "../../components/profile/AccountSettings";
 import { ErrorState } from "../../components/shared/ErrorState";
 import { LoadingState } from "../../components/shared/LoadingState";
 import { colors, palette } from "../../foundations/colors";
+import { debug } from "../../utils/debug";
 import { useAuth } from "../../providers/AuthProvider";
 
 export default function AccountSettingsScreen() {
@@ -38,7 +39,7 @@ export default function AccountSettingsScreen() {
           throw error;
         }
       } catch (error) {
-        console.error("Failed to change password:", error);
+        debug.error("Settings", "Failed to change password", error);
         setError(
           "Failed to change password. Please check your input and try again."
         );
@@ -59,7 +60,7 @@ export default function AccountSettingsScreen() {
       // Redirect to login page
       router.replace("/(auth)/login");
     } catch (error) {
-      console.error("Failed to delete account:", error);
+      debug.error("Settings", "Failed to delete account", error);
       setError("Failed to delete account. Please try again later.");
       throw error;
     }

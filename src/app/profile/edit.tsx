@@ -17,6 +17,7 @@ import { LoadingState } from "../../components/shared/LoadingState";
 import { colors, palette } from "../../foundations/colors";
 import { useAuth } from "../../providers/AuthProvider";
 import type { UserProfile } from "../../types/user";
+import { debug } from "../../utils/debug";
 
 export default function EditProfileScreen() {
   const router = useRouter();
@@ -36,7 +37,7 @@ export default function EditProfileScreen() {
           avatar_url: url,
         });
       } catch (error) {
-        console.error("Failed to update avatar:", error);
+        debug.error("ProfileEdit", "Failed to update avatar", error);
         setFormError("Failed to update avatar. Please try again.");
       }
     },
@@ -59,7 +60,7 @@ export default function EditProfileScreen() {
 
         router.back();
       } catch (error) {
-        console.error("Failed to update profile:", error);
+        debug.error("ProfileEdit", "Failed to update profile", error);
         setFormError("Failed to update profile. Please try again.");
       } finally {
         setIsSubmitting(false);
