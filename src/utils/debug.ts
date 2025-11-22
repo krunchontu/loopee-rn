@@ -21,6 +21,7 @@ class Debug {
    */
   log(category: string, message: string, data?: any) {
     if (!this.isEnabled) return;
+    // eslint-disable-next-line no-console
     console.log(`[${category}] ${message}`, data || "");
   }
 
@@ -46,6 +47,7 @@ class Debug {
     const lastLogTime = this.throttledLogs.get(logId) || 0;
 
     if (now - lastLogTime > timeMs) {
+      // eslint-disable-next-line no-console
       console.log(`[${category}] ${message}`, data || "");
       this.throttledLogs.set(logId, now);
     }

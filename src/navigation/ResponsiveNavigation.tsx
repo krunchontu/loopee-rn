@@ -9,7 +9,6 @@ import MapScreen from "../app/(guest)/map";
 import MapWithBottomSheet from "../components/map/MapWithBottomSheet";
 import ToiletDetailView from "../components/toilet/ToiletDetailView";
 import ToiletListScreen from "../components/toilet/ToiletListScreen";
-import { colors } from "../foundations/colors";
 import type { Toilet } from "../types/toilet";
 
 // Import screens

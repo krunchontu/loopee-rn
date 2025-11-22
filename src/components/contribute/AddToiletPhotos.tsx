@@ -80,7 +80,7 @@ export const AddToiletPhotos: React.FC<AddToiletPhotosProps> = ({
         setLocalPhotos((prev) => [...prev, photoUri]);
       }
     } catch (err) {
-      console.error("Error taking photo:", err);
+      debug.error("Component", "Error taking photo:", err);
       setError("Failed to take photo. Please try again.");
     } finally {
       setUploading(false);
@@ -115,7 +115,7 @@ export const AddToiletPhotos: React.FC<AddToiletPhotosProps> = ({
         setLocalPhotos((prev) => [...prev, ...photoUris]);
       }
     } catch (err) {
-      console.error("Error selecting photo:", err);
+      debug.error("Component", "Error selecting photo:", err);
       setError("Failed to select photo. Please try again.");
     } finally {
       setUploading(false);

@@ -9,6 +9,8 @@ import React, { useState } from "react";
 import { StyleSheet, View, SafeAreaView } from "react-native";
 import { Appbar } from "react-native-paper";
 
+import { debug } from "../../utils/debug";
+
 import { AddToiletAmenities } from "../../components/contribute/AddToiletAmenities";
 import { AddToiletForm } from "../../components/contribute/AddToiletForm";
 import { AddToiletLocation } from "../../components/contribute/AddToiletLocation";
@@ -102,7 +104,7 @@ const AddToiletScreen: React.FC = () => {
       // You could also navigate to a success screen or the submission details screen
       // navigation.navigate('SubmissionSuccess', { submissionId: submissionResult.id });
     } catch (error) {
-      console.error("Error submitting toilet:", error);
+      debug.error("AddToiletScreen", "Error submitting toilet", error);
       throw error;
     }
   };

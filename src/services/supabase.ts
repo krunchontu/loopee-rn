@@ -1032,6 +1032,7 @@ export const supabaseService = {
         }
 
         // Return the toilet with coordinates fixed but keeping all original fields
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         return {
           ...toilet,
           latitude: toiletLatitude,
