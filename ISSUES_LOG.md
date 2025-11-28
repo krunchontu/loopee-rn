@@ -1,7 +1,7 @@
 # Issues Log
 
 **Project:** Loopee RN
-**Last Updated:** 2025-11-22
+**Last Updated:** 2025-11-28
 **Purpose:** Track known issues, blockers, and technical debt
 
 ---
@@ -59,6 +59,16 @@
 
 ## Resolved Issues
 
+### ISSUE-TEST-006: Environment File Naming Issue
+- **Severity:** Medium
+- **Status:** Resolved
+- **Created:** 2025-11-28
+- **Resolved:** 2025-11-28
+- **Description:** Environment file was named `env.local` instead of `.env.local` (missing dot)
+- **Impact:** Tests failed to load environment variables, causing import errors
+- **Solution:** Copied `env.local` to `.env.local` to follow standard naming convention
+- **Result:** All 110 tests now passing successfully
+
 ### ISSUE-TEST-004: Jest Not Found in PATH
 - **Severity:** High
 - **Status:** Resolved
@@ -106,9 +116,12 @@
 
 ## Monitoring
 
-### Test Coverage Progress
+### Test Coverage Progress (Updated 2025-11-28)
 - **Location Service:** 81.81% ✅ (Target: 75%)
-- **Overall Services:** ~20% (Target: 70%)
+- **Auth Service:** 48.11% ✅ (Target: 80% - room for improvement)
+- **Contribution Service:** 55.06% ✅ (Target: 70% - on track)
+- **Toilet Store:** 88.88% ✅ (Target: 65% - EXCEEDS TARGET)
+- **Overall Test Suite:** 110 passing, 7 skipped ✅
 - **Components:** 0% (Target: 50%)
 
 ### Next Test Priorities
