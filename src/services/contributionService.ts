@@ -24,6 +24,7 @@ import type {
 import type { Toilet } from "../types/toilet";
 import { authDebug } from "../utils/AuthDebugger";
 import { debug } from "../utils/debug";
+import * as Crypto from "expo-crypto";
 
 // Use the shared Supabase client instance for consistent auth state
 const supabase = getSupabaseClient();
@@ -315,8 +316,9 @@ export const contributionService = {
    * @throws Error if user is not authenticated or session cannot be refreshed
    */
   async ensureValidSession(): Promise<void> {
-    // Generate a unique ID for this validation operation
-    const operationId = `session-validation-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    // Generate a unique ID for this validation operation using cryptographically secure random
+    const randomId = Crypto.randomUUID().substring(0, 8);
+    const operationId = `session-validation-${Date.now()}-${randomId}`;
 
     // Check if we already have a validation operation in progress
     const existingValidation = this.validationPromises.size > 0;
@@ -951,12 +953,17 @@ export const contributionService = {
         throw new Error("You must be logged in to view your submissions");
       }
 
-      // Log user authentication information in development
+      // Log user authentication information in development (sanitized)
       if (__DEV__) {
         debug.log(
           "contributionService",
           "Auth user object for submissions query:",
-          JSON.stringify(user)
+          {
+            userId: user.id,
+            hasEmail: !!user.email,
+            emailConfirmed: !!user.email_confirmed_at,
+            identityCount: user.identities?.length || 0,
+          }
         );
       }
 
@@ -1050,12 +1057,17 @@ export const contributionService = {
         throw new Error("You must be logged in to view submission details");
       }
 
-      // Log user authentication information in development
+      // Log user authentication information in development (sanitized)
       if (__DEV__) {
         debug.log(
           "contributionService",
           "Auth user object for submission details query:",
-          JSON.stringify(user)
+          {
+            userId: user.id,
+            hasEmail: !!user.email,
+            emailConfirmed: !!user.email_confirmed_at,
+            identityCount: user.identities?.length || 0,
+          }
         );
       }
 

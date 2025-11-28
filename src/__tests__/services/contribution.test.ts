@@ -35,6 +35,11 @@ jest.mock("../../utils/AuthDebugger", () => ({
   },
 }));
 
+// Mock expo-crypto
+jest.mock("expo-crypto", () => ({
+  randomUUID: jest.fn(() => "12345678-1234-1234-1234-123456789012"),
+}));
+
 // Mock supabase service - everything must be inside jest.mock for proper hoisting
 jest.mock("../../services/supabase", () => {
   // Create mock client inside the factory
@@ -535,6 +540,7 @@ describe("Contribution Service", () => {
 
         expect(result).toBeDefined();
         expect(result.id).toBe("submission-123");
+        // eslint-disable-next-line @typescript-eslint/unbound-method
         expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
           "submit_toilet",
           expect.objectContaining({
@@ -558,6 +564,7 @@ describe("Contribution Service", () => {
           "A similar toilet was just submitted"
         );
 
+        // eslint-disable-next-line @typescript-eslint/unbound-method
         expect(mockSupabaseClient.rpc).toHaveBeenCalledTimes(2); // Only first submission's RPC calls
       });
 
@@ -622,7 +629,9 @@ describe("Contribution Service", () => {
 
         await expect(contributionService.submitNewToilet(validToiletData)).rejects.toThrow();
 
+        // eslint-disable-next-line @typescript-eslint/unbound-method
         expect(checkSession).toHaveBeenCalled();
+        // eslint-disable-next-line @typescript-eslint/unbound-method
         expect(mockSupabaseClient.rpc).not.toHaveBeenCalledWith(
           "submit_toilet",
           expect.anything()

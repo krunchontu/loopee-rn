@@ -16,6 +16,7 @@ import type { UserProfile } from "../types/user";
 import { authDebug } from "../utils/AuthDebugger";
 import { debug } from "../utils/debug";
 import { normalizeToiletData } from "../utils/toilet-helpers";
+import * as Crypto from "expo-crypto";
 
 // Initialize Supabase client
 if (!EXPO_PUBLIC_SUPABASE_URL || !EXPO_PUBLIC_SUPABASE_ANON_KEY) {
@@ -813,8 +814,9 @@ export const supabaseService = {
             reason: "profile_not_found",
           });
 
-          // Generate default profile data
-          const defaultUsername = `user_${Math.floor(Math.random() * 1000000)}`;
+          // Generate default profile data using cryptographically secure random
+          const randomNumber = Math.floor(parseInt(Crypto.randomUUID().replace(/-/g, '').substring(0, 6), 16) % 1000000);
+          const defaultUsername = `user_${randomNumber}`;
           const displayName =
             user.user.user_metadata?.full_name ||
             user.user.email ||
@@ -1024,7 +1026,9 @@ export const supabaseService = {
             `Missing or invalid coordinates for toilet ${toilet.name}, using calculated fallback`
           );
 
-          const angle = Math.random() * Math.PI * 2; // Random angle in radians
+          // Use cryptographically secure random for angle calculation
+          const randomBytes = parseInt(Crypto.randomUUID().replace(/-/g, '').substring(0, 8), 16);
+          const angle = (randomBytes / 0xffffffff) * Math.PI * 2; // Random angle in radians
           const distanceInDegrees = (toilet.distance_meters || 0) / 111000; // Rough conversion from meters to degrees
 
           toiletLatitude = latitude + Math.sin(angle) * distanceInDegrees;

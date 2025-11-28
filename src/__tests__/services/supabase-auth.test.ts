@@ -13,7 +13,19 @@
  * - Session Validation (checkSession with timestamp handling)
  */
 
-import * as Linking from "expo-linking";
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-var-requires */
+
+// Mock expo-crypto FIRST (before other mocks that might import it)
+jest.mock("expo-crypto", () => ({
+  randomUUID: jest.fn(() => "12345678-1234-1234-1234-123456789012"),
+}));
 
 // Mock react-native Platform
 jest.mock("react-native", () => ({
@@ -600,6 +612,99 @@ describe("Authentication Service", () => {
     });
   });
 
+  describe("getUser", () => {
+    it("should successfully retrieve current user", async () => {
+      const mockUser = {
+        id: "user-123",
+        email: "test@example.com",
+        email_confirmed_at: "2025-01-01T00:00:00Z",
+        created_at: "2025-01-01T00:00:00Z",
+        app_metadata: { provider: "email" },
+        user_metadata: { displayName: "Test User" },
+      };
+
+      mockSupabaseAuth.getUser.mockResolvedValueOnce({
+        data: { user: mockUser },
+        error: null,
+      });
+
+      const result = await supabaseService.auth.getUser();
+
+      expect(result).toEqual(mockUser);
+      expect(mockSupabaseAuth.getUser).toHaveBeenCalledTimes(1);
+    });
+
+    it("should return null when no user is logged in", async () => {
+      mockSupabaseAuth.getUser.mockResolvedValueOnce({
+        data: { user: null },
+        error: null,
+      });
+
+      const result = await supabaseService.auth.getUser();
+
+      expect(result).toBeNull();
+    });
+
+    it("should return null when error occurs", async () => {
+      const mockError = new Error("Failed to fetch user");
+      mockSupabaseAuth.getUser.mockResolvedValueOnce({
+        data: { user: null },
+        error: mockError,
+      });
+
+      const result = await supabaseService.auth.getUser();
+
+      expect(result).toBeNull();
+    });
+
+    it("should handle network errors gracefully", async () => {
+      const networkError = new Error("Network request failed");
+      mockSupabaseAuth.getUser.mockRejectedValueOnce(networkError);
+
+      const result = await supabaseService.auth.getUser();
+
+      expect(result).toBeNull();
+    });
+
+    it("should return user with confirmed email", async () => {
+      const mockUser = {
+        id: "user-456",
+        email: "confirmed@example.com",
+        email_confirmed_at: "2025-01-01T00:00:00Z",
+        created_at: "2025-01-01T00:00:00Z",
+      };
+
+      mockSupabaseAuth.getUser.mockResolvedValueOnce({
+        data: { user: mockUser },
+        error: null,
+      });
+
+      const result = await supabaseService.auth.getUser();
+
+      expect(result).toEqual(mockUser);
+      expect(result?.email_confirmed_at).toBeDefined();
+    });
+
+    it("should return user with unconfirmed email", async () => {
+      const mockUser = {
+        id: "user-789",
+        email: "unconfirmed@example.com",
+        email_confirmed_at: null,
+        created_at: "2025-01-01T00:00:00Z",
+      };
+
+      mockSupabaseAuth.getUser.mockResolvedValueOnce({
+        data: { user: mockUser },
+        error: null,
+      });
+
+      const result = await supabaseService.auth.getUser();
+
+      expect(result).toEqual(mockUser);
+      expect(result?.email_confirmed_at).toBeNull();
+    });
+  });
+
   describe("checkSession", () => {
     it("should return valid session with correct expiration", async () => {
       const futureExpiry = Date.now() / 1000 + 3600; // 1 hour from now
@@ -699,6 +804,170 @@ describe("Authentication Service", () => {
       // Should handle invalid timestamp gracefully
       expect(result.valid).toBe(false);
       expect(result.needsForceRefresh).toBe(true);
+    });
+
+    it("should handle session with missing user", async () => {
+      const mockSession = {
+        access_token: "mock-token",
+        refresh_token: "mock-refresh",
+        expires_at: Date.now() / 1000 + 3600,
+        user: null,
+      } as any;
+
+      mockSupabaseAuth.getSession.mockResolvedValueOnce({
+        data: { session: mockSession },
+        error: null,
+      });
+
+      const result = await checkSession();
+
+      // Session exists but has no user - might be invalid
+      expect(result.session).toEqual(mockSession);
+    });
+
+    it("should handle very long session expiry times", async () => {
+      const veryFutureExpiry = Date.now() / 1000 + 86400 * 365; // 1 year from now
+      const mockSession = {
+        access_token: "mock-token",
+        refresh_token: "mock-refresh",
+        expires_at: veryFutureExpiry,
+        user: { id: "user-123" },
+      } as Session;
+
+      mockSupabaseAuth.getSession.mockResolvedValueOnce({
+        data: { session: mockSession },
+        error: null,
+      });
+
+      const result = await checkSession();
+
+      expect(result.valid).toBe(true);
+      expect(result.expiresIn).toBeGreaterThan(86400 * 364); // Almost a year
+      expect(result.needsForceRefresh).toBe(false);
+    });
+
+    it("should handle session that just expired (boundary case)", async () => {
+      const justExpired = Date.now() / 1000 - 1; // 1 second ago
+      const mockSession = {
+        access_token: "mock-token",
+        refresh_token: "mock-refresh",
+        expires_at: justExpired,
+        user: { id: "user-123" },
+      } as Session;
+
+      mockSupabaseAuth.getSession.mockResolvedValueOnce({
+        data: { session: mockSession },
+        error: null,
+      });
+
+      const result = await checkSession();
+
+      expect(result.valid).toBe(false);
+      expect(result.expiresIn).toBeLessThan(0);
+      expect(result.needsForceRefresh).toBe(true);
+      expect(result.detailedStatus).toBe("just_expired");
+    });
+
+    it("should handle session expiring in exactly 5 minutes (boundary)", async () => {
+      const exactlyFiveMinutes = Date.now() / 1000 + 300; // Exactly 5 minutes
+      const mockSession = {
+        access_token: "mock-token",
+        refresh_token: "mock-refresh",
+        expires_at: exactlyFiveMinutes,
+        user: { id: "user-123" },
+      } as Session;
+
+      mockSupabaseAuth.getSession.mockResolvedValueOnce({
+        data: { session: mockSession },
+        error: null,
+      });
+
+      const result = await checkSession();
+
+      expect(result.valid).toBe(true);
+      expect(result.expiresIn).toBeLessThanOrEqual(300);
+      // At exactly 5 minutes, it should need refresh
+      expect(result.needsForceRefresh).toBe(true);
+    });
+
+    it("should handle getSession API error", async () => {
+      const mockError = new Error("Database connection failed");
+      mockSupabaseAuth.getSession.mockResolvedValueOnce({
+        data: { session: null },
+        error: mockError,
+      });
+
+      const result = await checkSession();
+
+      expect(result.valid).toBe(false);
+      expect(result.session).toBeNull();
+      expect(result.detailedStatus).toBe("no_session");
+    });
+  });
+
+  describe("Session Integration Edge Cases", () => {
+    it("should handle rapid successive session checks", async () => {
+      const mockSession = {
+        access_token: "mock-token",
+        refresh_token: "mock-refresh",
+        expires_at: Date.now() / 1000 + 3600,
+        user: { id: "user-123" },
+      } as Session;
+
+      mockSupabaseAuth.getSession.mockResolvedValue({
+        data: { session: mockSession },
+        error: null,
+      });
+
+      // Check session multiple times rapidly
+      const results = await Promise.all([
+        checkSession(),
+        checkSession(),
+        checkSession(),
+      ]);
+
+      // All should return valid
+      results.forEach((result) => {
+        expect(result.valid).toBe(true);
+      });
+
+      // Should have been called 3 times
+      expect(mockSupabaseAuth.getSession).toHaveBeenCalledTimes(3);
+    });
+
+    it("should handle session state transition from valid to expired", async () => {
+      const shortExpiry = Date.now() / 1000 + 2; // 2 seconds from now
+      const mockSession = {
+        access_token: "mock-token",
+        refresh_token: "mock-refresh",
+        expires_at: shortExpiry,
+        user: { id: "user-123" },
+      } as Session;
+
+      mockSupabaseAuth.getSession.mockResolvedValue({
+        data: { session: mockSession },
+        error: null,
+      });
+
+      // First check - should be valid
+      const result1 = await checkSession();
+      expect(result1.valid).toBe(true);
+
+      // Wait for expiry (simulate time passing)
+      const expiredSession = {
+        ...mockSession,
+        expires_at: Date.now() / 1000 - 1,
+      };
+
+      mockSupabaseAuth.getSession.mockResolvedValueOnce({
+        data: { session: expiredSession },
+        error: null,
+      });
+
+      // Second check - should be expired
+      const result2 = await checkSession();
+      expect(result2.valid).toBe(false);
+      expect(result2.needsForceRefresh).toBe(true);
     });
   });
 });

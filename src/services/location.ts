@@ -24,6 +24,40 @@ export interface LocationState {
 }
 
 /**
+ * Validate if coordinates are within valid ranges
+ * @param latitude Latitude value to validate (-90 to 90)
+ * @param longitude Longitude value to validate (-180 to 180)
+ * @returns Boolean indicating if coordinates are valid
+ */
+export const isValidCoordinates = (
+  latitude: number,
+  longitude: number
+): boolean => {
+  // Check if values are numbers
+  if (typeof latitude !== "number" || typeof longitude !== "number") {
+    return false;
+  }
+
+  // Check if values are finite (not NaN or Infinity)
+  if (!isFinite(latitude) || !isFinite(longitude)) {
+    return false;
+  }
+
+  // Validate latitude range: -90 to 90
+  if (latitude < -90 || latitude > 90) {
+    return false;
+  }
+
+  // Validate longitude range: -180 to 180
+  if (longitude < -180 || longitude > 180) {
+    return false;
+  }
+
+  // Coordinates are valid
+  return true;
+};
+
+/**
  * Request location permission from the user
  * @returns Boolean indicating if the permission is granted
  */
@@ -78,9 +112,26 @@ export const getCurrentPosition = async (): Promise<LocationState | null> => {
       accuracy: Location.Accuracy.High,
     });
 
+    const { latitude, longitude } = position.coords;
+
+    // Validate coordinates before returning
+    if (!isValidCoordinates(latitude, longitude)) {
+      debug.error("Location", "Invalid coordinates received from device", {
+        latitude,
+        longitude,
+      });
+      captureException(new Error("Invalid coordinates from device"), {
+        service: "location",
+        method: "getCurrentPosition",
+        latitude,
+        longitude,
+      });
+      return null;
+    }
+
     return {
-      latitude: position.coords.latitude,
-      longitude: position.coords.longitude,
+      latitude,
+      longitude,
     };
   } catch (error) {
     debug.error("Location", "Error getting current position", error);
@@ -105,6 +156,24 @@ export const geocodeAddress = async (
 
     if (results && results.length > 0) {
       const { latitude, longitude } = results[0];
+
+      // Validate coordinates before returning
+      if (!isValidCoordinates(latitude, longitude)) {
+        debug.error("Location", "Invalid coordinates from geocoding", {
+          address,
+          latitude,
+          longitude,
+        });
+        captureException(new Error("Invalid coordinates from geocoding"), {
+          service: "location",
+          method: "geocodeAddress",
+          address,
+          latitude,
+          longitude,
+        });
+        return null;
+      }
+
       return { latitude, longitude };
     }
 

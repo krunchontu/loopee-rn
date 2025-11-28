@@ -5,6 +5,11 @@ import { useToiletStore } from "../../stores/toilets";
 import type { Toilet } from "../../types/toilet";
 import * as debugModule from "../../utils/debug";
 
+// Mock expo-crypto
+jest.mock("expo-crypto", () => ({
+  randomUUID: jest.fn(() => "12345678-1234-1234-1234-123456789012"),
+}));
+
 // Mock Sentry (required by supabase service)
 jest.mock("@sentry/react-native", () => ({
   init: jest.fn(),
