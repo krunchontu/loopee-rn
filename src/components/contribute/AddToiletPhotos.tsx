@@ -12,6 +12,7 @@ import { Title, Button, Text, ActivityIndicator } from "react-native-paper";
 
 import { colors, spacing } from "../../foundations";
 import type { BaseStepProps } from "../../types/contribution";
+import { debug } from "../../utils/debug";
 
 interface AddToiletPhotosProps extends BaseStepProps {
   photos?: string[];
