@@ -1,12 +1,122 @@
 # Issues Log
 
 **Project:** Loopee RN
-**Last Updated:** 2025-11-28
+**Last Updated:** 2025-12-07
 **Purpose:** Track known issues, blockers, and technical debt
 
 ---
 
 ## Active Issues
+
+### ISSUE-2025-12-07-001: Component Tests Infrastructure Broken
+- **Severity:** HIGH
+- **Status:** NEW
+- **Created:** 2025-12-07
+- **Component:** Testing Infrastructure
+- **Description:**
+  - All 3 component test suites failing (35 test failures)
+  - Error: `Invariant Violation: __fbBatchedBridgeConfig is not set, cannot invoke native modules`
+  - React Native StyleSheet cannot initialize without native bridge
+- **Files Affected:**
+  - `src/__tests__/components/auth/AuthInput.test.tsx`
+  - `src/__tests__/components/auth/PasswordInput.test.tsx`
+  - `src/__tests__/components/toilet/ReviewForm.test.tsx`
+- **Impact:** HIGH - Cannot test UI components, 0% component coverage
+- **Root Cause:** jest-expo preset removed (incompatible with Expo SDK 53), but component tests still require React Native bridge
+- **Recommended Actions:**
+  1. Option A: Configure proper React Native preset for component tests
+  2. Option B: Use Detox or Maestro for E2E testing instead
+  3. Option C: Mock StyleSheet and other native modules manually
+- **Next Steps:** Strategic decision needed on component testing approach
+
+### ISSUE-2025-12-07-002: ESLint Regression - 14 Errors
+- **Severity:** MEDIUM
+- **Status:** NEW
+- **Created:** 2025-12-07
+- **Component:** Code Quality
+- **Description:**
+  - 14 ESLint errors now present (was 0 in previous session)
+  - 1,636 warnings total
+  - Primary issue: Unsafe type assertions and `any` type usage
+- **Primary File:** `src/utils/toilet-helpers.ts` (multiple unsafe assignments)
+- **Error Types:**
+  - `@typescript-eslint/no-unsafe-assignment`
+  - `@typescript-eslint/no-unsafe-member-access`
+  - `@typescript-eslint/no-explicit-any`
+- **Impact:** MEDIUM - Blocks pre-commit hooks, reduces type safety
+- **Solution:** Add proper TypeScript types to toilet-helpers.ts
+- **Estimated Effort:** 1-2 hours
+
+### ISSUE-2025-12-07-003: Critical npm Security Vulnerabilities
+- **Severity:** HIGH
+- **Status:** NEW
+- **Created:** 2025-12-07
+- **Component:** Dependencies
+- **Description:**
+  - 24 total vulnerabilities detected by npm audit
+  - 8 CRITICAL severity
+  - 8 HIGH severity
+  - 5 MODERATE severity
+  - 3 LOW severity
+- **Critical Packages:**
+  - `@react-native-community/cli-server-api`
+  - `@react-native-community/cli`
+  - `form-data`
+  - `jest-expo`
+  - `pbkdf2`
+  - `react-native-crypto`
+  - `react-server-dom-webpack`
+  - `sha.js`
+- **High Severity Packages:**
+  - `cross-spawn`
+  - `node-forge`
+  - `react-devtools`
+  - `glob`
+- **Impact:** HIGH - Security risk for production deployment
+- **Recommended Actions:**
+  1. Run `npm audit fix` for safe fixes
+  2. Evaluate `npm audit fix --force` changes before applying
+  3. Replace `react-native-crypto` with `expo-crypto`
+  4. Update deprecated packages
+- **Estimated Effort:** 2-4 hours
+
+### ISSUE-2025-12-07-004: Test Worker Memory Leak
+- **Severity:** MEDIUM
+- **Status:** NEW
+- **Created:** 2025-12-07
+- **Component:** Testing Infrastructure
+- **Description:**
+  - Warning: `A worker process has failed to exit gracefully and has been force exited`
+  - Tests may be leaking due to improper teardown
+  - Could indicate uncleared timers or unclosed connections
+- **Impact:** MEDIUM - Tests complete but with warnings, potential memory issues
+- **Diagnosis Command:** `npx jest --detectOpenHandles`
+- **Likely Causes:**
+  - Uncleared setTimeout/setInterval
+  - Unclosed database connections
+  - Pending promises in auth/location services
+- **Recommended Actions:**
+  1. Run jest with `--detectOpenHandles` to identify leaks
+  2. Add proper teardown in `afterEach`/`afterAll` blocks
+  3. Use `jest.useFakeTimers()` where appropriate
+- **Estimated Effort:** 1-2 hours
+
+### ISSUE-2025-12-07-005: Environment File Naming (Recurring)
+- **Severity:** LOW
+- **Status:** RECURRING
+- **Created:** 2025-12-07 (first noted 2025-11-28)
+- **Component:** Configuration
+- **Description:**
+  - Project has `env.local` but should be `.env.local`
+  - Each new session requires manual copy
+  - Causes test failures without the fix
+- **Impact:** LOW - Easy workaround, but annoying
+- **Solution:**
+  ```bash
+  mv env.local .env.local
+  # Update .gitignore to ignore .env.local but track .env.local.example
+  ```
+- **Estimated Effort:** 5 minutes
 
 ### ISSUE-TEST-001: Jest-Expo Preset Compatibility
 - **Severity:** Medium
@@ -116,18 +226,44 @@
 
 ## Monitoring
 
-### Test Coverage Progress (Updated 2025-11-28)
-- **Location Service:** 81.81% ✅ (Target: 75%)
-- **Auth Service:** 48.11% ✅ (Target: 80% - room for improvement)
-- **Contribution Service:** 55.06% ✅ (Target: 70% - on track)
-- **Toilet Store:** 88.88% ✅ (Target: 65% - EXCEEDS TARGET)
-- **Overall Test Suite:** 110 passing, 7 skipped ✅
-- **Components:** 0% (Target: 50%)
+### Test Coverage Progress (Updated 2025-12-07)
 
-### Next Test Priorities
-1. Auth Service tests (CRITICAL - 4 hours estimated)
-2. Contribution Service tests (HIGH - 4 hours estimated)
-3. Toilet Store tests (MEDIUM - 2 hours estimated)
+#### Service Tests: PASSING ✅
+| Service | Tests | Coverage | Target | Status |
+|---------|-------|----------|--------|--------|
+| Auth Service | 42 | ~62% | 80% | 🟡 Needs improvement |
+| Location Service | 21 | 81.81% | 75% | ✅ EXCEEDS TARGET |
+| Contribution Service | 36 | 55.06% | 70% | 🟡 On track |
+| Toilet Store | 22 | 88.88% | 65% | ✅ EXCEEDS TARGET |
+| Setup Tests | 3 | N/A | N/A | ✅ Passing |
+| **TOTAL** | **123** | - | - | ✅ **All Passing** |
+
+#### Component Tests: FAILING ❌
+| Component | Tests | Status |
+|-----------|-------|--------|
+| AuthInput | 28 | ❌ Suite failed |
+| PasswordInput | 23 | ❌ Suite failed |
+| ReviewForm | 43 | ❌ Suite failed |
+| **TOTAL** | **94** | ❌ **35 failures** |
+
+#### Overall Test Suite Summary
+- **Passing:** 123 tests
+- **Failing:** 35 tests (all component tests)
+- **Skipped:** 7 tests
+- **Total:** 165 tests
+- **Global Coverage:** 16% (below 40% threshold)
+
+### Code Quality Metrics
+- **ESLint Errors:** 14 ❌ (was 0)
+- **ESLint Warnings:** 1,636
+- **npm Vulnerabilities:** 24 (8 critical, 8 high)
+
+### Next Priorities
+1. **CRITICAL:** Fix component test infrastructure (35 failures)
+2. **HIGH:** Fix ESLint errors (14 errors)
+3. **HIGH:** Address npm security vulnerabilities (8 critical)
+4. **MEDIUM:** Fix test worker memory leak
+5. **LOW:** Fix environment file naming
 
 ---
 
@@ -137,6 +273,7 @@
 - Mock expo and React Native modules at test file level
 - Use `jest.skip()` for tests requiring features not yet implemented
 - Coverage thresholds may need adjustment as we add more tests
+- **Component tests require strategic decision** on testing approach
 
-**Last Review:** 2025-11-22
-**Next Review:** After completing Auth Service tests
+**Last Review:** 2025-12-07
+**Next Review:** After fixing component test infrastructure
