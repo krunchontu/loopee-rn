@@ -1,0 +1,45 @@
+# Flow: Map Discovery
+# Tests: User can view map and discover nearby toilets
+
+appId: com.loopee.app
+
+---
+
+# Launch app (assumes user is logged in from previous flow)
+- launchApp
+
+# Wait for map to load
+- assertVisible:
+    id: "map-view"
+    timeout: 10000
+
+# Verify toilets are visible on map (markers or list)
+- assertVisible:
+    text: "(?i)(toilet|restroom|nearby|loading)"
+    timeout: 10000
+
+# Test map interaction - zoom in
+- swipe:
+    direction: UP
+    duration: 500
+
+# Wait for map to update
+- extendedWaitUntil:
+    visible:
+      id: "map-view"
+    timeout: 5000
+
+# Take screenshot of map view
+- takeScreenshot: screenshots/03-map-view
+
+# If there's a list view toggle, test it
+- runFlow:
+    when:
+      visible: "(?i)(list|view)"
+    commands:
+      - tapOn:
+          text: "(?i)list"
+      - assertVisible:
+          text: "(?i)(toilet|restroom)"
+          timeout: 5000
+      - takeScreenshot: screenshots/03-list-view

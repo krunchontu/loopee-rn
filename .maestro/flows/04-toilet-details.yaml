@@ -1,0 +1,53 @@
+# Flow: Toilet Details
+# Tests: User can view toilet details and reviews
+
+appId: com.loopee.app
+
+---
+
+# Launch app
+- launchApp
+
+# Wait for map/list to load
+- assertVisible:
+    text: "(?i)(toilet|restroom|nearby)"
+    timeout: 10000
+
+# Tap on a toilet card or marker to view details
+- tapOn:
+    text: "(?i)(toilet|restroom)"
+    index: 0
+
+# Wait for details screen to load
+- assertVisible:
+    text: "(?i)(details|rating|review|amenities|address)"
+    timeout: 10000
+
+# Verify key information is displayed
+- assertVisible:
+    text: "(?i)(rating|star)"
+
+# Check for amenities section
+- runFlow:
+    when:
+      visible: "(?i)amenities"
+    commands:
+      - assertVisible:
+          text: "(?i)amenities"
+
+# Check for reviews section
+- scroll:
+    direction: DOWN
+
+- runFlow:
+    when:
+      visible: "(?i)review"
+    commands:
+      - assertVisible:
+          text: "(?i)review"
+
+# Take screenshot
+- takeScreenshot: screenshots/04-toilet-details
+
+# Go back
+- back

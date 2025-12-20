@@ -1,0 +1,17 @@
+# Flow: App Launch
+# Tests: App launches successfully and shows initial screen
+
+appId: com.loopee.app
+
+---
+
+# Launch the app
+- launchApp
+
+# Wait for app to initialize
+- assertVisible:
+    text: ".*"
+    timeout: 10000
+
+# Take screenshot for verification
+- takeScreenshot: screenshots/01-app-launched
