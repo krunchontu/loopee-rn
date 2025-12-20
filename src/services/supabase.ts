@@ -983,11 +983,13 @@ export const supabaseService = {
       // Enhanced diagnosis logging
       const totalToilets = data.length;
       const withValidCoords = data.filter(
-        (toilet) =>
-          toilet.latitude &&
-          toilet.longitude &&
-          toilet.latitude !== 0 &&
-          toilet.longitude !== 0
+        (toilet: { latitude?: number; longitude?: number }): boolean =>
+          Boolean(
+            toilet.latitude &&
+              toilet.longitude &&
+              toilet.latitude !== 0 &&
+              toilet.longitude !== 0
+          )
       ).length;
 
       debug.warn(

@@ -49,6 +49,15 @@ module.exports = {
         "@typescript-eslint/restrict-template-expressions": "warn",
       },
     },
+    {
+      // Test files have different rules - Jest mocks don't follow standard patterns
+      files: ["**/__tests__/**/*.ts", "**/__tests__/**/*.tsx", "**/*.test.ts", "**/*.test.tsx"],
+      rules: {
+        "@typescript-eslint/unbound-method": "off", // Jest mock assertions use unbound methods
+        "@typescript-eslint/no-unsafe-return": "off", // Mock factories often return any
+        "@typescript-eslint/no-explicit-any": "off", // Mocks often need any types
+      },
+    },
   ],
   settings: {
     react: {
