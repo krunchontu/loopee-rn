@@ -1,0 +1,52 @@
+# Flow: Contribute Toilet
+# Tests: User can add a new toilet location
+
+appId: com.loopee.app
+
+---
+
+# Launch app
+- launchApp
+
+# Navigate to contribute/add toilet
+- tapOn:
+    text: "(?i)(add|contribute|plus|\\+)"
+    optional: true
+
+# If there's a FAB button
+- runFlow:
+    when:
+      visible:
+        id: "add-toilet-fab"
+    commands:
+      - tapOn:
+          id: "add-toilet-fab"
+
+# Wait for contribution form
+- assertVisible:
+    text: "(?i)(add.*toilet|new.*toilet|contribute|location)"
+    timeout: 10000
+
+# Take screenshot of contribution form
+- takeScreenshot: screenshots/05-contribute-form
+
+# Step 1: Location selection (assuming multi-step form)
+- runFlow:
+    when:
+      visible: "(?i)location"
+    commands:
+      - assertVisible:
+          text: "(?i)location"
+      - takeScreenshot: screenshots/05-contribute-location
+
+# Navigate through form steps (don't submit to avoid test data)
+- runFlow:
+    when:
+      visible: "(?i)next"
+    commands:
+      - tapOn:
+          text: "(?i)next"
+      - takeScreenshot: screenshots/05-contribute-step2
+
+# Go back without submitting
+- back

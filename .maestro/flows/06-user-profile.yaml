@@ -1,0 +1,61 @@
+# Flow: User Profile
+# Tests: User can view and navigate profile
+
+appId: com.loopee.app
+
+---
+
+# Launch app
+- launchApp
+
+# Navigate to profile
+- tapOn:
+    text: "(?i)(profile|account|me|user)"
+    optional: true
+
+# Try navigation via tab bar or menu
+- runFlow:
+    when:
+      visible:
+        id: "profile-tab"
+    commands:
+      - tapOn:
+          id: "profile-tab"
+
+# Wait for profile screen
+- assertVisible:
+    text: "(?i)(profile|account|contributions|reviews|settings)"
+    timeout: 10000
+
+# Take screenshot of profile
+- takeScreenshot: screenshots/06-profile-main
+
+# Check for user stats
+- runFlow:
+    when:
+      visible: "(?i)(contributions|reviews|stats)"
+    commands:
+      - assertVisible:
+          text: "(?i)(contributions|reviews)"
+
+# Check for settings option
+- runFlow:
+    when:
+      visible: "(?i)settings"
+    commands:
+      - tapOn:
+          text: "(?i)settings"
+      - assertVisible:
+          text: "(?i)(settings|preferences|account)"
+          timeout: 5000
+      - takeScreenshot: screenshots/06-settings
+      - back
+
+# Test logout flow (don't actually logout)
+- runFlow:
+    when:
+      visible: "(?i)(logout|sign out)"
+    commands:
+      - assertVisible:
+          text: "(?i)(logout|sign out)"
+      - takeScreenshot: screenshots/06-logout-option

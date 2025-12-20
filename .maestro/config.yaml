@@ -1,0 +1,26 @@
+# Maestro E2E Testing Configuration
+# https://maestro.mobile.dev/
+
+# App Configuration
+appId: com.loopee.app
+
+# Flow defaults
+flows:
+  - flows/
+
+# Environment
+env:
+  # Test user credentials (use test account)
+  TEST_EMAIL: test@loopee.app
+  TEST_PASSWORD: TestPassword123!
+
+# Execution settings
+executionOrder:
+  continueOnFailure: false
+  flowsOrder:
+    - flows/01-app-launch.yaml
+    - flows/02-auth-login.yaml
+    - flows/03-map-discovery.yaml
+    - flows/04-toilet-details.yaml
+    - flows/05-contribute-toilet.yaml
+    - flows/06-user-profile.yaml

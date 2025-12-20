@@ -1,0 +1,40 @@
+# Flow: Authentication - Login
+# Tests: User can log in with valid credentials
+
+appId: com.loopee.app
+
+---
+
+# Launch fresh
+- launchApp:
+    clearState: true
+
+# Wait for login screen
+- assertVisible:
+    text: "(?i)(sign in|log in|email)"
+    timeout: 10000
+
+# Enter email
+- tapOn:
+    id: "email-input"
+- inputText: ${TEST_EMAIL}
+
+# Enter password
+- tapOn:
+    id: "password-input"
+- inputText: ${TEST_PASSWORD}
+
+# Hide keyboard
+- hideKeyboard
+
+# Tap login button
+- tapOn:
+    text: "(?i)(sign in|log in)"
+
+# Wait for successful login - should see map or home screen
+- assertVisible:
+    text: "(?i)(map|nearby|toilets|discover)"
+    timeout: 15000
+
+# Take screenshot
+- takeScreenshot: screenshots/02-login-success
