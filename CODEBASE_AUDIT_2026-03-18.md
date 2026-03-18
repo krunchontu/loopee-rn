@@ -423,4 +423,59 @@ Then: Rotate Supabase keys in dashboard.
 
 ---
 
-*End of audit. Total issues identified: 20 critical/high/medium findings, 48+ UI/component issues, 5 architectural concerns, and multiple testing/DevOps gaps.*
+## M. Type System & Data Flow Audit (Addendum)
+
+### Critical: Amenities Schema Chaos
+Two competing naming conventions exist simultaneously:
+- **Database initial schema + test data**: `babyChanging`, `handDryer`, `shower` (no prefix)
+- **TypeScript types + later migrations**: `hasBabyChanging`, `hasShower`, `isGenderNeutral` (prefixed)
+- Migration `20250533` tried to standardize but the submission trigger (`20250531`) stores user input as-is
+- `normalizeAmenities()` in `toilet-helpers.ts` is a band-aid handling both formats
+
+### Critical: Location (0,0) Treated as Valid
+Database function uses `COALESCE(ST_Y(t.location::geometry), 0)` — when location is NULL, it returns `(0, 0)`. The normalization code treats `(0, 0)` as valid coordinates, then falls back to **random coordinate generation** (`supabase.ts:1032-1037`) for other missing cases. This silently corrupts map data.
+
+### High: 7+ Unsafe `as Type` Casts Without Validation
+| File | Line(s) | Cast | Risk |
+|------|---------|------|------|
+| `supabase.ts` | 805, 862, 945 | `as UserProfile` | Missing stats fields crash |
+| `supabase.ts` | 1145 | `as Toilet & { reviews: Review[] }` | Null reviews not caught |
+| `supabase.ts` | 1241 | `as Review[]` | user_profiles null creates null user |
+| `contributionService.ts` | 694+ | `Partial<Toilet>` | No runtime validation |
+
+### High: ActivityMetadata Completely Untyped
+```typescript
+export interface ActivityMetadata {
+  data?: { [key: string]: any; };  // Open-ended catch-all
+  [key: string]: any;               // Another catch-all
+}
+```
+This makes refactoring metadata impossible and any field access unsafe.
+
+### Medium: Review Type Mismatches
+- `comment` is required in type but nullable in database
+- `version` is optional in type but always populated by DB trigger (defaults to 1)
+- `user` field created as `null` by service but typed as `optional` (undefined vs null)
+
+### Medium: No Submission Data Validation Before Insert
+`contributionService.submitNewToilet()` passes raw `Partial<Toilet>` to `supabase.rpc("submit_toilet")`. No checks for:
+- Required fields (`name`, `location`)
+- Coordinate range validity
+- Amenities object structure
+- String field sanitization
+
+### Medium: Profile Stats Have No DB Constraints
+`reviews_count`, `contributions_count`, `favorites_count` are plain INTEGER columns with no CHECK constraints. Trigger updates these but nothing prevents negative values or count drift from actual records.
+
+### Recommendation: Add Runtime Validation Layer
+Install `zod` and create `src/utils/validators.ts` with schemas for:
+- `ToiletSchema` (validates coordinates, required fields, amenities structure)
+- `ReviewSchema` (validates rating range, optional comment)
+- `ProfileSchema` (validates stats are non-negative)
+- `SubmissionSchema` (validates all required submission fields)
+
+Replace all `as Type` casts with `schema.parse(data)` calls.
+
+---
+
+*End of audit. Total issues identified: 20+ critical/high/medium findings in the findings table, 48+ UI/component issues, 11 type system/data flow issues, 5 architectural concerns, and multiple testing/DevOps gaps.*
