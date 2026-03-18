@@ -18,6 +18,7 @@ import {
 import { Avatar, IconButton, Text } from "react-native-paper";
 
 import { colors } from "../../foundations/colors";
+import { debug } from "../../utils/debug";
 
 interface AvatarUploadProps {
   userId: string;
