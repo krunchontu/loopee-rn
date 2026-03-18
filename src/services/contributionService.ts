@@ -77,16 +77,26 @@ const SESSION_REFRESH_TIMEOUT = 12000; // 12 seconds (increased from 5000ms)
 const SESSION_REFRESH_RETRIES = 2; // Number of retry attempts for session refresh
 
 /**
- * Creates a timeout promise that rejects after the specified time
- * @param ms Milliseconds to wait before timeout
+ * Races a promise against a timeout, cleaning up the timer when done.
+ * Prevents leaked timers that keep the process alive after tests.
+ * @param promise The operation to race against the timeout
+ * @param ms Milliseconds before timeout
  * @param operation Name of the operation (for error messaging)
- * @returns A promise that rejects after the timeout period
+ * @returns The result of the promise if it resolves before the timeout
  */
-const createTimeout = (ms: number, operation: string): Promise<never> => {
-  return new Promise((_, reject) => {
-    setTimeout(() => {
+const raceWithTimeout = <T>(
+  promise: Promise<T>,
+  ms: number,
+  operation: string
+): Promise<T> => {
+  let timerId: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timerId = setTimeout(() => {
       reject(new Error(`Operation '${operation}' timed out after ${ms}ms`));
     }, ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    clearTimeout(timerId);
   });
 };
 
@@ -362,10 +372,11 @@ export const contributionService = {
           "Checking session validity"
         );
 
-        const sessionInfo = await Promise.race([
+        const sessionInfo = await raceWithTimeout(
           checkSession(),
-          createTimeout(SESSION_VALIDATION_TIMEOUT, "session validation"),
-        ]);
+          SESSION_VALIDATION_TIMEOUT,
+          "session validation"
+        );
 
         // Log session details
         authDebug.log("SESSION_REFRESH", "info", {
@@ -430,11 +441,11 @@ export const contributionService = {
             const refreshed = await withRetry(
               // Operation to retry
               async () => {
-                return await Promise.race([
-                  // Pass retryCount parameter to refreshSession
+                return await raceWithTimeout(
                   refreshSession(SESSION_REFRESH_RETRIES),
-                  createTimeout(SESSION_REFRESH_TIMEOUT, "session refresh"),
-                ]);
+                  SESSION_REFRESH_TIMEOUT,
+                  "session refresh"
+                );
               },
               // Retry parameters
               1, // One additional retry at this level (combined with internal retries)
@@ -452,13 +463,11 @@ export const contributionService = {
             }
 
             // Verify the refreshed session
-            const verifySession = await Promise.race([
+            const verifySession = await raceWithTimeout(
               checkSession(),
-              createTimeout(
-                SESSION_VALIDATION_TIMEOUT,
-                "session validation after refresh"
-              ),
-            ]);
+              SESSION_VALIDATION_TIMEOUT,
+              "session validation after refresh"
+            );
 
             if (!verifySession.valid) {
               logContribution(
@@ -649,10 +658,11 @@ export const contributionService = {
 
       // Get authenticated user to explicitly pass the ID
       logContribution("log", "submitNewToilet", "Getting authenticated user");
-      const user = await Promise.race([
+      const user = await raceWithTimeout(
         supabaseService.auth.getUser(),
-        createTimeout(5000, "get authenticated user"),
-      ]);
+        5000,
+        "get authenticated user"
+      );
 
       if (!user) {
         logContribution("error", "submitNewToilet", "User not authenticated");
@@ -674,10 +684,11 @@ export const contributionService = {
         "submitNewToilet",
         "Checking submission eligibility"
       );
-      const eligibilityCheck = await Promise.race([
+      const eligibilityCheck = await raceWithTimeout(
         supabase.rpc("check_submission_eligibility"),
-        createTimeout(8000, "eligibility check"),
-      ]);
+        8000,
+        "eligibility check"
+      );
 
       if (eligibilityCheck.error) {
         logContribution("warn", "submitNewToilet", "Eligibility check failed", {
@@ -709,10 +720,11 @@ export const contributionService = {
       );
 
       // Use the database function with explicit user ID and timeout
-      const insertResponse = await Promise.race([
+      const insertResponse = await raceWithTimeout(
         supabase.rpc("submit_toilet", submissionPayload),
-        createTimeout(DEFAULT_TIMEOUT, "toilet submission"),
-      ]);
+        DEFAULT_TIMEOUT,
+        "toilet submission"
+      );
 
       if (insertResponse.error) {
         // Enhanced error logging with specific error codes

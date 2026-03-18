@@ -48,7 +48,5 @@ module.exports = {
   },
   testEnvironment: "node",
   // Detect open handles to prevent memory leaks
-  detectOpenHandles: false,
-  // Force exit after tests complete
-  forceExit: true,
+  detectOpenHandles: true,
 };
