@@ -13,6 +13,7 @@ import type {
 } from "@supabase/supabase-js";
 import React, { createContext, useContext, useState, useEffect } from "react";
 
+import { setUserContext, clearUserContext } from "../services/sentry";
 import {
   supabaseService,
   refreshSession,
@@ -147,6 +148,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           hasProfile: !!profile,
         });
 
+        // Attach user identity to all future Sentry error reports
+        setUserContext(user.id, user.email);
+
         setState({
           user,
           profile,
@@ -199,6 +203,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             hasProfile: !!profile,
           });
 
+          setUserContext(session.user.id, session.user.email);
+
           setState({
             user: session.user,
             profile,
@@ -229,6 +235,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           event: "SIGNED_OUT",
           action: "reset_auth_state",
         });
+
+        clearUserContext();
 
         setState({
           user: null,

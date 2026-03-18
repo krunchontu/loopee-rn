@@ -1,7 +1,9 @@
 /**
  * @file Sentry Error Tracking Service
  *
- * Configures Sentry for error tracking and monitoring
+ * Configures Sentry for error tracking and monitoring.
+ * All public functions are safe to call even when Sentry is not initialized
+ * (missing DSN, development mode) — they degrade to no-ops.
  */
 
 import * as Sentry from "@sentry/react-native";
@@ -12,45 +14,49 @@ import { debug } from "../utils/debug";
 const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN;
 const ENVIRONMENT = __DEV__ ? "development" : "production";
 
+// Track whether Sentry was successfully initialized so wrapper functions
+// can skip Sentry SDK calls entirely when there's no DSN.
+let initialized = false;
+
 /**
  * Initialize Sentry
  * Should be called at app startup
  */
 export function initSentry() {
-  // Only initialize Sentry if DSN is provided and not in development
   if (!SENTRY_DSN) {
-    console.warn(
-      "Sentry DSN not found. Error tracking is disabled. Set EXPO_PUBLIC_SENTRY_DSN in your .env file."
-    );
+    // In production builds, missing DSN means zero observability.
+    // Use console.error (not warn) so it's visible in device logs and
+    // any log-aggregation pipeline that filters by severity.
+    if (!__DEV__) {
+      console.error(
+        "[Sentry] EXPO_PUBLIC_SENTRY_DSN is not set — production errors will NOT be tracked. " +
+          "Set this variable in your .env file before releasing.",
+      );
+    } else {
+      debug.log(
+        "Sentry",
+        "DSN not set — error tracking disabled in development",
+      );
+    }
     return;
   }
 
   Sentry.init({
     dsn: SENTRY_DSN,
     environment: ENVIRONMENT,
-    // Enable in production, optional in development
     enabled: !__DEV__,
-    // Set sample rate for performance monitoring
-    tracesSampleRate: __DEV__ ? 0 : 0.2, // 20% of transactions in production
-    // Enable automatic session tracking
+    tracesSampleRate: __DEV__ ? 0 : 0.2,
     enableAutoSessionTracking: true,
-    // Session tracking interval (default: 30s)
     sessionTrackingIntervalMillis: 30000,
-    // Attach stack traces to all messages
     attachStacktrace: true,
-    // Distribution identifier
     dist: "1",
-    // Before send hook to sanitize sensitive data
     beforeSend(event, _hint) {
-      // Remove sensitive user data from breadcrumbs
       if (event.breadcrumbs) {
         event.breadcrumbs = event.breadcrumbs.map((breadcrumb) => {
           if (breadcrumb.data) {
-            // Redact email addresses
             if (breadcrumb.data.email) {
               breadcrumb.data.email = "[REDACTED]";
             }
-            // Redact tokens
             if (breadcrumb.data.token) {
               breadcrumb.data.token = "[REDACTED]";
             }
@@ -58,20 +64,21 @@ export function initSentry() {
           return breadcrumb;
         });
       }
-
       return event;
     },
   });
 
+  initialized = true;
   debug.log("Sentry", `Initialized for ${ENVIRONMENT} environment`);
 }
 
 /**
  * Set user context for Sentry
  * @param userId User ID
- * @param email User email (will be redacted)
+ * @param email User email (will be partially redacted)
  */
 export function setUserContext(userId: string, email?: string) {
+  if (!initialized) return;
   Sentry.setUser({
     id: userId,
     email: email ? `${email.slice(0, 2)}***@${email.split("@")[1]}` : undefined,
@@ -82,44 +89,45 @@ export function setUserContext(userId: string, email?: string) {
  * Clear user context
  */
 export function clearUserContext() {
+  if (!initialized) return;
   Sentry.setUser(null);
 }
 
 /**
- * Capture an exception
- * @param error Error object
- * @param context Additional context
+ * Capture an exception with scoped context.
+ * Uses Sentry.withScope so that context is attached only to this event,
+ * not leaked to subsequent events (fixes global setContext bug).
  */
 export function captureException(error: Error, context?: Record<string, any>) {
-  if (context) {
-    Sentry.setContext("additional_context", context);
-  }
-  Sentry.captureException(error);
+  if (!initialized) return;
+  Sentry.withScope((scope) => {
+    if (context) {
+      scope.setContext("additional_context", context);
+    }
+    Sentry.captureException(error);
+  });
 }
 
 /**
  * Capture a message
- * @param message Message to capture
- * @param level Severity level
  */
 export function captureMessage(
   message: string,
-  level: Sentry.SeverityLevel = "info"
+  level: Sentry.SeverityLevel = "info",
 ) {
+  if (!initialized) return;
   Sentry.captureMessage(message, level);
 }
 
 /**
  * Add a breadcrumb
- * @param category Category of the breadcrumb
- * @param message Message
- * @param data Additional data
  */
 export function addBreadcrumb(
   category: string,
   message: string,
-  data?: Record<string, any>
+  data?: Record<string, any>,
 ) {
+  if (!initialized) return;
   Sentry.addBreadcrumb({
     category,
     message,
@@ -130,19 +138,17 @@ export function addBreadcrumb(
 
 /**
  * Set custom tag
- * @param key Tag key
- * @param value Tag value
  */
 export function setTag(key: string, value: string) {
+  if (!initialized) return;
   Sentry.setTag(key, value);
 }
 
 /**
  * Set custom context
- * @param name Context name
- * @param context Context data
  */
 export function setContext(name: string, context: Record<string, any>) {
+  if (!initialized) return;
   Sentry.setContext(name, context);
 }
 
