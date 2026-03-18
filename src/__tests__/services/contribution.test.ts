@@ -75,8 +75,17 @@ jest.mock("../../services/supabase", () => {
 });
 
 // Import after mocks
-import { contributionService } from "../../services/contributionService";
-import { checkSession, refreshSession, supabaseService, getSupabaseClient } from "../../services/supabase";
+import {
+  contributionService,
+  validateToiletSubmission,
+  VALIDATION_LIMITS,
+} from "../../services/contributionService";
+import {
+  checkSession,
+  refreshSession,
+  supabaseService,
+  getSupabaseClient,
+} from "../../services/supabase";
 import type { Toilet } from "../../types/toilet";
 
 // Get references to the mocked functions for test assertions
@@ -118,7 +127,7 @@ describe("Contribution Service", () => {
 
         const toilet2: Partial<Toilet> = {
           name: "Test Toilet",
-          location: { latitude: 37.7750, longitude: -122.4195 },
+          location: { latitude: 37.775, longitude: -122.4195 },
         };
 
         const hash1 = contributionService.generateSubmissionHash(toilet1);
@@ -194,7 +203,7 @@ describe("Contribution Service", () => {
 
         const toilet2: Partial<Toilet> = {
           name: "Toilet 2",
-          location: { latitude: 37.7750, longitude: -122.4195 },
+          location: { latitude: 37.775, longitude: -122.4195 },
         };
 
         contributionService.recordSubmission(toilet1, "submission-123");
@@ -237,7 +246,10 @@ describe("Contribution Service", () => {
       });
 
       it("should trigger cleanup of old submissions", () => {
-        const cleanupSpy = jest.spyOn(contributionService, "cleanupOldSubmissions");
+        const cleanupSpy = jest.spyOn(
+          contributionService,
+          "cleanupOldSubmissions",
+        );
 
         const toiletData: Partial<Toilet> = {
           name: "Test Toilet",
@@ -265,7 +277,9 @@ describe("Contribution Service", () => {
         });
 
         // Add a recent submission
-        const recentHash = contributionService.generateSubmissionHash({ name: "Recent" });
+        const recentHash = contributionService.generateSubmissionHash({
+          name: "Recent",
+        });
         contributionService.recentSubmissions.set(recentHash, {
           timestamp: Date.now(),
           id: "recent-submission",
@@ -274,7 +288,9 @@ describe("Contribution Service", () => {
         contributionService.cleanupOldSubmissions();
 
         expect(contributionService.recentSubmissions.has(hash)).toBe(false);
-        expect(contributionService.recentSubmissions.has(recentHash)).toBe(true);
+        expect(contributionService.recentSubmissions.has(recentHash)).toBe(
+          true,
+        );
       });
 
       it("should keep submissions within 30 minute window", () => {
@@ -301,49 +317,78 @@ describe("Contribution Service", () => {
   describe("Session Management", () => {
     describe("getSessionErrorMessage", () => {
       it("should return message for no_session status", () => {
-        const message = contributionService.getSessionErrorMessage("no_session", null);
+        const message = contributionService.getSessionErrorMessage(
+          "no_session",
+          null,
+        );
 
-        expect(message).toBe("No active session found. Please log in to continue.");
+        expect(message).toBe(
+          "No active session found. Please log in to continue.",
+        );
       });
 
       it("should return message for expired_past status", () => {
-        const message = contributionService.getSessionErrorMessage("expired_past", -100);
+        const message = contributionService.getSessionErrorMessage(
+          "expired_past",
+          -100,
+        );
 
-        expect(message).toBe("Your session has expired. Please log in again to continue.");
+        expect(message).toBe(
+          "Your session has expired. Please log in again to continue.",
+        );
       });
 
       it("should return message for just_expired status", () => {
-        const message = contributionService.getSessionErrorMessage("just_expired", -1);
+        const message = contributionService.getSessionErrorMessage(
+          "just_expired",
+          -1,
+        );
 
         expect(message).toBe(
-          "Your session just expired. Please log in again to continue."
+          "Your session just expired. Please log in again to continue.",
         );
       });
 
       it("should return message for invalid_date status", () => {
-        const message = contributionService.getSessionErrorMessage("invalid_date", null);
+        const message = contributionService.getSessionErrorMessage(
+          "invalid_date",
+          null,
+        );
 
         expect(message).toBe(
-          "Your session has an invalid date format. Please log in again."
+          "Your session has an invalid date format. Please log in again.",
         );
       });
 
       it("should return message for network_error status", () => {
-        const message = contributionService.getSessionErrorMessage("network_error", null);
+        const message = contributionService.getSessionErrorMessage(
+          "network_error",
+          null,
+        );
 
         expect(message).toContain("Network error");
       });
 
       it("should return generic message for negative expiresIn", () => {
-        const message = contributionService.getSessionErrorMessage("unknown", -50);
+        const message = contributionService.getSessionErrorMessage(
+          "unknown",
+          -50,
+        );
 
-        expect(message).toBe("Your session has expired. Please log in again to continue.");
+        expect(message).toBe(
+          "Your session has expired. Please log in again to continue.",
+        );
       });
 
       it("should return default message for unknown status", () => {
-        const message = contributionService.getSessionErrorMessage("unknown_status", 100);
+        const message = contributionService.getSessionErrorMessage(
+          "unknown_status",
+          100,
+        );
 
-        expect(message).toBe("Authentication check failed: Please log in again");
+        expect(message).toBe(
+          "Authentication check failed: Please log in again",
+        );
       });
     });
 
@@ -356,7 +401,9 @@ describe("Contribution Service", () => {
           needsForceRefresh: false,
         });
 
-        await expect(contributionService.ensureValidSession()).resolves.not.toThrow();
+        await expect(
+          contributionService.ensureValidSession(),
+        ).resolves.not.toThrow();
 
         expect(checkSession).toHaveBeenCalled();
         expect(refreshSession).not.toHaveBeenCalled();
@@ -397,7 +444,7 @@ describe("Contribution Service", () => {
         });
 
         await expect(contributionService.ensureValidSession()).rejects.toThrow(
-          "Authentication required: Please log in"
+          "Authentication required: Please log in",
         );
       });
 
@@ -438,16 +485,18 @@ describe("Contribution Service", () => {
         (refreshSession as jest.Mock).mockResolvedValue(false);
 
         await expect(contributionService.ensureValidSession()).rejects.toThrow(
-          "Your session has expired and couldn't be refreshed"
+          "Your session has expired and couldn't be refreshed",
         );
       });
 
       it("should handle network errors during session check", async () => {
         (checkSession as jest.Mock).mockRejectedValueOnce(
-          new Error("Network request failed")
+          new Error("Network request failed"),
         );
 
-        await expect(contributionService.ensureValidSession()).rejects.toThrow();
+        await expect(
+          contributionService.ensureValidSession(),
+        ).rejects.toThrow();
       });
 
       it("should reuse existing validation operation when in progress", async () => {
@@ -474,13 +523,20 @@ describe("Contribution Service", () => {
         const operationId = "test-operation-123";
 
         // Manually add a validation promise
-        contributionService.validationPromises.set(operationId, Promise.resolve());
+        contributionService.validationPromises.set(
+          operationId,
+          Promise.resolve(),
+        );
 
-        expect(contributionService.validationPromises.has(operationId)).toBe(true);
+        expect(contributionService.validationPromises.has(operationId)).toBe(
+          true,
+        );
 
         contributionService.completeValidation(operationId);
 
-        expect(contributionService.validationPromises.has(operationId)).toBe(false);
+        expect(contributionService.validationPromises.has(operationId)).toBe(
+          false,
+        );
       });
 
       it("should handle missing validation operation gracefully", () => {
@@ -497,7 +553,7 @@ describe("Contribution Service", () => {
         name: "New Public Toilet",
         location: { latitude: 37.7749, longitude: -122.4194 },
         address: "123 Main St",
-        accessible: true,
+        isAccessible: true,
       };
 
       beforeEach(() => {
@@ -536,7 +592,8 @@ describe("Contribution Service", () => {
           error: null,
         });
 
-        const result = await contributionService.submitNewToilet(validToiletData);
+        const result =
+          await contributionService.submitNewToilet(validToiletData);
 
         expect(result).toBeDefined();
         expect(result.id).toBe("submission-123");
@@ -544,10 +601,10 @@ describe("Contribution Service", () => {
         expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
           "submit_toilet",
           expect.objectContaining({
-            p_data: validToiletData,
+            p_data: validateToiletSubmission(validToiletData),
             p_submission_type: "new",
             p_explicit_user_id: "user-123",
-          })
+          }),
         );
       });
 
@@ -555,14 +612,17 @@ describe("Contribution Service", () => {
         // First submission - eligibility + submit
         mockSupabaseClient.rpc
           .mockResolvedValueOnce({ data: { eligible: true }, error: null })
-          .mockResolvedValueOnce({ data: { id: "submission-123" }, error: null });
+          .mockResolvedValueOnce({
+            data: { id: "submission-123" },
+            error: null,
+          });
 
         await contributionService.submitNewToilet(validToiletData);
 
         // Second submission (duplicate) - should fail before RPC calls
-        await expect(contributionService.submitNewToilet(validToiletData)).rejects.toThrow(
-          "A similar toilet was just submitted"
-        );
+        await expect(
+          contributionService.submitNewToilet(validToiletData),
+        ).rejects.toThrow("A similar toilet was just submitted");
 
         // eslint-disable-next-line @typescript-eslint/unbound-method
         expect(mockSupabaseClient.rpc).toHaveBeenCalledTimes(2); // Only first submission's RPC calls
@@ -571,9 +631,9 @@ describe("Contribution Service", () => {
       it("should throw error when user is not authenticated", async () => {
         mockSupabaseAuth.getUser.mockResolvedValueOnce(null);
 
-        await expect(contributionService.submitNewToilet(validToiletData)).rejects.toThrow(
-          "You must be logged in to submit a toilet"
-        );
+        await expect(
+          contributionService.submitNewToilet(validToiletData),
+        ).rejects.toThrow("You must be logged in to submit a toilet");
       });
 
       it("should handle permission denied error (42501)", async () => {
@@ -592,9 +652,9 @@ describe("Contribution Service", () => {
           },
         });
 
-        await expect(contributionService.submitNewToilet(validToiletData)).rejects.toThrow(
-          "Permission denied: Please log out and log back in"
-        );
+        await expect(
+          contributionService.submitNewToilet(validToiletData),
+        ).rejects.toThrow("Permission denied: Please log out and log back in");
       });
 
       it("should handle timeout error (57014)", async () => {
@@ -613,9 +673,9 @@ describe("Contribution Service", () => {
           },
         });
 
-        await expect(contributionService.submitNewToilet(validToiletData)).rejects.toThrow(
-          "Submission is taking too long"
-        );
+        await expect(
+          contributionService.submitNewToilet(validToiletData),
+        ).rejects.toThrow("Submission is taking too long");
       });
 
       it("should validate session before submission", async () => {
@@ -627,23 +687,27 @@ describe("Contribution Service", () => {
           detailedStatus: "no_session",
         });
 
-        await expect(contributionService.submitNewToilet(validToiletData)).rejects.toThrow();
+        await expect(
+          contributionService.submitNewToilet(validToiletData),
+        ).rejects.toThrow();
 
         // eslint-disable-next-line @typescript-eslint/unbound-method
         expect(checkSession).toHaveBeenCalled();
         // eslint-disable-next-line @typescript-eslint/unbound-method
         expect(mockSupabaseClient.rpc).not.toHaveBeenCalledWith(
           "submit_toilet",
-          expect.anything()
+          expect.anything(),
         );
       });
 
       it("should handle network errors", async () => {
         mockSupabaseClient.rpc.mockRejectedValueOnce(
-          new Error("Network request failed")
+          new Error("Network request failed"),
         );
 
-        await expect(contributionService.submitNewToilet(validToiletData)).rejects.toThrow();
+        await expect(
+          contributionService.submitNewToilet(validToiletData),
+        ).rejects.toThrow();
       });
 
       it("should record submission after success", async () => {
@@ -661,11 +725,289 @@ describe("Contribution Service", () => {
 
         await contributionService.submitNewToilet(validToiletData);
 
-        const hash = contributionService.generateSubmissionHash(validToiletData);
+        const hash =
+          contributionService.generateSubmissionHash(validToiletData);
         const recorded = contributionService.recentSubmissions.get(hash);
 
         expect(recorded).toBeDefined();
         expect(recorded?.id).toBe("submission-123");
+      });
+    });
+  });
+
+  describe("Submission Validation (validateToiletSubmission)", () => {
+    const validData: Partial<Toilet> = {
+      name: "Test Toilet",
+      location: { latitude: 1.3521, longitude: 103.8198 },
+      address: "123 Test St",
+      isAccessible: true,
+      amenities: {
+        hasBabyChanging: true,
+        hasShower: false,
+        isGenderNeutral: false,
+        hasPaperTowels: true,
+        hasHandDryer: false,
+        hasWaterSpray: true,
+        hasSoap: true,
+      },
+    };
+
+    describe("required fields", () => {
+      it("should reject missing name", () => {
+        const data = { ...validData, name: undefined };
+        expect(() => validateToiletSubmission(data)).toThrow(
+          "Name is required",
+        );
+      });
+
+      it("should reject empty/whitespace name", () => {
+        expect(() =>
+          validateToiletSubmission({ ...validData, name: "   " }),
+        ).toThrow("Name is required");
+      });
+
+      it("should reject missing location", () => {
+        const data = { ...validData, location: undefined };
+        expect(() => validateToiletSubmission(data as Partial<Toilet>)).toThrow(
+          "Location is required",
+        );
+      });
+
+      it("should reject non-numeric latitude", () => {
+        const data = {
+          ...validData,
+          location: { latitude: NaN, longitude: 103 },
+        };
+        expect(() => validateToiletSubmission(data)).toThrow(
+          "Latitude must be a valid number",
+        );
+      });
+
+      it("should reject out-of-range latitude", () => {
+        const data = {
+          ...validData,
+          location: { latitude: 91, longitude: 103 },
+        };
+        expect(() => validateToiletSubmission(data)).toThrow(
+          "Latitude must be between",
+        );
+      });
+
+      it("should reject out-of-range longitude", () => {
+        const data = {
+          ...validData,
+          location: { latitude: 1.35, longitude: 181 },
+        };
+        expect(() => validateToiletSubmission(data)).toThrow(
+          "Longitude must be between",
+        );
+      });
+
+      it("should accept boundary coordinates", () => {
+        const result = validateToiletSubmission({
+          ...validData,
+          location: { latitude: -90, longitude: 180 },
+        });
+        expect(result.location).toEqual({ latitude: -90, longitude: 180 });
+      });
+    });
+
+    describe("string field truncation", () => {
+      it("should truncate name to max length", () => {
+        const longName = "A".repeat(300);
+        const result = validateToiletSubmission({
+          ...validData,
+          name: longName,
+        });
+        expect(result.name!.length).toBe(VALIDATION_LIMITS.NAME_MAX_LENGTH);
+      });
+
+      it("should truncate address to max length", () => {
+        const longAddr = "B".repeat(600);
+        const result = validateToiletSubmission({
+          ...validData,
+          address: longAddr,
+        });
+        expect(result.address!.length).toBe(
+          VALIDATION_LIMITS.ADDRESS_MAX_LENGTH,
+        );
+      });
+
+      it("should truncate buildingName to max length", () => {
+        const result = validateToiletSubmission({
+          ...validData,
+          buildingName: "C".repeat(300),
+        });
+        expect(result.buildingName!.length).toBe(
+          VALIDATION_LIMITS.BUILDING_NAME_MAX_LENGTH,
+        );
+      });
+
+      it("should trim whitespace from string fields", () => {
+        const result = validateToiletSubmission({
+          ...validData,
+          name: "  Hello  ",
+          address: "  World  ",
+        });
+        expect(result.name).toBe("Hello");
+        expect(result.address).toBe("World");
+      });
+    });
+
+    describe("photos array bounding", () => {
+      it("should cap photos at max count", () => {
+        const photos = Array.from(
+          { length: 20 },
+          (_, i) => `https://example.com/photo${i}.jpg`,
+        );
+        const result = validateToiletSubmission({ ...validData, photos });
+        expect(result.photos!.length).toBe(VALIDATION_LIMITS.PHOTOS_MAX_COUNT);
+      });
+
+      it("should filter out non-string photos", () => {
+        const photos = [
+          "valid.jpg",
+          123 as unknown as string,
+          "",
+          "also-valid.jpg",
+        ];
+        const result = validateToiletSubmission({ ...validData, photos });
+        expect(result.photos).toEqual(["valid.jpg", "also-valid.jpg"]);
+      });
+
+      it("should truncate long photo URIs", () => {
+        const longUri = "https://example.com/" + "x".repeat(3000);
+        const result = validateToiletSubmission({
+          ...validData,
+          photos: [longUri],
+        });
+        expect(result.photos![0].length).toBe(
+          VALIDATION_LIMITS.PHOTO_URI_MAX_LENGTH,
+        );
+      });
+    });
+
+    describe("amenities whitelist", () => {
+      it("should strip unknown amenity keys", () => {
+        const amenities = {
+          ...validData.amenities!,
+          maliciousField: true,
+          __proto__: { admin: true },
+        } as any;
+        const result = validateToiletSubmission({ ...validData, amenities });
+        expect(Object.keys(result.amenities!)).toHaveLength(7);
+        expect((result.amenities as any).maliciousField).toBeUndefined();
+      });
+
+      it("should default missing amenity keys to false", () => {
+        const result = validateToiletSubmission({
+          ...validData,
+          amenities: {} as any,
+        });
+        expect(result.amenities!.hasBabyChanging).toBe(false);
+        expect(result.amenities!.hasSoap).toBe(false);
+      });
+    });
+
+    describe("numeric field validation", () => {
+      it("should accept valid floor level", () => {
+        const result = validateToiletSubmission({
+          ...validData,
+          floorLevel: 3,
+        });
+        expect(result.floorLevel).toBe(3);
+      });
+
+      it("should drop out-of-range floor level silently", () => {
+        const result = validateToiletSubmission({
+          ...validData,
+          floorLevel: 999,
+        });
+        expect(result.floorLevel).toBeUndefined();
+      });
+
+      it("should round fractional floor levels", () => {
+        const result = validateToiletSubmission({
+          ...validData,
+          floorLevel: 2.7,
+        });
+        expect(result.floorLevel).toBe(3);
+      });
+
+      it("should accept negative floor levels within range", () => {
+        const result = validateToiletSubmission({
+          ...validData,
+          floorLevel: -5,
+        });
+        expect(result.floorLevel).toBe(-5);
+      });
+    });
+
+    describe("unknown field stripping", () => {
+      it("should not pass through arbitrary extra fields", () => {
+        const data = {
+          ...validData,
+          malicious: "payload",
+          admin: true,
+          __proto__: { isAdmin: true },
+        } as any;
+        const result = validateToiletSubmission(data);
+        expect((result as any).malicious).toBeUndefined();
+        expect((result as any).admin).toBeUndefined();
+      });
+
+      it("should not include id, rating, reviewCount, or timestamps", () => {
+        const data = {
+          ...validData,
+          id: "injected-id",
+          rating: 5,
+          reviewCount: 100,
+          createdAt: "2020-01-01",
+          lastUpdated: "2020-01-01",
+        } as any;
+        const result = validateToiletSubmission(data);
+        expect((result as any).id).toBeUndefined();
+        expect((result as any).rating).toBeUndefined();
+        expect((result as any).reviewCount).toBeUndefined();
+        expect((result as any).createdAt).toBeUndefined();
+      });
+    });
+
+    describe("boolean fields", () => {
+      it("should pass through valid boolean fields", () => {
+        const result = validateToiletSubmission({
+          ...validData,
+          isAccessible: true,
+          isPublic: false,
+          isFree: true,
+        });
+        expect(result.isAccessible).toBe(true);
+        expect(result.isPublic).toBe(false);
+        expect(result.isFree).toBe(true);
+      });
+
+      it("should not include non-boolean values for boolean fields", () => {
+        const data = { ...validData, isAccessible: "yes" as any };
+        const result = validateToiletSubmission(data);
+        expect(result.isAccessible).toBeUndefined();
+      });
+    });
+
+    describe("buildingId UUID validation", () => {
+      it("should accept valid UUID", () => {
+        const result = validateToiletSubmission({
+          ...validData,
+          buildingId: "123e4567-e89b-12d3-a456-426614174000",
+        });
+        expect(result.buildingId).toBe("123e4567-e89b-12d3-a456-426614174000");
+      });
+
+      it("should reject non-UUID buildingId", () => {
+        const result = validateToiletSubmission({
+          ...validData,
+          buildingId: "not-a-uuid",
+        });
+        expect(result.buildingId).toBeUndefined();
       });
     });
   });

@@ -6,10 +6,14 @@
  * user profile data.
  */
 
-import type { Session, AuthChangeEvent, AuthError } from "@supabase/supabase-js";
+import type {
+  Session,
+  AuthChangeEvent,
+  AuthError,
+} from "@supabase/supabase-js";
 import React, { createContext, useContext, useState, useEffect } from "react";
 
-import { profileService } from "../services/profileService";
+import { setUserContext, clearUserContext } from "../services/sentry";
 import {
   supabaseService,
   refreshSession,
@@ -63,18 +67,41 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Initialize auth state
   useEffect(() => {
+    // Guard against overlapping profile fetches from initializeAuth and onAuthStateChange.
+    // When both fire close together (cold start with existing session), only the first
+    // to acquire the flag runs the profile fetch; the other skips it.
+    let profileFetchInFlight = false;
+
+    /**
+     * Fetch (or auto-create) the user profile, guarded by a simple in-flight flag
+     * to prevent concurrent getProfile() calls from racing each other.
+     */
+    const fetchProfileOnce = async (): Promise<UserProfile | null> => {
+      if (profileFetchInFlight) {
+        debug.log(
+          "Auth",
+          "Profile fetch already in flight, skipping duplicate",
+        );
+        return null;
+      }
+      profileFetchInFlight = true;
+      try {
+        // getProfile() auto-creates if missing, so ensureUserProfile() is redundant
+        return await supabaseService.auth.getProfile();
+      } finally {
+        profileFetchInFlight = false;
+      }
+    };
+
     const initializeAuth = async () => {
-      // Log auth initialization
       authDebug.log("STATE_CHANGE", "info", {
         action: "initialize_auth",
         timestamp: new Date().toISOString(),
       });
 
-      // Start tracking performance
       const endTracking = authDebug.trackPerformance("auth_initialization");
 
       try {
-        // Get current session
         const { data, error } = await supabaseService.auth.getSession();
 
         if (error) {
@@ -87,14 +114,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           return;
         }
 
-        // Log session state
         authDebug.log("STATE_CHANGE", "info", {
           action: "get_session",
           hasSession: !!data.session,
           expiresAt: data.session?.expires_at,
         });
 
-        // If no session, set not authenticated
         if (!data.session) {
           authDebug.log("STATE_CHANGE", "info", {
             action: "initialize_auth",
@@ -104,7 +129,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           return;
         }
 
-        // Get user
         const user = await supabaseService.auth.getUser();
 
         if (!user) {
@@ -116,17 +140,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           return;
         }
 
-        // Get user profile
-        const profile = await supabaseService.auth.getProfile();
+        const profile = await fetchProfileOnce();
 
-        // Log successful initialization
         authDebug.log("STATE_CHANGE", "success", {
           action: "initialize_auth",
           userId: user.id,
           hasProfile: !!profile,
         });
 
-        // Update auth state
+        // Attach user identity to all future Sentry error reports
+        setUserContext(user.id, user.email);
+
         setState({
           user,
           profile,
@@ -141,88 +165,102 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         debug.error("Auth", "Failed to initialize auth", error);
         setState((prev) => ({ ...prev, isLoading: false }));
       } finally {
-        // End performance tracking
         endTracking();
       }
     };
 
     initializeAuth();
 
-    // Subscribe to auth changes with enhanced logging
+    // Subscribe to auth changes.
+    // NOTE: Supabase SDK warns that async callbacks inside onAuthStateChange can
+    // cause deadlocks when calling other Supabase APIs that also acquire the
+    // internal lock. We keep the callback synchronous and dispatch async work
+    // outside the lock via a fire-and-forget helper.
+    const handleAuthEvent = async (
+      event: AuthChangeEvent,
+      session: Session | null,
+    ) => {
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        if (!session?.user) {
+          authDebug.log("STATE_CHANGE", "failure", {
+            event,
+            error: "Session exists but user is missing",
+          });
+          return;
+        }
+
+        const endTracking = authDebug.trackPerformance("auth_state_update");
+
+        try {
+          // Single getProfile() call — it auto-creates if missing, so
+          // the previous ensureUserProfile() + getProfile() double-fetch
+          // is unnecessary.
+          const profile = await fetchProfileOnce();
+
+          authDebug.log("STATE_CHANGE", "success", {
+            event,
+            userId: session.user.id,
+            hasProfile: !!profile,
+          });
+
+          setUserContext(session.user.id, session.user.email);
+
+          setState({
+            user: session.user,
+            profile,
+            isLoading: false,
+            isAuthenticated: true,
+          });
+        } catch (error) {
+          authDebug.log("STATE_CHANGE", "failure", {
+            event,
+            error,
+            action: "get_profile_after_state_change",
+          });
+
+          // BUG FIX: Previously the catch block never reset isLoading,
+          // leaving the app in a permanent loading spinner if profile
+          // fetch failed after a successful sign-in.
+          setState((prev) => ({
+            ...prev,
+            user: session.user,
+            isLoading: false,
+            isAuthenticated: true,
+          }));
+        } finally {
+          endTracking();
+        }
+      } else if (event === "SIGNED_OUT") {
+        authDebug.log("STATE_CHANGE", "success", {
+          event: "SIGNED_OUT",
+          action: "reset_auth_state",
+        });
+
+        clearUserContext();
+
+        setState({
+          user: null,
+          profile: null,
+          isLoading: false,
+          isAuthenticated: false,
+        });
+      }
+    };
+
     const { data } = supabaseService.auth.onAuthStateChange(
-      async (event: AuthChangeEvent, session: Session | null) => {
+      (event: AuthChangeEvent, session: Session | null) => {
         authDebug.log("STATE_CHANGE", "info", {
           event,
           hasSession: !!session,
           userId: session?.user?.id,
-          providerType: session?.user?.app_metadata?.provider,
           timestamp: new Date().toISOString(),
         });
 
-        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-          if (!session?.user) {
-            authDebug.log("STATE_CHANGE", "failure", {
-              event,
-              error: "Session exists but user is missing",
-            });
-            return;
-          }
-
-          // Start tracking performance
-          const endTracking = authDebug.trackPerformance("auth_state_update");
-
-          try {
-            // Ensure the user has a profile in the database
-            // This is critical for RLS policy compatibility
-            debug.log(
-              "Auth",
-              "Ensuring user profile exists after auth state change"
-            );
-            await profileService.ensureUserProfile();
-
-            // Get user profile
-            const profile = await supabaseService.auth.getProfile();
-
-            // Log successful state update
-            authDebug.log("STATE_CHANGE", "success", {
-              event,
-              userId: session.user.id,
-              hasProfile: !!profile,
-              profileEnsured: true,
-            });
-
-            setState({
-              user: session.user,
-              profile,
-              isLoading: false,
-              isAuthenticated: true,
-            });
-          } catch (error) {
-            authDebug.log("STATE_CHANGE", "failure", {
-              event,
-              error,
-              action: "get_profile_after_state_change",
-            });
-          } finally {
-            // End performance tracking
-            endTracking();
-          }
-        } else if (event === "SIGNED_OUT") {
-          // Log signout state change
-          authDebug.log("STATE_CHANGE", "success", {
-            event: "SIGNED_OUT",
-            action: "reset_auth_state",
-          });
-
-          // Reset state
-          setState({
-            user: null,
-            profile: null,
-            isLoading: false,
-            isAuthenticated: false,
-          });
-        }
-      }
+        // Dispatch async work outside the Supabase lock to avoid deadlocks.
+        // The SDK holds an exclusive lock while calling this callback; calling
+        // other Supabase APIs (getProfile → getUser) from inside would deadlock.
+        handleAuthEvent(event, session);
+      },
     );
 
     // Cleanup subscription
@@ -274,7 +312,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               expiresIn: sessionInfo.expiresIn,
               needsForceRefresh: sessionInfo.needsForceRefresh,
               detailedStatus: sessionInfo.detailedStatus,
-            }
+            },
           );
         }
 
@@ -314,15 +352,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 reason = "missing expiration information";
                 break;
               default:
-                reason =
-                  sessionInfo.needsForceRefresh ?
-                    "invalid expiration timestamp detected"
+                reason = sessionInfo.needsForceRefresh
+                  ? "invalid expiration timestamp detected"
                   : `expiring soon (${sessionInfo.expiresIn}s remaining)`;
             }
           } else {
-            reason =
-              sessionInfo.needsForceRefresh ?
-                "invalid expiration timestamp detected"
+            reason = sessionInfo.needsForceRefresh
+              ? "invalid expiration timestamp detected"
               : `expiring soon (${sessionInfo.expiresIn}s remaining)`;
           }
 
@@ -334,12 +370,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
           // Use retry mechanism for session refresh (up to 3 retries based on timestamp issues)
           const refreshRetries =
-            (
-              sessionInfo.detailedStatus === "expired_past" ||
-              sessionInfo.detailedStatus === "invalid_date"
-            ) ?
-              3
-            : 2;
+            sessionInfo.detailedStatus === "expired_past" ||
+            sessionInfo.detailedStatus === "invalid_date"
+              ? 3
+              : 2;
 
           const refreshed = await refreshSession(refreshRetries);
 
@@ -364,7 +398,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                   expiresIn: verifySession.expiresIn,
                   needsForceRefresh: verifySession.needsForceRefresh,
                   detailedStatus: verifySession.detailedStatus,
-                }
+                },
               );
 
               // If we still have an invalid date/timestamp after refresh, it may be a deeper issue
@@ -379,7 +413,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                   {
                     detailedStatus: verifySession.detailedStatus,
                     expiresIn: verifySession.expiresIn,
-                  }
+                  },
                 );
 
                 // This is a potential candidate for forcing re-authentication
@@ -409,7 +443,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 {
                   expiresIn: sessionInfo.expiresIn,
                   detailedStatus: sessionInfo.detailedStatus,
-                }
+                },
               );
 
               // Show a toast or notification to the user that they should re-login
@@ -499,7 +533,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const signUp = async (
     email: string,
     password: string,
-    metadata?: { full_name?: string }
+    metadata?: { full_name?: string },
   ) => {
     // Start performance tracking
     const endTracking = authDebug.trackPerformance("sign_up_ui_flow");
@@ -567,7 +601,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           timestamp: new Date().toISOString(),
           needsVerification: !data?.user?.email_confirmed_at,
           nextAction: "showing_success_screen",
-        }
+        },
       );
 
       return {};
