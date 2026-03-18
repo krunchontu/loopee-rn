@@ -7,6 +7,7 @@ import type {
   SupabaseClient,
 } from "@supabase/supabase-js";
 import { createClient } from "@supabase/supabase-js";
+import * as Crypto from "expo-crypto";
 import * as Linking from "expo-linking";
 import { Platform } from "react-native";
 
@@ -16,7 +17,21 @@ import type { UserProfile } from "../types/user";
 import { authDebug } from "../utils/AuthDebugger";
 import { debug } from "../utils/debug";
 import { normalizeToiletData } from "../utils/toilet-helpers";
-import * as Crypto from "expo-crypto";
+
+/**
+ * Generate a cryptographically random integer in [0, max).
+ * Falls back to Math.random() if expo-crypto is unavailable or returns bad data.
+ */
+const safeRandomInt = (max: number): number => {
+  try {
+    const hex = Crypto.randomUUID().replace(/-/g, "").substring(0, 8);
+    const n = parseInt(hex, 16);
+    if (!isNaN(n)) return Math.floor(n % max);
+  } catch {
+    // expo-crypto unavailable (background execution, older JSC, etc.)
+  }
+  return Math.floor(Math.random() * max);
+};
 
 // Initialize Supabase client
 if (!EXPO_PUBLIC_SUPABASE_URL || !EXPO_PUBLIC_SUPABASE_ANON_KEY) {
@@ -50,7 +65,7 @@ class SupabaseClientSingleton {
             persistSession: true,
             detectSessionInUrl: false,
           },
-        }
+        },
       );
 
       debug.log("Supabase", "Created Supabase client singleton instance");
@@ -89,7 +104,7 @@ class SupabaseClientSingleton {
             const backoffMs = Math.min(1000 * Math.pow(2, attempt - 1), 8000);
             debug.log(
               "Supabase",
-              `Retry attempt ${attempt}/${retryCount} after ${backoffMs}ms`
+              `Retry attempt ${attempt}/${retryCount} after ${backoffMs}ms`,
             );
             await new Promise((resolve) => setTimeout(resolve, backoffMs));
           }
@@ -154,7 +169,7 @@ class SupabaseClientSingleton {
    * @returns A JavaScript Date object or null if invalid
    */
   static normalizeTimestamp(
-    timestamp: number | string | undefined | null
+    timestamp: number | string | undefined | null,
   ): Date | null {
     if (timestamp === undefined || timestamp === null) {
       return null;
@@ -261,7 +276,7 @@ class SupabaseClientSingleton {
           // Validate that expires_at is a valid date
           if (this.isValidDate(expiresAt)) {
             expiresIn = Math.floor(
-              (expiresAt!.getTime() - now.getTime()) / 1000
+              (expiresAt!.getTime() - now.getTime()) / 1000,
             );
 
             // Check if expiration time is reasonable
@@ -276,7 +291,7 @@ class SupabaseClientSingleton {
                     expiresAtRaw: data.session.expires_at,
                     expiresAtNormalized: expiresAt!.toISOString(),
                     now: now.toISOString(),
-                  }
+                  },
                 );
                 detailedStatus = "expired_past";
                 needsForceRefresh = true;
@@ -290,7 +305,7 @@ class SupabaseClientSingleton {
                     expiresAtRaw: data.session.expires_at,
                     expiresAtNormalized: expiresAt!.toISOString(),
                     now: now.toISOString(),
-                  }
+                  },
                 );
                 detailedStatus = "suspicious_future";
                 // Don't force refresh but log the anomaly
@@ -325,7 +340,7 @@ class SupabaseClientSingleton {
         debug.error(
           "Supabase",
           "Error calculating session expiration",
-          dateError
+          dateError,
         );
         expiresIn = -1; // Treat as expired if we can't calculate
         needsForceRefresh = true; // Force refresh on calculation error
@@ -753,7 +768,7 @@ export const supabaseService = {
      * @returns Subscription object
      */
     onAuthStateChange(
-      callback: (event: AuthChangeEvent, session: Session | null) => void
+      callback: (event: AuthChangeEvent, session: Session | null) => void,
     ) {
       return supabase.auth.onAuthStateChange(callback);
     },
@@ -815,8 +830,8 @@ export const supabaseService = {
           });
 
           // Generate default profile data using cryptographically secure random
-          const randomNumber = Math.floor(parseInt(Crypto.randomUUID().replace(/-/g, '').substring(0, 6), 16) % 1000000);
-          const defaultUsername = `user_${randomNumber}`;
+          const randomNumber = safeRandomInt(1000000);
+          const defaultUsername = `user_${String(randomNumber).padStart(6, "0")}`;
           const displayName =
             user.user.user_metadata?.full_name ||
             user.user.email ||
@@ -891,7 +906,7 @@ export const supabaseService = {
      * @returns Updated profile or null
      */
     async updateProfile(
-      params: ProfileUpdateParams
+      params: ProfileUpdateParams,
     ): Promise<UserProfile | null> {
       // Start performance tracking
       const endTracking = authDebug.trackPerformance("profile_update");
@@ -968,7 +983,7 @@ export const supabaseService = {
     async getNearby(
       latitude: number,
       longitude: number,
-      radius: number = 5000
+      radius: number = 5000,
     ) {
       const { data, error } = await supabase
         .rpc("find_toilets_within_radius", {
@@ -986,10 +1001,10 @@ export const supabaseService = {
         (toilet: { latitude?: number; longitude?: number }): boolean =>
           Boolean(
             toilet.latitude &&
-              toilet.longitude &&
-              toilet.latitude !== 0 &&
-              toilet.longitude !== 0
-          )
+            toilet.longitude &&
+            toilet.latitude !== 0 &&
+            toilet.longitude !== 0,
+          ),
       ).length;
 
       debug.warn(
@@ -1003,7 +1018,7 @@ export const supabaseService = {
             totalToilets > 0
               ? Math.round((withValidCoords / totalToilets) * 100)
               : 0,
-        }
+        },
       );
 
       // Process toilet data with our normalization utilities
@@ -1025,12 +1040,11 @@ export const supabaseService = {
         ) {
           debug.warn(
             "Supabase",
-            `Missing or invalid coordinates for toilet ${toilet.name}, using calculated fallback`
+            `Missing or invalid coordinates for toilet ${toilet.name}, using calculated fallback`,
           );
 
           // Use cryptographically secure random for angle calculation
-          const randomBytes = parseInt(Crypto.randomUUID().replace(/-/g, '').substring(0, 8), 16);
-          const angle = (randomBytes / 0xffffffff) * Math.PI * 2; // Random angle in radians
+          const angle = (safeRandomInt(0xffffffff) / 0xffffffff) * Math.PI * 2; // Random angle in radians
           const distanceInDegrees = (toilet.distance_meters || 0) / 111000; // Rough conversion from meters to degrees
 
           toiletLatitude = latitude + Math.sin(angle) * distanceInDegrees;
@@ -1047,7 +1061,7 @@ export const supabaseService = {
               calculatedPosition: { lat: toiletLatitude, lng: toiletLongitude },
               angle: angle * (180 / Math.PI), // Convert to degrees for readability
               userPosition: { lat: latitude, lng: longitude },
-            }
+            },
           );
         } else {
           // Log that we're using actual coordinates
@@ -1060,7 +1074,7 @@ export const supabaseService = {
               actualPosition: { lat: toiletLatitude, lng: toiletLongitude },
               distance: toilet.distance_meters,
               userPosition: { lat: latitude, lng: longitude },
-            }
+            },
           );
         }
 
@@ -1136,7 +1150,7 @@ export const supabaseService = {
               avatar_url
             )
           )
-        `
+        `,
         )
         .eq("id", id)
         .single();
@@ -1182,7 +1196,7 @@ export const supabaseService = {
 
     async update(
       reviewId: string,
-      updates: { rating?: number; comment?: string; photos?: string[] }
+      updates: { rating?: number; comment?: string; photos?: string[] },
     ): Promise<string> {
       // Call the database function for review editing
       const { data, error } = await supabase.rpc("edit_review", {
@@ -1210,7 +1224,7 @@ export const supabaseService = {
             display_name,
             avatar_url
           )
-        `
+        `,
         )
         .eq("toilet_id", toiletId)
         .order("created_at", { ascending: false });

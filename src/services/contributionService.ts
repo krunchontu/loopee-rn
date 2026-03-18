@@ -9,6 +9,8 @@
  * 3. RLS policies verify that submitter_id::text = auth.uid()::text
  */
 
+import * as Crypto from "expo-crypto";
+
 import {
   supabaseService,
   getSupabaseClient,
@@ -24,7 +26,6 @@ import type {
 import type { Toilet } from "../types/toilet";
 import { authDebug } from "../utils/AuthDebugger";
 import { debug } from "../utils/debug";
-import * as Crypto from "expo-crypto";
 
 // Use the shared Supabase client instance for consistent auth state
 const supabase = getSupabaseClient();
@@ -37,7 +38,7 @@ const logContribution = (
   level: "log" | "error" | "warn",
   context: string,
   message: string,
-  data?: any
+  data?: any,
 ) => {
   const timestamp = new Date().toISOString();
   const formattedData = {
@@ -51,21 +52,21 @@ const logContribution = (
       debug.error(
         "contributionService",
         `[${context}] ${message}`,
-        formattedData
+        formattedData,
       );
       break;
     case "warn":
       debug.warn(
         "contributionService",
         `[${context}] ${message}`,
-        formattedData
+        formattedData,
       );
       break;
     default:
       debug.log(
         "contributionService",
         `[${context}] ${message}`,
-        formattedData
+        formattedData,
       );
   }
 };
@@ -87,7 +88,7 @@ const SESSION_REFRESH_RETRIES = 2; // Number of retry attempts for session refre
 const raceWithTimeout = <T>(
   promise: PromiseLike<T>,
   ms: number,
-  operation: string
+  operation: string,
 ): Promise<T> => {
   let timerId: ReturnType<typeof setTimeout>;
   const timeout = new Promise<never>((_, reject) => {
@@ -112,7 +113,7 @@ const withRetry = async <T>(
   operation: () => Promise<T>,
   retries: number,
   retryDelayMs: number,
-  operationName: string
+  operationName: string,
 ): Promise<T> => {
   let lastError: Error | null = null;
 
@@ -124,7 +125,7 @@ const withRetry = async <T>(
           "log",
           "withRetry",
           `Retry attempt ${attempt}/${retries} for ${operationName}`,
-          { attempt, maxRetries: retries }
+          { attempt, maxRetries: retries },
         );
 
         // Exponential backoff
@@ -145,7 +146,7 @@ const withRetry = async <T>(
           error: lastError.message,
           attempt: attempt + 1,
           remaining: retries - attempt,
-        }
+        },
       );
 
       // If this was the last attempt, we're out of retries
@@ -154,7 +155,7 @@ const withRetry = async <T>(
           "error",
           "withRetry",
           `All ${retries + 1} attempts failed for ${operationName}`,
-          { lastError }
+          { lastError },
         );
         throw lastError;
       }
@@ -193,9 +194,8 @@ export const contributionService = {
     // Create a normalized object with key fields that would identify a unique submission
     const keyData = {
       name: data.name || "",
-      location:
-        data.location ?
-          `${data.location.latitude.toFixed(6)},${data.location.longitude.toFixed(6)}`
+      location: data.location
+        ? `${data.location.latitude.toFixed(6)},${data.location.longitude.toFixed(6)}`
         : "",
       address: data.address || "",
       buildingName: data.buildingName || "",
@@ -215,7 +215,7 @@ export const contributionService = {
    */
   isDuplicateSubmission(
     data: Partial<Toilet>,
-    dedupeTimeWindowMs: number = 10000
+    dedupeTimeWindowMs: number = 10000,
   ): { isDuplicate: boolean; existingId?: string } {
     const hash = this.generateSubmissionHash(data);
     const existingSubmission = this.recentSubmissions.get(hash);
@@ -279,7 +279,7 @@ export const contributionService = {
         "log",
         "completeValidation",
         `Completed validation operation ${operationId}`,
-        { remainingOperations: this.validationPromises.size }
+        { remainingOperations: this.validationPromises.size },
       );
     }
   },
@@ -292,7 +292,7 @@ export const contributionService = {
    */
   getSessionErrorMessage(
     detailedStatus: string,
-    expiresIn: number | null
+    expiresIn: number | null,
   ): string {
     switch (detailedStatus) {
       case "no_session":
@@ -326,8 +326,13 @@ export const contributionService = {
    * @throws Error if user is not authenticated or session cannot be refreshed
    */
   async ensureValidSession(): Promise<void> {
-    // Generate a unique ID for this validation operation using cryptographically secure random
-    const randomId = Crypto.randomUUID().substring(0, 8);
+    // Generate a unique ID for this validation operation
+    let randomId: string;
+    try {
+      randomId = Crypto.randomUUID().substring(0, 8);
+    } catch {
+      randomId = Math.random().toString(36).substring(2, 10);
+    }
     const operationId = `session-validation-${Date.now()}-${randomId}`;
 
     // Check if we already have a validation operation in progress
@@ -339,7 +344,7 @@ export const contributionService = {
         "Using existing validation operation",
         {
           operationCount: this.validationPromises.size,
-        }
+        },
       );
 
       // Use the first pending validation operation
@@ -356,7 +361,7 @@ export const contributionService = {
             "Existing validation failed, retrying",
             {
               error: error instanceof Error ? error.message : String(error),
-            }
+            },
           );
         }
       }
@@ -369,13 +374,13 @@ export const contributionService = {
         logContribution(
           "log",
           "ensureValidSession",
-          "Checking session validity"
+          "Checking session validity",
         );
 
         const sessionInfo = await raceWithTimeout(
           checkSession(),
           SESSION_VALIDATION_TIMEOUT,
-          "session validation"
+          "session validation",
         );
 
         // Log session details
@@ -405,7 +410,7 @@ export const contributionService = {
           logContribution(
             "error",
             "ensureValidSession",
-            "No active session found"
+            "No active session found",
           );
           throw new Error("Authentication required: Please log in");
         } else if (
@@ -416,14 +421,13 @@ export const contributionService = {
           (sessionInfo.expiresIn && sessionInfo.expiresIn < 600) // Increased threshold to 10 minutes
         ) {
           // Session expired or about to expire soon, or has invalid expiration time
-          const reason =
-            sessionInfo.needsForceRefresh ?
-              "session has invalid expiration time"
-            : sessionInfo.detailedStatus === "expired_past" ?
-              "session expiration date is far in the past"
-            : sessionInfo.detailedStatus === "suspicious_future" ?
-              "session expiration date is suspiciously far in the future"
-            : "session is expired or expiring soon";
+          const reason = sessionInfo.needsForceRefresh
+            ? "session has invalid expiration time"
+            : sessionInfo.detailedStatus === "expired_past"
+              ? "session expiration date is far in the past"
+              : sessionInfo.detailedStatus === "suspicious_future"
+                ? "session expiration date is suspiciously far in the future"
+                : "session is expired or expiring soon";
 
           logContribution(
             "warn",
@@ -433,7 +437,7 @@ export const contributionService = {
               expiresIn: sessionInfo.expiresIn,
               needsForceRefresh: sessionInfo.needsForceRefresh,
               detailedStatus: sessionInfo.detailedStatus,
-            }
+            },
           );
 
           // Attempt to refresh the session with timeout and retry logic
@@ -444,20 +448,20 @@ export const contributionService = {
                 return await raceWithTimeout(
                   refreshSession(SESSION_REFRESH_RETRIES),
                   SESSION_REFRESH_TIMEOUT,
-                  "session refresh"
+                  "session refresh",
                 );
               },
               // Retry parameters
               1, // One additional retry at this level (combined with internal retries)
               1000, // Base delay of 1 second
-              "session refresh"
+              "session refresh",
             );
 
             if (!refreshed) {
               logContribution(
                 "error",
                 "ensureValidSession",
-                "Session refresh failed after all retry attempts"
+                "Session refresh failed after all retry attempts",
               );
               throw new Error("Authentication expired: Please log in again");
             }
@@ -466,7 +470,7 @@ export const contributionService = {
             const verifySession = await raceWithTimeout(
               checkSession(),
               SESSION_VALIDATION_TIMEOUT,
-              "session validation after refresh"
+              "session validation after refresh",
             );
 
             if (!verifySession.valid) {
@@ -478,13 +482,13 @@ export const contributionService = {
                   expiresIn: verifySession.expiresIn,
                   needsForceRefresh: verifySession.needsForceRefresh,
                   detailedStatus: verifySession.detailedStatus,
-                }
+                },
               );
 
               // Get user-friendly error message based on detailed status
               const errorMessage = this.getSessionErrorMessage(
                 verifySession.detailedStatus || "unknown",
-                verifySession.expiresIn
+                verifySession.expiresIn,
               );
 
               throw new Error(errorMessage);
@@ -497,7 +501,7 @@ export const contributionService = {
               {
                 newExpiresIn: verifySession.expiresIn,
                 newDetailedStatus: verifySession.detailedStatus,
-              }
+              },
             );
           } catch (refreshError) {
             // Enhanced error for refresh failures
@@ -505,16 +509,14 @@ export const contributionService = {
               "error",
               "ensureValidSession",
               "Session refresh failed with retry mechanism",
-              { error: refreshError }
+              { error: refreshError },
             );
 
             throw new Error(
-              (
-                refreshError instanceof Error &&
+              refreshError instanceof Error &&
                 refreshError.message.includes("timeout")
-              ) ?
-                "Authentication refresh timed out. Please check your network and try again."
-              : "Authentication refresh failed. Please log in again."
+                ? "Authentication refresh timed out. Please check your network and try again."
+                : "Authentication refresh failed. Please log in again.",
             );
           }
         } else {
@@ -535,18 +537,18 @@ export const contributionService = {
           "error",
           "ensureValidSession",
           "Session validation error",
-          errorDetails
+          errorDetails,
         );
 
         // Improve and categorize error messages based on error type
         if (error instanceof Error) {
           if (error.message.includes("timeout")) {
             throw new Error(
-              "Authentication check timed out. Please check your network connection and try again."
+              "Authentication check timed out. Please check your network connection and try again.",
             );
           } else if (error.message.includes("refresh")) {
             throw new Error(
-              "Your session has expired and couldn't be refreshed. Please log in again to continue."
+              "Your session has expired and couldn't be refreshed. Please log in again to continue.",
             );
           } else {
             throw error; // Keep the original error message if it's already descriptive
@@ -592,14 +594,14 @@ export const contributionService = {
             "error",
             "submitWithSessionGuard",
             "Session error during submission",
-            { message: error.message }
+            { message: error.message },
           );
         } else {
           logContribution(
             "error",
             "submitWithSessionGuard",
             "Operation error",
-            { message: error.message }
+            { message: error.message },
           );
         }
       }
@@ -613,7 +615,7 @@ export const contributionService = {
    * @returns The created submission
    */
   async submitNewToilet(
-    toiletData: Partial<Toilet>
+    toiletData: Partial<Toilet>,
   ): Promise<ToiletSubmission> {
     // Check for duplicate submissions first
     const dupeCheck = this.isDuplicateSubmission(toiletData);
@@ -625,12 +627,12 @@ export const contributionService = {
         {
           existingId: dupeCheck.existingId,
           timeBetweenSubmissions: "< 10 seconds",
-        }
+        },
       );
 
       // Return the existing submission instead of creating a duplicate
       throw new Error(
-        "A similar toilet was just submitted. Please wait a moment before trying again."
+        "A similar toilet was just submitted. Please wait a moment before trying again.",
       );
     }
 
@@ -642,7 +644,7 @@ export const contributionService = {
         dataFields: Object.keys(toiletData),
         hasLocation: !!toiletData.location,
         hasName: !!toiletData.name,
-      }
+      },
     );
 
     try {
@@ -650,7 +652,7 @@ export const contributionService = {
       logContribution(
         "log",
         "submitNewToilet",
-        "Validating session before submission"
+        "Validating session before submission",
       );
       await this.ensureValidSession();
 
@@ -661,7 +663,7 @@ export const contributionService = {
       const user = await raceWithTimeout(
         supabaseService.auth.getUser(),
         5000,
-        "get authenticated user"
+        "get authenticated user",
       );
 
       if (!user) {
@@ -675,19 +677,19 @@ export const contributionService = {
         "Authenticated user for submission",
         {
           userId: user.id,
-        }
+        },
       );
 
       // First, check eligibility as a diagnostic step
       logContribution(
         "log",
         "submitNewToilet",
-        "Checking submission eligibility"
+        "Checking submission eligibility",
       );
       const eligibilityCheck = await raceWithTimeout(
         supabase.rpc("check_submission_eligibility"),
         8000,
-        "eligibility check"
+        "eligibility check",
       );
 
       if (eligibilityCheck.error) {
@@ -716,14 +718,14 @@ export const contributionService = {
         {
           submissionType: "new",
           userId: user.id,
-        }
+        },
       );
 
       // Use the database function with explicit user ID and timeout
       const insertResponse = await raceWithTimeout(
         supabase.rpc("submit_toilet", submissionPayload),
         DEFAULT_TIMEOUT,
-        "toilet submission"
+        "toilet submission",
       );
 
       if (insertResponse.error) {
@@ -738,23 +740,23 @@ export const contributionService = {
             errorMessage: pgError.message,
             hint: pgError.hint,
             details: pgError.details,
-          }
+          },
         );
 
         // Special handling for specific error types
         if (pgError.code === "42501") {
           // Permission denied
           throw new Error(
-            "Permission denied: Please log out and log back in to refresh your session"
+            "Permission denied: Please log out and log back in to refresh your session",
           );
         } else if (pgError.code === "57014") {
           // Query canceled due to timeout
           throw new Error(
-            "Submission is taking too long. Please try again or check your network connection."
+            "Submission is taking too long. Please try again or check your network connection.",
           );
         } else {
           throw new Error(
-            `Failed to submit toilet: ${insertResponse.error.message}`
+            `Failed to submit toilet: ${insertResponse.error.message}`,
           );
         }
       }
@@ -763,7 +765,7 @@ export const contributionService = {
         logContribution(
           "error",
           "submitNewToilet",
-          "No data returned from successful submission"
+          "No data returned from successful submission",
         );
         throw new Error("Failed to submit toilet - no data returned");
       }
@@ -778,7 +780,7 @@ export const contributionService = {
         {
           id: submissionData.id,
           status: submissionData.status,
-        }
+        },
       );
 
       // Record this submission to prevent duplicates
@@ -798,7 +800,7 @@ export const contributionService = {
         "error",
         "submitNewToilet",
         "Error in submission process",
-        errorDetails
+        errorDetails,
       );
 
       // Re-throw with user-friendly message but preserve original error details
@@ -806,13 +808,13 @@ export const contributionService = {
         // Add specific messaging for timeouts
         if (err.message.includes("timed out")) {
           throw new Error(
-            "Submission timed out. The server might be busy or your connection may be slow. Please try again."
+            "Submission timed out. The server might be busy or your connection may be slow. Please try again.",
           );
         }
         throw err; // Preserve error object with stack trace
       } else {
         throw new Error(
-          "An unexpected error occurred during toilet submission"
+          "An unexpected error occurred during toilet submission",
         );
       }
     }
@@ -828,11 +830,11 @@ export const contributionService = {
   async submitToiletEdit(
     toiletId: string,
     toiletData: Partial<Toilet>,
-    reason: string
+    reason: string,
   ): Promise<ToiletSubmission> {
     debug.log(
       "contributionService",
-      "Using database function for edit submission"
+      "Using database function for edit submission",
     );
 
     try {
@@ -861,10 +863,10 @@ export const contributionService = {
         debug.error(
           "contributionService",
           "Error editing toilet",
-          insertResponse.error
+          insertResponse.error,
         );
         throw new Error(
-          `Failed to submit edit: ${insertResponse.error.message}`
+          `Failed to submit edit: ${insertResponse.error.message}`,
         );
       }
 
@@ -893,11 +895,11 @@ export const contributionService = {
   async reportToiletIssue(
     toiletId: string,
     issueType: string,
-    details: string
+    details: string,
   ): Promise<ToiletSubmission> {
     debug.log(
       "contributionService",
-      "Using database function for report submission"
+      "Using database function for report submission",
     );
 
     try {
@@ -926,10 +928,10 @@ export const contributionService = {
         debug.error(
           "contributionService",
           "Error reporting toilet issue",
-          insertResponse.error
+          insertResponse.error,
         );
         throw new Error(
-          `Failed to report issue: ${insertResponse.error.message}`
+          `Failed to report issue: ${insertResponse.error.message}`,
         );
       }
 
@@ -960,7 +962,7 @@ export const contributionService = {
       if (!user) {
         debug.error(
           "contributionService",
-          "Auth failure: User not authenticated"
+          "Auth failure: User not authenticated",
         );
         throw new Error("You must be logged in to view your submissions");
       }
@@ -975,7 +977,7 @@ export const contributionService = {
             hasEmail: !!user.email,
             emailConfirmed: !!user.email_confirmed_at,
             identityCount: user.identities?.length || 0,
-          }
+          },
         );
       }
 
@@ -987,7 +989,7 @@ export const contributionService = {
         "Using auth user ID for submissions query",
         {
           userId: uid,
-        }
+        },
       );
 
       // Fetch submissions from the database
@@ -1001,7 +1003,7 @@ export const contributionService = {
           status,
           data,
           created_at
-        `
+        `,
         )
         .eq("submitter_id", uid)
         .order("created_at", { ascending: false });
@@ -1010,10 +1012,10 @@ export const contributionService = {
         debug.error(
           "contributionService",
           "Error fetching submissions",
-          queryResponse.error
+          queryResponse.error,
         );
         throw new Error(
-          `Failed to fetch submissions: ${queryResponse.error.message}`
+          `Failed to fetch submissions: ${queryResponse.error.message}`,
         );
       }
 
@@ -1037,7 +1039,7 @@ export const contributionService = {
           created_at: submission.created_at,
           toilet_id: submission.toilet_id,
           toilet_name: submission.data?.name || "Unnamed toilet",
-        })
+        }),
       );
     } catch (err) {
       debug.error("contributionService", "Error fetching submissions", err);
@@ -1045,7 +1047,7 @@ export const contributionService = {
         throw err;
       } else {
         throw new Error(
-          "An unexpected error occurred while fetching submissions"
+          "An unexpected error occurred while fetching submissions",
         );
       }
     }
@@ -1064,7 +1066,7 @@ export const contributionService = {
       if (!user) {
         debug.error(
           "contributionService",
-          "Auth failure: User not authenticated"
+          "Auth failure: User not authenticated",
         );
         throw new Error("You must be logged in to view submission details");
       }
@@ -1079,7 +1081,7 @@ export const contributionService = {
             hasEmail: !!user.email,
             emailConfirmed: !!user.email_confirmed_at,
             identityCount: user.identities?.length || 0,
-          }
+          },
         );
       }
 
@@ -1091,7 +1093,7 @@ export const contributionService = {
         "Using auth user ID for submission details",
         {
           userId: uid,
-        }
+        },
       );
 
       // Fetch the submission - RLS policy will ensure user can only access their own submissions
@@ -1105,10 +1107,10 @@ export const contributionService = {
         debug.error(
           "contributionService",
           "Error fetching submission",
-          queryResponse.error
+          queryResponse.error,
         );
         throw new Error(
-          `Failed to fetch submission: ${queryResponse.error.message}`
+          `Failed to fetch submission: ${queryResponse.error.message}`,
         );
       }
 
@@ -1131,13 +1133,13 @@ export const contributionService = {
       debug.error(
         "contributionService",
         "Error fetching submission details",
-        err
+        err,
       );
       if (err instanceof Error) {
         throw err;
       } else {
         throw new Error(
-          "An unexpected error occurred while fetching submission details"
+          "An unexpected error occurred while fetching submission details",
         );
       }
     }
