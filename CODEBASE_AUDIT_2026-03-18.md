@@ -478,4 +478,71 @@ Replace all `as Type` casts with `schema.parse(data)` calls.
 
 ---
 
-*End of audit. Total issues identified: 20+ critical/high/medium findings in the findings table, 48+ UI/component issues, 11 type system/data flow issues, 5 architectural concerns, and multiple testing/DevOps gaps.*
+## N. Database & Migration Deep Audit (Addendum)
+
+### Critical: Migration Dependency Ordering Broken
+- `20250522_toilet_submissions.sql` trigger references `public.user_activity` table
+- But `user_activity` is created later in `20250529_add_activity_tables.sql`
+- **On fresh database install, this migration will FAIL**
+- Fix: Reorder migrations or add existence check in trigger
+
+### Critical: Missing Database Indexes (Performance Time Bomb)
+The following indexes are absent and will cause query degradation at scale:
+| Table | Missing Index | Impact |
+|-------|--------------|--------|
+| `reviews` | `user_id` | Slow profile review lookups |
+| `reviews` | `(toilet_id, user_id)` composite | No duplicate review prevention at DB level |
+| `reviews` | `created_at DESC` | Slow ordered review feeds |
+| `toilets` | `created_at DESC`, `rating DESC` | Slow sorted listings |
+| `toilet_submissions` | `status`, `(submitter_id, status)` | Slow admin/user submission queries |
+| `user_profiles` | `created_at DESC` | Slow user lists |
+
+### Critical: RLS Policy Gaps
+- **toilets table has NO RLS enabled** - any authenticated user can modify any toilet
+- **buildings table has NO RLS** - same issue
+- **reviews table missing DELETE policy** - users cannot delete their own reviews
+- `user_activity` INSERT policy is `WITH CHECK (FALSE)` which also blocks trigger inserts (SECURITY INVOKER context)
+
+### High: Hardcoded Test Credentials in Maestro Config
+`.maestro/config.yaml` contains hardcoded `TEST_EMAIL` and `TEST_PASSWORD` in version control. These should be environment variables or GitHub Secrets.
+
+### High: App Store Package Name
+`app.json` uses `com.anonymous.loopeern` - will be rejected by app stores and exposes development state.
+
+### High: Missing Data Constraints
+- No CHECK on `photos` array length (could accept thousands of entries)
+- No CHECK on `description`/`address` text length (could be megabytes)
+- No constraint ensuring amenities JSONB has required keys
+- No constraint preventing negative profile stat counts
+
+### Medium: JSONB Type Coercion Without Validation
+`20250522_toilet_submissions.sql:82-91` uses `(NEW.data->>'location')::jsonb` without validating the JSON structure first. Malformed submission data could cause silent type coercion failures.
+
+### Medium: Pre-commit Hook Issues
+`.husky/pre-commit` runs `npx lint-staged` then `npm test` without `set -e` or `&&` chaining. If linting fails, tests still run wastefully. No `tsc --noEmit` type checking.
+
+### Medium: ESLint Config Allows 978 Warnings
+`.eslintrc.js` downgrades critical TypeScript safety rules to WARN:
+- `no-floating-promises: warn` (leaked unhandled rejections)
+- `no-misused-promises: warn` (async/await bugs)
+- `no-unsafe-assignment/member-access/call: warn` (type safety bypassed)
+- `lint-staged` uses `--max-warnings=-1` which allows ALL warnings through
+
+### Low: Metro Config Has Excessive Polyfills
+`metro.config.js:45-58` polyfills `fs`, `net`, `tls`, `http`, `https`, `stream`, `crypto`, `buffer` — most are unnecessary for a mobile app and add significant bundle overhead. The `crypto` polyfill shadows the correctly-used `expo-crypto`.
+
+---
+
+## O. Final Consolidated Severity Matrix
+
+| Severity | Count | Categories |
+|----------|-------|------------|
+| Critical | 8 | Credentials in git, broken tests, missing imports, migration ordering, missing RLS, no CI/CD, test credentials exposed, package name |
+| High | 12 | Duplicate Supabase client, missing indexes, input validation, session race conditions, unsafe type casts, JSONB injection, ESLint warnings, data constraints |
+| Medium | 18 | Performance (O(n²), health check), memory leaks, UX bugs (empty profiles, silent location fallback), type mismatches, amenities chaos, pre-commit gaps, observability |
+| Low | 10 | Dead code, duplicate components, accessibility, metro polyfills, documentation gaps |
+| **Total** | **48** | |
+
+---
+
+*End of comprehensive audit. 4 parallel agents reviewed: core services/auth, UI components/screens, database/tests/config/CI-CD, and type system/data flow. 48 discrete findings across 15 categories.*
