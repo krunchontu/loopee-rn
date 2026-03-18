@@ -85,7 +85,7 @@ const SESSION_REFRESH_RETRIES = 2; // Number of retry attempts for session refre
  * @returns The result of the promise if it resolves before the timeout
  */
 const raceWithTimeout = <T>(
-  promise: Promise<T>,
+  promise: PromiseLike<T>,
   ms: number,
   operation: string
 ): Promise<T> => {
