@@ -10,6 +10,7 @@ import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { Title, Button, TextInput, Text } from "react-native-paper";
 
 import { colors, spacing } from "../../foundations";
+import { debug } from "../../utils/debug";
 import { locationService } from "../../services/location";
 import type { BaseStepProps } from "../../types/contribution";
 import type { Location as ToiletLocation } from "../../types/toilet";

@@ -12,6 +12,7 @@ import { ReviewModal } from "./ReviewModal";
 import { colors, spacing } from "../../foundations";
 import type { Review } from "../../types/toilet";
 import { Rating } from "../shared/Rating";
+import { debug } from "../../utils/debug";
 
 interface UserReviewCardProps {
   review: Review;

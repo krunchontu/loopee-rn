@@ -5,18 +5,12 @@
  * Provides methods to fetch user activity, manage notifications, and handle their display
  */
 
-import { EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY } from "@env";
-import { createClient } from "@supabase/supabase-js";
-
-import { supabaseService } from "./supabase";
+import { getSupabaseClient, supabaseService } from "./supabase";
 import type { UserActivity, UserNotification } from "../types/activity";
 import { debug } from "../utils/debug";
 
-// Direct client for database RPC operations
-const supabase = createClient(
-  EXPO_PUBLIC_SUPABASE_URL,
-  EXPO_PUBLIC_SUPABASE_ANON_KEY
-);
+// Use the singleton client so RPC calls share the auth session
+const supabase = getSupabaseClient();
 
 /**
  * Activity service for handling user activities and notifications
@@ -99,7 +93,7 @@ export const activityService = {
    */
   async getUnreadNotificationCount(): Promise<number> {
     try {
-      const { data, error } = await supabase
+      const { count, error } = await supabase
         .from("user_notifications")
         .select("id", { count: "exact", head: true })
         .eq("is_read", false);
@@ -113,7 +107,7 @@ export const activityService = {
         throw new Error(`Failed to fetch notification count: ${error.message}`);
       }
 
-      return data?.length || 0;
+      return count ?? 0;
     } catch (err) {
       debug.error(
         "activityService",
