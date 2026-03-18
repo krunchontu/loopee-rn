@@ -1,2 +1,11 @@
+set -e
+
+# Prevent committing files with secrets
+if git diff --cached --name-only | grep -qE '^(env\.local|\.env\.local)$'; then
+  echo "ERROR: Refusing to commit env file with secrets."
+  echo "If you need to update the example, edit .env.local.example instead."
+  exit 1
+fi
+
 npx lint-staged
 npm test
