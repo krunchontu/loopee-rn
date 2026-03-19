@@ -263,24 +263,42 @@ export function validateToiletSubmission(
 }
 
 /**
- * Races a promise against a timeout, cleaning up the timer when done.
- * Prevents leaked timers that keep the process alive after tests.
- * @param promise The operation to race against the timeout
+ * Races an operation against a timeout with AbortController support.
+ * When the timeout fires, the AbortController signal is aborted so that
+ * the underlying fetch/network request is cancelled rather than left
+ * running as an orphaned background operation.
+ *
+ * Accepts either a pre-built promise (backward-compatible) or a factory
+ * function that receives an AbortSignal for wiring into fetch-based APIs
+ * like Supabase's `.abortSignal(signal)`.
+ *
+ * @param promiseOrFactory A promise, or a function receiving AbortSignal that returns a promise
  * @param ms Milliseconds before timeout
  * @param operation Name of the operation (for error messaging)
  * @returns The result of the promise if it resolves before the timeout
  */
 const raceWithTimeout = <T>(
-  promise: PromiseLike<T>,
+  promiseOrFactory: PromiseLike<T> | ((signal: AbortSignal) => PromiseLike<T>),
   ms: number,
   operation: string,
 ): Promise<T> => {
+  const controller = new AbortController();
   let timerId: ReturnType<typeof setTimeout>;
+
+  const promise =
+    typeof promiseOrFactory === "function"
+      ? (promiseOrFactory as (signal: AbortSignal) => PromiseLike<T>)(
+          controller.signal,
+        )
+      : promiseOrFactory;
+
   const timeout = new Promise<never>((_, reject) => {
     timerId = setTimeout(() => {
+      controller.abort();
       reject(new Error(`Operation '${operation}' timed out after ${ms}ms`));
     }, ms);
   });
+
   return Promise.race([promise, timeout]).finally(() => {
     clearTimeout(timerId);
   });
@@ -887,7 +905,8 @@ export const contributionService = {
         "Checking submission eligibility",
       );
       const eligibilityCheck = await raceWithTimeout(
-        supabase.rpc("check_submission_eligibility"),
+        (signal) =>
+          supabase.rpc("check_submission_eligibility").abortSignal(signal),
         8000,
         "eligibility check",
       );
@@ -930,7 +949,8 @@ export const contributionService = {
 
       // Use the database function with explicit user ID and timeout
       const insertResponse = await raceWithTimeout(
-        supabase.rpc("submit_toilet", submissionPayload),
+        (signal) =>
+          supabase.rpc("submit_toilet", submissionPayload).abortSignal(signal),
         DEFAULT_TIMEOUT,
         "toilet submission",
       );

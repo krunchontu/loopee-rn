@@ -40,6 +40,15 @@ jest.mock("expo-crypto", () => ({
   randomUUID: jest.fn(() => "12345678-1234-1234-1234-123456789012"),
 }));
 
+// Helper to create a Supabase-style chainable query builder that resolves to a value.
+// Supports .abortSignal(signal) chaining like the real PostgREST client.
+const createRpcResult = (value: any) => {
+  const thenable = Promise.resolve(value);
+  return Object.assign(thenable, {
+    abortSignal: jest.fn().mockReturnValue(thenable),
+  });
+};
+
 // Mock supabase service - everything must be inside jest.mock for proper hoisting
 jest.mock("../../services/supabase", () => {
   // Create mock client inside the factory
@@ -640,20 +649,24 @@ describe("Contribution Service", () => {
 
       it("should successfully submit a new toilet", async () => {
         // Mock eligibility check
-        mockSupabaseClient.rpc.mockResolvedValueOnce({
-          data: { eligible: true },
-          error: null,
-        });
+        mockSupabaseClient.rpc.mockReturnValueOnce(
+          createRpcResult({
+            data: { eligible: true },
+            error: null,
+          }),
+        );
 
         // Mock actual submission
-        mockSupabaseClient.rpc.mockResolvedValueOnce({
-          data: {
-            id: "submission-123",
-            submission_type: "new",
-            status: "pending",
-          },
-          error: null,
-        });
+        mockSupabaseClient.rpc.mockReturnValueOnce(
+          createRpcResult({
+            data: {
+              id: "submission-123",
+              submission_type: "new",
+              status: "pending",
+            },
+            error: null,
+          }),
+        );
 
         const result =
           await contributionService.submitNewToilet(validToiletData);
@@ -674,11 +687,15 @@ describe("Contribution Service", () => {
       it("should prevent duplicate submissions", async () => {
         // First submission - eligibility + submit
         mockSupabaseClient.rpc
-          .mockResolvedValueOnce({ data: { eligible: true }, error: null })
-          .mockResolvedValueOnce({
-            data: { id: "submission-123" },
-            error: null,
-          });
+          .mockReturnValueOnce(
+            createRpcResult({ data: { eligible: true }, error: null }),
+          )
+          .mockReturnValueOnce(
+            createRpcResult({
+              data: { id: "submission-123" },
+              error: null,
+            }),
+          );
 
         await contributionService.submitNewToilet(validToiletData);
 
@@ -701,19 +718,23 @@ describe("Contribution Service", () => {
 
       it("should handle permission denied error (42501)", async () => {
         // Eligibility check passes
-        mockSupabaseClient.rpc.mockResolvedValueOnce({
-          data: { eligible: true },
-          error: null,
-        });
+        mockSupabaseClient.rpc.mockReturnValueOnce(
+          createRpcResult({
+            data: { eligible: true },
+            error: null,
+          }),
+        );
 
         // Actual submission fails with permission error
-        mockSupabaseClient.rpc.mockResolvedValueOnce({
-          data: null,
-          error: {
-            code: "42501",
-            message: "Permission denied",
-          },
-        });
+        mockSupabaseClient.rpc.mockReturnValueOnce(
+          createRpcResult({
+            data: null,
+            error: {
+              code: "42501",
+              message: "Permission denied",
+            },
+          }),
+        );
 
         await expect(
           contributionService.submitNewToilet(validToiletData),
@@ -722,19 +743,23 @@ describe("Contribution Service", () => {
 
       it("should handle timeout error (57014)", async () => {
         // Eligibility check passes
-        mockSupabaseClient.rpc.mockResolvedValueOnce({
-          data: { eligible: true },
-          error: null,
-        });
+        mockSupabaseClient.rpc.mockReturnValueOnce(
+          createRpcResult({
+            data: { eligible: true },
+            error: null,
+          }),
+        );
 
         // Actual submission fails with timeout
-        mockSupabaseClient.rpc.mockResolvedValueOnce({
-          data: null,
-          error: {
-            code: "57014",
-            message: "Query canceled",
-          },
-        });
+        mockSupabaseClient.rpc.mockReturnValueOnce(
+          createRpcResult({
+            data: null,
+            error: {
+              code: "57014",
+              message: "Query canceled",
+            },
+          }),
+        );
 
         await expect(
           contributionService.submitNewToilet(validToiletData),
@@ -764,8 +789,11 @@ describe("Contribution Service", () => {
       });
 
       it("should handle network errors", async () => {
-        mockSupabaseClient.rpc.mockRejectedValueOnce(
-          new Error("Network request failed"),
+        const rejection = Promise.reject(new Error("Network request failed"));
+        mockSupabaseClient.rpc.mockReturnValueOnce(
+          Object.assign(rejection, {
+            abortSignal: jest.fn().mockReturnValue(rejection),
+          }),
         );
 
         await expect(
@@ -775,16 +803,20 @@ describe("Contribution Service", () => {
 
       it("should record submission after success", async () => {
         // Eligibility check
-        mockSupabaseClient.rpc.mockResolvedValueOnce({
-          data: { eligible: true },
-          error: null,
-        });
+        mockSupabaseClient.rpc.mockReturnValueOnce(
+          createRpcResult({
+            data: { eligible: true },
+            error: null,
+          }),
+        );
 
         // Successful submission
-        mockSupabaseClient.rpc.mockResolvedValueOnce({
-          data: { id: "submission-123" },
-          error: null,
-        });
+        mockSupabaseClient.rpc.mockReturnValueOnce(
+          createRpcResult({
+            data: { id: "submission-123" },
+            error: null,
+          }),
+        );
 
         await contributionService.submitNewToilet(validToiletData);
 
@@ -794,6 +826,41 @@ describe("Contribution Service", () => {
 
         expect(recorded).toBeDefined();
         expect(recorded?.id).toBe("submission-123");
+      });
+
+      it("should pass AbortSignal to Supabase RPC calls for cancellation", async () => {
+        // Track the abortSignal calls
+        const eligibilityAbortSignal = jest.fn();
+        const submitAbortSignal = jest.fn();
+
+        const eligibilityResult = Promise.resolve({
+          data: { eligible: true },
+          error: null,
+        });
+        mockSupabaseClient.rpc.mockReturnValueOnce(
+          Object.assign(eligibilityResult, {
+            abortSignal:
+              eligibilityAbortSignal.mockReturnValue(eligibilityResult),
+          }),
+        );
+
+        const submitResult = Promise.resolve({
+          data: { id: "signal-test-123" },
+          error: null,
+        });
+        mockSupabaseClient.rpc.mockReturnValueOnce(
+          Object.assign(submitResult, {
+            abortSignal: submitAbortSignal.mockReturnValue(submitResult),
+          }),
+        );
+
+        await contributionService.submitNewToilet(validToiletData);
+
+        // Both RPC calls should have received an AbortSignal
+        expect(eligibilityAbortSignal).toHaveBeenCalledWith(
+          expect.any(AbortSignal),
+        );
+        expect(submitAbortSignal).toHaveBeenCalledWith(expect.any(AbortSignal));
       });
     });
   });
