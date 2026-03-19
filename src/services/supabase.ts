@@ -1275,5 +1275,59 @@ export const supabaseService = {
         updatedAt: data.updated_at,
       } as Review;
     },
+
+    async getByUserId(userId: string) {
+      const { data, error } = await supabase
+        .from("reviews")
+        .select(
+          `
+          id,
+          toilet_id,
+          user_id,
+          rating,
+          comment,
+          photos,
+          created_at,
+          toilets (
+            name,
+            address
+          )
+        `,
+        )
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        debug.error("Supabase", "Error fetching reviews by user ID", error);
+        throw error;
+      }
+
+      return (data || []).map(
+        (item: {
+          id: string;
+          toilet_id: string;
+          user_id: string;
+          rating: number;
+          comment: string | null;
+          photos: string[] | null;
+          created_at: string;
+          toilets: { name: string; address: string | null } | null;
+        }) => ({
+          id: item.id,
+          toilet_id: item.toilet_id,
+          user_id: item.user_id,
+          rating: item.rating,
+          comment: item.comment,
+          photos: item.photos || [],
+          created_at: item.created_at,
+          toilet: item.toilets
+            ? {
+                name: item.toilets.name,
+                address: item.toilets.address || undefined,
+              }
+            : undefined,
+        }),
+      );
+    },
   },
 };
