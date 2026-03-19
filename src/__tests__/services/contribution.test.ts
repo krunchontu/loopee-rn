@@ -79,6 +79,7 @@ import {
   contributionService,
   validateToiletSubmission,
   VALIDATION_LIMITS,
+  MAX_RECENT_SUBMISSIONS,
 } from "../../services/contributionService";
 import {
   checkSession,
@@ -310,6 +311,68 @@ describe("Contribution Service", () => {
         contributionService.cleanupOldSubmissions();
 
         expect(contributionService.recentSubmissions.has(hash)).toBe(true);
+      });
+    });
+
+    describe("recentSubmissions size cap", () => {
+      it("should evict oldest entry when exceeding MAX_RECENT_SUBMISSIONS", () => {
+        // Fill the Map to MAX + 1 entries
+        const now = Date.now();
+        for (let i = 0; i <= MAX_RECENT_SUBMISSIONS; i++) {
+          contributionService.recentSubmissions.set(`hash-${i}`, {
+            timestamp: now + i, // each newer than the last
+            id: `sub-${i}`,
+          });
+        }
+
+        // Record one more submission to trigger the cap
+        contributionService.recordSubmission(
+          { name: "Cap Test", location: { latitude: 0, longitude: 0 } },
+          "cap-submission",
+        );
+
+        // Should not exceed the max
+        expect(contributionService.recentSubmissions.size).toBeLessThanOrEqual(
+          MAX_RECENT_SUBMISSIONS,
+        );
+      });
+
+      it("should evict the oldest entry, not the newest", () => {
+        const now = Date.now();
+
+        // Add MAX entries, with hash-0 being the oldest
+        for (let i = 0; i < MAX_RECENT_SUBMISSIONS; i++) {
+          contributionService.recentSubmissions.set(`hash-${i}`, {
+            timestamp: now + i,
+            id: `sub-${i}`,
+          });
+        }
+
+        // Add one more to trigger eviction
+        contributionService.recordSubmission(
+          { name: "Trigger Evict", location: { latitude: 1, longitude: 1 } },
+          "newest-submission",
+        );
+
+        // The oldest entry (hash-0) should have been evicted
+        expect(contributionService.recentSubmissions.has("hash-0")).toBe(false);
+        // The second-oldest should still be there
+        expect(contributionService.recentSubmissions.has("hash-1")).toBe(true);
+        // The newly added entry should exist
+        const newHash = contributionService.generateSubmissionHash({
+          name: "Trigger Evict",
+          location: { latitude: 1, longitude: 1 },
+        });
+        expect(contributionService.recentSubmissions.has(newHash)).toBe(true);
+      });
+
+      it("should not evict when under the cap", () => {
+        contributionService.recordSubmission(
+          { name: "Single Entry", location: { latitude: 0, longitude: 0 } },
+          "only-one",
+        );
+
+        expect(contributionService.recentSubmissions.size).toBe(1);
       });
     });
   });

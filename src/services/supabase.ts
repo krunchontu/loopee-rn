@@ -161,11 +161,13 @@ class SupabaseClientSingleton {
   }
 
   /**
-   * Normalizes different timestamp formats to a JavaScript Date object
-   * Handles Unix timestamps (seconds), JavaScript timestamps (milliseconds),
-   * ISO strings, and other string date formats
+   * Converts a Supabase expires_at timestamp (Unix seconds) to a Date.
    *
-   * @param timestamp The timestamp to normalize
+   * The Supabase SDK always sets expires_at as Unix seconds:
+   *   expires_at: Math.round(Date.now() / 1000) + data.expires_in
+   * (see @supabase/auth-js GoTrueClient.ts)
+   *
+   * @param timestamp Unix timestamp in seconds, or null/undefined
    * @returns A JavaScript Date object or null if invalid
    */
   static normalizeTimestamp(
@@ -175,44 +177,23 @@ class SupabaseClientSingleton {
       return null;
     }
 
-    try {
-      // Handle numeric timestamps
-      if (typeof timestamp === "number") {
-        // Unix timestamps (seconds since epoch) typically have 10 digits
-        // JavaScript timestamps (milliseconds since epoch) have 13 digits
-        if (timestamp < 20000000000) {
-          // Heuristic for Unix timestamp (before year 2603)
-          return new Date(timestamp * 1000);
-        } else {
-          return new Date(timestamp);
-        }
-      }
+    const numeric =
+      typeof timestamp === "number" ? timestamp : Number(timestamp);
 
-      // Handle string timestamps
-      if (typeof timestamp === "string") {
-        // Try to parse as a number first
-        const numericValue = parseInt(timestamp, 10);
-        if (!isNaN(numericValue)) {
-          return this.normalizeTimestamp(numericValue);
-        }
-
-        // Try as ISO date string or other string formats
-        const dateObject = new Date(timestamp);
-        if (this.isValidDate(dateObject)) {
-          return dateObject;
-        }
-      }
-
-      // If we get here, the timestamp couldn't be parsed
-      debug.warn("Supabase", "Unknown timestamp format", { timestamp });
-      return null;
-    } catch (error) {
-      debug.error("Supabase", "Error normalizing timestamp", {
-        timestamp,
-        error,
-      });
+    if (isNaN(numeric) || numeric <= 0) {
+      debug.warn("Supabase", "Invalid session timestamp", { timestamp });
       return null;
     }
+
+    // Supabase expires_at is always Unix seconds. Convert to milliseconds.
+    const date = new Date(numeric * 1000);
+
+    if (!this.isValidDate(date)) {
+      debug.warn("Supabase", "Timestamp produced invalid date", { timestamp });
+      return null;
+    }
+
+    return date;
   }
 
   /**
@@ -1293,6 +1274,60 @@ export const supabaseService = {
         lastEditedAt: data.last_edited_at,
         updatedAt: data.updated_at,
       } as Review;
+    },
+
+    async getByUserId(userId: string) {
+      const { data, error } = await supabase
+        .from("reviews")
+        .select(
+          `
+          id,
+          toilet_id,
+          user_id,
+          rating,
+          comment,
+          photos,
+          created_at,
+          toilets (
+            name,
+            address
+          )
+        `,
+        )
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        debug.error("Supabase", "Error fetching reviews by user ID", error);
+        throw error;
+      }
+
+      return (data || []).map(
+        (item: {
+          id: string;
+          toilet_id: string;
+          user_id: string;
+          rating: number;
+          comment: string | null;
+          photos: string[] | null;
+          created_at: string;
+          toilets: { name: string; address: string | null } | null;
+        }) => ({
+          id: item.id,
+          toilet_id: item.toilet_id,
+          user_id: item.user_id,
+          rating: item.rating,
+          comment: item.comment,
+          photos: item.photos || [],
+          created_at: item.created_at,
+          toilet: item.toilets
+            ? {
+                name: item.toilets.name,
+                address: item.toilets.address || undefined,
+              }
+            : undefined,
+        }),
+      );
     },
   },
 };

@@ -50,7 +50,7 @@ function calculateDistance(coords1: Coordinates, coords2: Coordinates): number {
 function shouldFetchNewData(
   lastFetchLocation: Coordinates | null,
   lastFetchTime: number | null,
-  currentLocation: Coordinates
+  currentLocation: Coordinates,
 ): boolean {
   // If we've never fetched before, we definitely need to fetch
   if (!lastFetchLocation || !lastFetchTime) {
@@ -82,7 +82,7 @@ function shouldFetchNewData(
       {
         distanceMoved,
         threshold: SIGNIFICANT_DISTANCE,
-      }
+      },
     );
     return true;
   }
@@ -97,7 +97,7 @@ function shouldFetchNewData(
       distanceMoved,
       cacheAgeSeconds: Math.round(cacheAge / 1000),
     },
-    CACHE_CHECK_LOG_THROTTLE
+    CACHE_CHECK_LOG_THROTTLE,
   );
   return false;
 }
@@ -112,7 +112,7 @@ interface ToiletState {
   fetchNearbyToilets: (
     latitude: number,
     longitude: number,
-    radius?: number
+    radius?: number,
   ) => Promise<void>;
   selectToilet: (toilet: Toilet | null) => void;
   clearError: () => void;
@@ -131,7 +131,7 @@ export const useToiletStore = create<ToiletState>()(
       fetchNearbyToilets: async (
         latitude: number,
         longitude: number,
-        radius = 5000
+        radius = 5000,
       ) => {
         try {
           const currentLocation = { latitude, longitude };
@@ -142,7 +142,7 @@ export const useToiletStore = create<ToiletState>()(
             !shouldFetchNewData(
               lastFetchLocation,
               lastFetchTime,
-              currentLocation
+              currentLocation,
             )
           ) {
             // Throttled logging for skipping fetch (30 second interval)
@@ -152,7 +152,7 @@ export const useToiletStore = create<ToiletState>()(
               `skip-fetch-${currentLocation.latitude.toFixed(4)}-${currentLocation.longitude.toFixed(4)}`,
               "Using cached toilets - skipping fetch",
               {},
-              SKIP_FETCH_LOG_THROTTLE
+              SKIP_FETCH_LOG_THROTTLE,
             );
             return;
           }
@@ -167,7 +167,7 @@ export const useToiletStore = create<ToiletState>()(
           const toilets = await supabaseService.toilets.getNearby(
             latitude,
             longitude,
-            radius
+            radius,
           );
 
           // Validate toilets data - TEMPORARILY USING LESS STRICT VALIDATION
@@ -192,7 +192,7 @@ export const useToiletStore = create<ToiletState>()(
                   hasCoords,
                   latitude: toilet?.location?.latitude,
                   longitude: toilet?.location?.longitude,
-                }
+                },
               );
             }
 
@@ -201,9 +201,8 @@ export const useToiletStore = create<ToiletState>()(
 
           // Log if any invalid toilets were found with details about what was invalid
           if (validToilets.length !== toilets.length) {
-            const invalidToilets = toilets.filter(
-              (t) => !validToilets.includes(t)
-            );
+            const validSet = new Set(validToilets);
+            const invalidToilets = toilets.filter((t) => !validSet.has(t));
             debug.warn(
               "ToiletStore",
               `Filtered out ${toilets.length - validToilets.length} invalid toilets`,
@@ -223,13 +222,13 @@ export const useToiletStore = create<ToiletState>()(
                     return "longitude out of range";
                   return "unknown reason";
                 }),
-              }
+              },
             );
           }
 
           debug.log(
             "ToiletStore",
-            `Fetched ${validToilets.length} valid toilets`
+            `Fetched ${validToilets.length} valid toilets`,
           );
           set({
             toilets: validToilets,
@@ -252,7 +251,7 @@ export const useToiletStore = create<ToiletState>()(
       selectToilet: (toilet) => {
         debug.log(
           "ToiletStore",
-          toilet ? `Selected toilet ${toilet.id}` : "Deselected toilet"
+          toilet ? `Selected toilet ${toilet.id}` : "Deselected toilet",
         );
         set({ selectedToilet: toilet });
       },
@@ -261,6 +260,6 @@ export const useToiletStore = create<ToiletState>()(
         set({ error: null });
       },
     }),
-    { name: "toilet-store" }
-  )
+    { name: "toilet-store" },
+  ),
 );
