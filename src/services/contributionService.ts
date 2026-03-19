@@ -98,6 +98,12 @@ export const VALIDATION_LIMITS = {
 } as const;
 
 /**
+ * Maximum number of recent submissions to track in memory.
+ * Each entry is ~200 bytes (hash key + timestamp + ID), so 100 entries ≈ 20KB.
+ */
+export const MAX_RECENT_SUBMISSIONS = 100;
+
+/**
  * Known amenity keys — any other keys are stripped.
  */
 const VALID_AMENITY_KEYS = new Set([
@@ -430,6 +436,21 @@ export const contributionService = {
 
     // Clean up old entries to prevent memory growth
     this.cleanupOldSubmissions();
+
+    // Hard cap: evict oldest entries if Map exceeds max size
+    while (this.recentSubmissions.size > MAX_RECENT_SUBMISSIONS) {
+      let oldest: { key: string; timestamp: number } | null = null;
+      for (const [key, value] of this.recentSubmissions.entries()) {
+        if (!oldest || value.timestamp < oldest.timestamp) {
+          oldest = { key, timestamp: value.timestamp };
+        }
+      }
+      if (oldest) {
+        this.recentSubmissions.delete(oldest.key);
+      } else {
+        break;
+      }
+    }
   },
 
   /**
