@@ -9,11 +9,12 @@ import { View, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { Title, Button, TextInput, Text } from "react-native-paper";
 
+import { DEFAULT_LOCATION } from "../../constants/location";
 import { colors, spacing } from "../../foundations";
-import { debug } from "../../utils/debug";
 import { locationService } from "../../services/location";
 import type { BaseStepProps } from "../../types/contribution";
 import type { Location as ToiletLocation } from "../../types/toilet";
+import { debug } from "../../utils/debug";
 
 interface AddToiletLocationProps extends BaseStepProps {
   location?: ToiletLocation;
@@ -24,7 +25,7 @@ interface AddToiletLocationProps extends BaseStepProps {
       address: string;
       buildingName?: string;
       floorLevel?: number;
-    }>
+    }>,
   ) => void;
 }
 
@@ -40,10 +41,7 @@ export const AddToiletLocation: React.FC<AddToiletLocationProps> = ({
   onBack,
 }) => {
   // Initial location state (use props or default to Singapore)
-  const initialLocation = location || {
-    latitude: 1.3521,
-    longitude: 103.8198,
-  };
+  const initialLocation = location || DEFAULT_LOCATION;
 
   // State for current location
   const [currentLocation, setCurrentLocation] =
@@ -85,7 +83,7 @@ export const AddToiletLocation: React.FC<AddToiletLocationProps> = ({
         animateToLocation(position);
       } else {
         setError(
-          "Unable to get current location. Please set location manually."
+          "Unable to get current location. Please set location manually.",
         );
       }
     } catch (err) {
@@ -101,12 +99,12 @@ export const AddToiletLocation: React.FC<AddToiletLocationProps> = ({
    */
   const getAddressFromCoordinates = async (
     latitude: number,
-    longitude: number
+    longitude: number,
   ) => {
     try {
       const address = await locationService.reverseGeocodeCoordinates(
         latitude,
-        longitude
+        longitude,
       );
 
       if (address) {
@@ -182,7 +180,7 @@ export const AddToiletLocation: React.FC<AddToiletLocationProps> = ({
         latitudeDelta: 0.005,
         longitudeDelta: 0.005,
       },
-      500
+      500,
     );
   };
 
@@ -215,8 +213,9 @@ export const AddToiletLocation: React.FC<AddToiletLocationProps> = ({
     }
 
     // Convert floor level to number if provided
-    const parsedFloorLevel =
-      floorLevel.trim() ? parseInt(floorLevel, 10) : undefined;
+    const parsedFloorLevel = floorLevel.trim()
+      ? parseInt(floorLevel, 10)
+      : undefined;
 
     // Update parent state with location data
     updateToiletData({

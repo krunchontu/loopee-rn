@@ -1,10 +1,11 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import { StyleSheet, Platform, View, Text } from "react-native";
-import type { Region} from "react-native-maps";
+import type { Region } from "react-native-maps";
 import { PROVIDER_GOOGLE, Marker } from "react-native-maps";
 import ClusteredMapView from "react-native-maps-super-cluster";
 
 import { colors, spacing } from "../../constants/colors";
+import { DEFAULT_MAP_REGION } from "../../constants/location";
 import type { LocationState } from "../../services/location";
 import { locationService } from "../../services/location";
 import { useToiletStore } from "../../stores/toilets";
@@ -16,13 +17,6 @@ interface CustomClusteredMapProps {
   initialRegion?: Region;
   style?: any;
 }
-
-const DEFAULT_REGION = {
-  latitude: 1.3521, // Singapore
-  longitude: 103.8198,
-  latitudeDelta: 0.0922,
-  longitudeDelta: 0.0421,
-};
 
 const DEFAULT_DELTA = {
   latitudeDelta: 0.01,
@@ -41,7 +35,7 @@ const CLUSTER_EDGE_PADDING = {
 
 export function CustomClusteredMapView({
   onMarkerPress,
-  initialRegion = DEFAULT_REGION,
+  initialRegion = DEFAULT_MAP_REGION,
   style,
 }: CustomClusteredMapProps) {
   const mapRef = useRef<ClusteredMapView>(null);
@@ -56,7 +50,7 @@ export function CustomClusteredMapView({
     setHasLocationPermission(granted);
     if (!granted) {
       setLocationError(
-        "Location permission is required to find nearby toilets"
+        "Location permission is required to find nearby toilets",
       );
     }
   }, []);
@@ -76,7 +70,7 @@ export function CustomClusteredMapView({
       // Fetch nearby toilets
       fetchNearbyToilets(location.latitude, location.longitude);
     },
-    [fetchNearbyToilets]
+    [fetchNearbyToilets],
   );
 
   useEffect(() => {
@@ -87,7 +81,7 @@ export function CustomClusteredMapView({
     if (!hasLocationPermission) return;
 
     locationService.startLocationUpdates(handleLocationUpdate, (error) =>
-      setLocationError(error.message)
+      setLocationError(error.message),
     );
 
     return () => {
@@ -100,7 +94,7 @@ export function CustomClusteredMapView({
       selectToilet(toilet);
       onMarkerPress?.(toilet);
     },
-    [selectToilet, onMarkerPress]
+    [selectToilet, onMarkerPress],
   );
 
   const renderMarker = useCallback(
@@ -115,7 +109,7 @@ export function CustomClusteredMapView({
         pinColor={toilet.isAccessible ? colors.secondary : colors.primary}
       />
     ),
-    [handleMarkerPress]
+    [handleMarkerPress],
   );
 
   const renderCluster = useCallback((cluster: any) => {
