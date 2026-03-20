@@ -12,6 +12,7 @@ import { Title, Button, Text, List, Switch } from "react-native-paper";
 import { colors, spacing } from "../../foundations";
 import type { BaseStepProps } from "../../types/contribution";
 import type { Toilet } from "../../types/toilet";
+import { DEFAULT_AMENITIES } from "../../utils/toilet-helpers";
 
 interface AddToiletAmenitiesProps extends BaseStepProps {
   amenities?: Toilet["amenities"];
@@ -34,15 +35,7 @@ interface AmenityOption {
  * Allows users to specify available amenities in the toilet
  */
 export const AddToiletAmenities: React.FC<AddToiletAmenitiesProps> = ({
-  amenities = {
-    hasBabyChanging: false,
-    hasShower: false,
-    isGenderNeutral: false,
-    hasPaperTowels: false,
-    hasHandDryer: false,
-    hasWaterSpray: false,
-    hasSoap: false,
-  },
+  amenities = DEFAULT_AMENITIES,
   isAccessible = false,
   updateToiletData,
   onNext,
@@ -177,9 +170,9 @@ export const AddToiletAmenities: React.FC<AddToiletAmenitiesProps> = ({
                 name={amenity.icon}
                 size={24}
                 color={
-                  localAmenities[amenity.key] ?
-                    colors.primary
-                  : colors.text.secondary
+                  localAmenities[amenity.key]
+                    ? colors.primary
+                    : colors.text.secondary
                 }
                 style={styles.amenityIcon}
               />
