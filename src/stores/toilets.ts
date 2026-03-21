@@ -4,6 +4,7 @@ import { devtools } from "zustand/middleware";
 import { supabaseService } from "../services/supabase";
 import type { Toilet } from "../types/toilet";
 import { debug } from "../utils/debug";
+import { isValidLocation } from "../utils/toilet-helpers";
 
 /**
  * Location coordinates interface
@@ -170,59 +171,27 @@ export const useToiletStore = create<ToiletState>()(
             radius,
           );
 
-          // Validate toilets data - TEMPORARILY USING LESS STRICT VALIDATION
+          // Validate toilets have required fields and valid coordinates
           const validToilets = toilets.filter((toilet) => {
-            // Basic validation
-            const hasBasicProps = toilet && toilet.id && toilet.location;
-
-            // Only validate that coordinates exist and are numbers (temporarily allowing any values)
-            // This is less strict to help diagnose the issue with missing toilets
-            const hasCoords =
-              toilet.location &&
-              typeof toilet.location.latitude === "number" &&
-              typeof toilet.location.longitude === "number";
-
-            // Log validation results for each toilet to help diagnose
-            if (!hasBasicProps || !hasCoords) {
+            if (!toilet || !toilet.id) {
+              debug.warn("ToiletStore", "Skipping toilet: missing id");
+              return false;
+            }
+            if (!isValidLocation(toilet.location)) {
               debug.warn(
                 "ToiletStore",
-                `Invalid toilet detected: ${toilet?.id || "unknown"}`,
-                {
-                  hasBasicProps,
-                  hasCoords,
-                  latitude: toilet?.location?.latitude,
-                  longitude: toilet?.location?.longitude,
-                },
+                `Skipping toilet "${toilet.name}" (${toilet.id}): invalid location`,
+                { location: toilet.location },
               );
+              return false;
             }
-
-            return hasBasicProps && hasCoords;
+            return true;
           });
 
-          // Log if any invalid toilets were found with details about what was invalid
           if (validToilets.length !== toilets.length) {
-            const validSet = new Set(validToilets);
-            const invalidToilets = toilets.filter((t) => !validSet.has(t));
             debug.warn(
               "ToiletStore",
               `Filtered out ${toilets.length - validToilets.length} invalid toilets`,
-              {
-                invalidToiletIds: invalidToilets.map((t) => t?.id || "unknown"),
-                invalidToiletReasons: invalidToilets.map((t) => {
-                  if (!t) return "null toilet object";
-                  if (!t.id) return "missing ID";
-                  if (!t.location) return "missing location";
-                  if (typeof t.location.latitude !== "number")
-                    return "invalid latitude type";
-                  if (typeof t.location.longitude !== "number")
-                    return "invalid longitude type";
-                  if (t.location.latitude < -90 || t.location.latitude > 90)
-                    return "latitude out of range";
-                  if (t.location.longitude < -180 || t.location.longitude > 180)
-                    return "longitude out of range";
-                  return "unknown reason";
-                }),
-              },
             );
           }
 

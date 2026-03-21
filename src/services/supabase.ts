@@ -16,7 +16,7 @@ import type { Toilet, Review } from "../types/toilet";
 import type { UserProfile } from "../types/user";
 import { authDebug } from "../utils/AuthDebugger";
 import { debug } from "../utils/debug";
-import { normalizeToiletData } from "../utils/toilet-helpers";
+import { normalizeToiletData, isValidLocation } from "../utils/toilet-helpers";
 
 /**
  * Generate a cryptographically random integer in [0, max).
@@ -976,100 +976,30 @@ export const supabaseService = {
 
       if (error) throw error;
 
-      // Enhanced diagnosis logging
-      const totalToilets = data.length;
-      const withValidCoords = data.filter(
-        (toilet: { latitude?: number; longitude?: number }): boolean =>
-          Boolean(
-            toilet.latitude &&
-            toilet.longitude &&
-            toilet.latitude !== 0 &&
-            toilet.longitude !== 0,
-          ),
-      ).length;
-
-      debug.warn(
-        "Supabase",
-        `TOILET DIAGNOSIS: Total toilets: ${totalToilets}, With valid coordinates: ${withValidCoords}`,
-        {
-          totalToilets,
-          withValidCoords,
-          missingCoords: totalToilets - withValidCoords,
-          percentValid:
-            totalToilets > 0
-              ? Math.round((withValidCoords / totalToilets) * 100)
-              : 0,
-        },
-      );
-
-      // Process toilet data with our normalization utilities
-
-      // Pre-process to handle missing or invalid coordinates
-      const preprocessedData = data.map((toilet) => {
-        // Default to using actual coordinates from the database if available
-        let toiletLatitude = toilet.latitude;
-        let toiletLongitude = toilet.longitude;
-
-        // Fallback to calculated position if coordinates are missing or invalid
-        if (
-          !toiletLatitude ||
-          !toiletLongitude ||
-          typeof toiletLatitude !== "number" ||
-          typeof toiletLongitude !== "number" ||
-          toiletLatitude === 0 ||
-          toiletLongitude === 0
-        ) {
-          debug.warn(
-            "Supabase",
-            `Missing or invalid coordinates for toilet ${toilet.name}, using calculated fallback`,
-          );
-
-          // Use cryptographically secure random for angle calculation
-          const angle = (safeRandomInt(0xffffffff) / 0xffffffff) * Math.PI * 2; // Random angle in radians
-          const distanceInDegrees = (toilet.distance_meters || 0) / 111000; // Rough conversion from meters to degrees
-
-          toiletLatitude = latitude + Math.sin(angle) * distanceInDegrees;
-          toiletLongitude = longitude + Math.cos(angle) * distanceInDegrees;
-
-          // Log the fallback calculation
-          debug.log(
-            "Supabase",
-            `Calculated fallback position for toilet ${toilet.name}`,
-            {
-              toiletId: toilet.id,
-              toiletName: toilet.name,
-              distance: toilet.distance_meters,
-              calculatedPosition: { lat: toiletLatitude, lng: toiletLongitude },
-              angle: angle * (180 / Math.PI), // Convert to degrees for readability
-              userPosition: { lat: latitude, lng: longitude },
-            },
-          );
-        } else {
-          // Log that we're using actual coordinates
-          debug.log(
-            "Supabase",
-            `Using actual coordinates for toilet ${toilet.name}`,
-            {
-              toiletId: toilet.id,
-              toiletName: toilet.name,
-              actualPosition: { lat: toiletLatitude, lng: toiletLongitude },
-              distance: toilet.distance_meters,
-              userPosition: { lat: latitude, lng: longitude },
-            },
-          );
-        }
-
-        // Return the toilet with coordinates fixed but keeping all original fields
+      // Filter out toilets with missing or invalid coordinates instead of
+      // fabricating random positions, which silently corrupts map data.
+      const preprocessedData = data
+        .filter((toilet) => {
+          const loc = {
+            latitude: toilet.latitude,
+            longitude: toilet.longitude,
+          };
+          if (!isValidLocation(loc)) {
+            debug.warn(
+              "Supabase",
+              `Excluding toilet "${toilet.name}" (${toilet.id}): invalid coordinates (${toilet.latitude}, ${toilet.longitude})`,
+            );
+            return false;
+          }
+          return true;
+        })
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-        return {
+        .map((toilet) => ({
           ...toilet,
-          latitude: toiletLatitude,
-          longitude: toiletLongitude,
           distance: toilet.distance_meters
             ? parseFloat(toilet.distance_meters.toString())
             : undefined,
-        };
-      });
+        }));
 
       // Transform and normalize the toilet data using our utility
       const transformedData: Toilet[] = preprocessedData.map((toilet) => {

@@ -2,7 +2,7 @@
  * @file toilet-helpers unit tests
  *
  * Tests for amenities normalization, building info normalization,
- * and full toilet data normalization.
+ * full toilet data normalization, and coordinate validation.
  */
 
 import type { Toilet } from "../../types/toilet";
@@ -10,6 +10,7 @@ import {
   normalizeAmenities,
   normalizeBuildingInfo,
   normalizeToiletData,
+  isValidLocation,
   DEFAULT_AMENITIES,
 } from "../../utils/toilet-helpers";
 
@@ -301,5 +302,93 @@ describe("normalizeToiletData", () => {
     expect(result.isAccessible).toBe(true);
     expect(result.buildingName).toBe("Mall");
     expect(result.floorLevel).toBe(2);
+  });
+});
+
+describe("isValidLocation", () => {
+  describe("rejects invalid locations", () => {
+    it("should reject null", () => {
+      expect(isValidLocation(null)).toBe(false);
+    });
+
+    it("should reject undefined", () => {
+      expect(isValidLocation(undefined)).toBe(false);
+    });
+
+    it("should reject (0, 0) — the DB COALESCE sentinel", () => {
+      expect(isValidLocation({ latitude: 0, longitude: 0 })).toBe(false);
+    });
+
+    it("should reject NaN latitude", () => {
+      expect(isValidLocation({ latitude: NaN, longitude: 103.8 })).toBe(false);
+    });
+
+    it("should reject NaN longitude", () => {
+      expect(isValidLocation({ latitude: 1.3, longitude: NaN })).toBe(false);
+    });
+
+    it("should reject Infinity", () => {
+      expect(isValidLocation({ latitude: Infinity, longitude: 103.8 })).toBe(
+        false,
+      );
+      expect(isValidLocation({ latitude: 1.3, longitude: -Infinity })).toBe(
+        false,
+      );
+    });
+
+    it("should reject latitude out of range (> 90)", () => {
+      expect(isValidLocation({ latitude: 91, longitude: 103.8 })).toBe(false);
+    });
+
+    it("should reject latitude out of range (< -90)", () => {
+      expect(isValidLocation({ latitude: -91, longitude: 103.8 })).toBe(false);
+    });
+
+    it("should reject longitude out of range (> 180)", () => {
+      expect(isValidLocation({ latitude: 1.3, longitude: 181 })).toBe(false);
+    });
+
+    it("should reject longitude out of range (< -180)", () => {
+      expect(isValidLocation({ latitude: 1.3, longitude: -181 })).toBe(false);
+    });
+
+    it("should reject non-number latitude", () => {
+      expect(
+        isValidLocation({ latitude: "1.3" as any, longitude: 103.8 }),
+      ).toBe(false);
+    });
+
+    it("should reject non-number longitude", () => {
+      expect(
+        isValidLocation({ latitude: 1.3, longitude: "103.8" as any }),
+      ).toBe(false);
+    });
+  });
+
+  describe("accepts valid locations", () => {
+    it("should accept Singapore coordinates", () => {
+      expect(isValidLocation({ latitude: 1.3521, longitude: 103.8198 })).toBe(
+        true,
+      );
+    });
+
+    it("should accept negative coordinates (Sydney)", () => {
+      expect(isValidLocation({ latitude: -33.8688, longitude: 151.2093 })).toBe(
+        true,
+      );
+    });
+
+    it("should accept boundary values", () => {
+      expect(isValidLocation({ latitude: 90, longitude: 180 })).toBe(true);
+      expect(isValidLocation({ latitude: -90, longitude: -180 })).toBe(true);
+    });
+
+    it("should accept (0, non-zero) — equator is valid", () => {
+      expect(isValidLocation({ latitude: 0, longitude: 103.8 })).toBe(true);
+    });
+
+    it("should accept (non-zero, 0) — prime meridian is valid", () => {
+      expect(isValidLocation({ latitude: 51.5, longitude: 0 })).toBe(true);
+    });
   });
 });
