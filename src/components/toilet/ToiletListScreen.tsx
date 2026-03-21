@@ -1,13 +1,10 @@
-import type {
-  NavigationProp,
-  ParamListBase} from "@react-navigation/native";
-import {
-  useNavigation
-} from "@react-navigation/native";
+import type { NavigationProp, ParamListBase } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import React from "react";
 import { View, StyleSheet, Dimensions } from "react-native";
 
 import { ToiletList } from "./ToiletList";
+import { DEFAULT_LOCATION } from "../../constants/location";
 import { colors, spacing } from "../../foundations";
 import { getResponsiveSpacing } from "../../foundations/responsive";
 import { useToiletStore } from "../../stores/toilets";
@@ -33,10 +30,7 @@ export default function ToiletListScreen() {
   // Get current location and retry fetching
   const handleRetry = () => {
     debug.log("ToiletListScreen", "Retrying toilet fetch");
-    // Default coordinates for Singapore (use location service in production)
-    const defaultLatitude = 1.3521;
-    const defaultLongitude = 103.8198;
-    fetchNearbyToilets(defaultLatitude, defaultLongitude);
+    fetchNearbyToilets(DEFAULT_LOCATION.latitude, DEFAULT_LOCATION.longitude);
   };
 
   return (

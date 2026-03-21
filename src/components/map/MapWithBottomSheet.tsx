@@ -6,6 +6,7 @@ import type { Region } from "react-native-maps";
 import type MapView from "react-native-maps";
 
 import { CustomMapView } from "./MapView";
+import { DEFAULT_LOCATION } from "../../constants/location";
 import { colors } from "../../foundations/colors";
 import { zIndex } from "../../foundations/zIndex";
 import type { LocationState } from "../../services/location";
@@ -68,7 +69,7 @@ export default function MapWithBottomSheet() {
   const mapRef = useRef<MapView>(null);
   const { toilets, loading, error, fetchNearbyToilets } = useToiletStore();
   const [currentLocation, setCurrentLocation] = useState<LocationState | null>(
-    null
+    null,
   );
 
   // Navigate to profile screen
@@ -115,7 +116,7 @@ export default function MapWithBottomSheet() {
       setCurrentLocation(location);
       fetchNearbyToilets(location.latitude, location.longitude);
     },
-    [fetchNearbyToilets]
+    [fetchNearbyToilets],
   );
 
   // Initialize location tracking
@@ -131,7 +132,7 @@ export default function MapWithBottomSheet() {
           await locationService.startLocationUpdates(
             handleLocationUpdate,
             (error) =>
-              debug.error("MapWithBottomSheet", "Location error", error)
+              debug.error("MapWithBottomSheet", "Location error", error),
           );
 
           // Try to get current location immediately
@@ -141,16 +142,25 @@ export default function MapWithBottomSheet() {
           } else {
             // Use default location as fallback
             debug.log("MapWithBottomSheet", "Using default location");
-            fetchNearbyToilets(1.3521, 103.8198);
+            fetchNearbyToilets(
+              DEFAULT_LOCATION.latitude,
+              DEFAULT_LOCATION.longitude,
+            );
           }
         } else {
           // No permission, use default location
           debug.warn("MapWithBottomSheet", "No location permission");
-          fetchNearbyToilets(1.3521, 103.8198);
+          fetchNearbyToilets(
+            DEFAULT_LOCATION.latitude,
+            DEFAULT_LOCATION.longitude,
+          );
         }
       } catch (err) {
         debug.error("MapWithBottomSheet", "Location initialization error", err);
-        fetchNearbyToilets(1.3521, 103.8198);
+        fetchNearbyToilets(
+          DEFAULT_LOCATION.latitude,
+          DEFAULT_LOCATION.longitude,
+        );
       }
     };
 
@@ -167,7 +177,7 @@ export default function MapWithBottomSheet() {
     if (currentLocation) {
       fetchNearbyToilets(currentLocation.latitude, currentLocation.longitude);
     } else {
-      fetchNearbyToilets(1.3521, 103.8198);
+      fetchNearbyToilets(DEFAULT_LOCATION.latitude, DEFAULT_LOCATION.longitude);
     }
   };
 

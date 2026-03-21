@@ -8,37 +8,77 @@
 import type { Toilet } from "../types/toilet";
 
 /**
- * Normalizes toilet amenities regardless of property naming convention.
- * Handles both camelCase and hasPrefix formats.
- *
- * This utility solves the inconsistency between different data sources:
- * - Pre-generated toilets may use: babyChanging, shower, handDryer, etc.
- * - Submitted toilets use: hasBabyChanging, hasShower, hasHandDryer, etc.
- *
- * @param amenities The amenities object from a toilet record
- * @returns Normalized amenities with consistent property access
+ * The canonical default amenities object with all keys set to false.
+ * Used as the fallback when amenities are missing or null.
  */
-export const normalizeAmenities = (amenities: any = {}) => {
-  if (!amenities)
-    return {
-      hasBabyChanging: false,
-      hasShower: false,
-      isGenderNeutral: false,
-      hasPaperTowels: false,
-      hasHandDryer: false,
-      hasWaterSpray: false,
-      hasSoap: false,
-    };
+export const DEFAULT_AMENITIES: Toilet["amenities"] = {
+  hasBabyChanging: false,
+  hasShower: false,
+  isGenderNeutral: false,
+  hasPaperTowels: false,
+  hasHandDryer: false,
+  hasWaterSpray: false,
+  hasSoap: false,
+};
 
-  return {
-    hasBabyChanging: !!amenities.hasBabyChanging || !!amenities.babyChanging,
-    hasShower: !!amenities.hasShower || !!amenities.shower,
-    isGenderNeutral: !!amenities.isGenderNeutral || !!amenities.genderNeutral,
-    hasPaperTowels: !!amenities.hasPaperTowels || !!amenities.paperTowels,
-    hasHandDryer: !!amenities.hasHandDryer || !!amenities.handDryer,
-    hasWaterSpray: !!amenities.hasWaterSpray || !!amenities.waterSpray,
-    hasSoap: !!amenities.hasSoap || !!amenities.soap,
-  };
+/**
+ * Map from legacy un-prefixed amenity keys to their canonical prefixed equivalents.
+ * Used during normalization to convert old-format DB data.
+ */
+const LEGACY_KEY_MAP: Record<string, keyof Toilet["amenities"]> = {
+  babyChanging: "hasBabyChanging",
+  shower: "hasShower",
+  genderNeutral: "isGenderNeutral",
+  paperTowels: "hasPaperTowels",
+  handDryer: "hasHandDryer",
+  waterSpray: "hasWaterSpray",
+  soap: "hasSoap",
+};
+
+/**
+ * Input type for raw amenities from the database or API.
+ * Accepts both legacy (un-prefixed) and canonical (prefixed) keys.
+ */
+type RawAmenities = Partial<Toilet["amenities"]> & Record<string, unknown>;
+
+/**
+ * Normalizes toilet amenities regardless of property naming convention.
+ * Handles both legacy un-prefixed (babyChanging) and canonical prefixed (hasBabyChanging) formats.
+ *
+ * Once all legacy data has been migrated (migration 20250533 + trigger 20250536),
+ * the legacy fallback paths can be removed.
+ *
+ * @param amenities The amenities object from a toilet record (may be in any format)
+ * @returns Normalized amenities with all 7 canonical keys as booleans
+ */
+export const normalizeAmenities = (
+  amenities: RawAmenities | null | undefined = {},
+): Toilet["amenities"] => {
+  if (!amenities) {
+    return { ...DEFAULT_AMENITIES };
+  }
+
+  const result = { ...DEFAULT_AMENITIES };
+
+  // Apply canonical (prefixed) keys
+  for (const key of Object.keys(DEFAULT_AMENITIES) as Array<
+    keyof Toilet["amenities"]
+  >) {
+    if (key in amenities) {
+      result[key] = !!(amenities as Record<string, unknown>)[key];
+    }
+  }
+
+  // Apply legacy (un-prefixed) keys as fallback — only if canonical key wasn't already true
+  for (const [legacyKey, canonicalKey] of Object.entries(LEGACY_KEY_MAP)) {
+    if (legacyKey in amenities && !result[canonicalKey]) {
+      result[canonicalKey] = !!(amenities as Record<string, unknown>)[
+        legacyKey
+      ];
+    }
+  }
+
+  return result;
 };
 
 /**
@@ -81,9 +121,9 @@ export const normalizeToiletData = (toilet: any): Toilet => {
     description: toilet.description || toilet.name,
     location: toilet.location,
     rating:
-      typeof toilet.rating === "string" ?
-        parseFloat(toilet.rating)
-      : toilet.rating || 0,
+      typeof toilet.rating === "string"
+        ? parseFloat(toilet.rating)
+        : toilet.rating || 0,
     reviewCount: toilet.reviewCount || 0,
     isAccessible: !!toilet.isAccessible || !!toilet.is_accessible,
     address: toilet.address || `${toilet.name}, Singapore`,

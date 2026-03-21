@@ -21,6 +21,7 @@ import { debug } from "../../utils/debug";
 import {
   normalizeAmenities,
   normalizeBuildingInfo,
+  DEFAULT_AMENITIES,
 } from "../../utils/toilet-helpers";
 import { Button } from "../shared/Button";
 import { Rating } from "../shared/Rating";
@@ -48,25 +49,15 @@ export default function ToiletDetailView() {
   // Define useMemo hooks before any conditional returns (required by React Hook rules)
   const normalizedAmenities = useMemo(
     () =>
-      toilet ?
-        normalizeAmenities(toilet.amenities)
-      : {
-          hasBabyChanging: false,
-          hasShower: false,
-          isGenderNeutral: false,
-          hasPaperTowels: false,
-          hasHandDryer: false,
-          hasWaterSpray: false,
-          hasSoap: false,
-        },
-    [toilet?.amenities]
+      toilet ? normalizeAmenities(toilet.amenities) : { ...DEFAULT_AMENITIES },
+    [toilet?.amenities],
   );
   const { buildingName, floorName } = useMemo(
     () =>
-      toilet ?
-        normalizeBuildingInfo(toilet)
-      : { buildingName: "", floorName: "" },
-    [toilet]
+      toilet
+        ? normalizeBuildingInfo(toilet)
+        : { buildingName: "", floorName: "" },
+    [toilet],
   );
 
   // Make sure toilet exists
@@ -82,8 +73,8 @@ export default function ToiletDetailView() {
   // Format distance helper
   const formatDistance = (meters: number) => {
     if (!meters) return "";
-    return meters < 1000 ?
-        `${Math.round(meters)}m`
+    return meters < 1000
+      ? `${Math.round(meters)}m`
       : `${(meters / 1000).toFixed(1)}km`;
   };
 
@@ -98,7 +89,7 @@ export default function ToiletDetailView() {
     Linking.openURL(url)
       .then(() => debug.log("ToiletDetailView", "Opening directions in maps"))
       .catch((err) =>
-        debug.error("ToiletDetailView", "Failed to open maps", err)
+        debug.error("ToiletDetailView", "Failed to open maps", err),
       );
   };
 

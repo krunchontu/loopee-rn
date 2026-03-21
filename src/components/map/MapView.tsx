@@ -16,15 +16,12 @@ import {
   StatusBar,
   Pressable,
 } from "react-native";
-import type {
-  Region,
-  MapPressEvent} from "react-native-maps";
-import MapView, {
-  PROVIDER_GOOGLE
-} from "react-native-maps";
+import type { Region, MapPressEvent } from "react-native-maps";
+import MapView, { PROVIDER_GOOGLE } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AnimatedMarker } from "./AnimatedMarker";
+import { DEFAULT_MAP_REGION } from "../../constants/location";
 import { colors, spacing, zIndex, createShadow } from "../../foundations"; // Added createShadow
 import {
   getResponsiveSpacing,
@@ -46,13 +43,6 @@ interface CustomMapViewProps {
   style?: any;
 }
 
-const DEFAULT_REGION = {
-  latitude: 1.3521, // Singapore
-  longitude: 103.8198,
-  latitudeDelta: 0.0922,
-  longitudeDelta: 0.0421,
-};
-
 const DEFAULT_DELTA = {
   latitudeDelta: 0.01,
   longitudeDelta: 0.01,
@@ -62,11 +52,11 @@ export const CustomMapView = memo(
   forwardRef(function CustomMapView(
     {
       onMarkerPress,
-      initialRegion = DEFAULT_REGION,
+      initialRegion = DEFAULT_MAP_REGION,
       onMapPress,
       style,
     }: CustomMapViewProps,
-    forwardedRef: React.ForwardedRef<MapView>
+    forwardedRef: React.ForwardedRef<MapView>,
   ) {
     // Create internal ref that we'll always use
     const internalMapRef = useRef<MapView>(null);
@@ -90,11 +80,11 @@ export const CustomMapView = memo(
       useState<boolean>(false);
     const [locationError, setLocationError] = useState<string | null>(null);
     const [userLocation, setUserLocation] = useState<LocationState | null>(
-      null
+      null,
     );
     const [currentRegion, setCurrentRegion] = useState<Region>(initialRegion);
     const [clusters, setClusters] = useState<ReturnType<typeof clusterToilets>>(
-      []
+      [],
     );
     const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
@@ -154,7 +144,7 @@ export const CustomMapView = memo(
             lat: location.latitude,
             lng: location.longitude,
           },
-          LOCATION_LOG_THROTTLE
+          LOCATION_LOG_THROTTLE,
         );
 
         // Update user position on significant changes
@@ -178,10 +168,10 @@ export const CustomMapView = memo(
           () => {
             // Clear refreshing state when done, whether successful or not
             setIsRefreshing(false);
-          }
+          },
         );
       },
-      [fetchNearbyToilets, userLocation]
+      [fetchNearbyToilets, userLocation],
     );
 
     useEffect(() => {
@@ -192,7 +182,7 @@ export const CustomMapView = memo(
       if (!hasLocationPermission) return;
 
       locationService.startLocationUpdates(handleLocationUpdate, (error) =>
-        setLocationError(error.message)
+        setLocationError(error.message),
       );
 
       return () => {
@@ -220,7 +210,7 @@ export const CustomMapView = memo(
           debug.error("MapView", "Invalid toilet data on marker press", toilet);
         }
       },
-      [selectToilet, onMarkerPress]
+      [selectToilet, onMarkerPress],
     );
 
     const handleRegionChange = useCallback(
@@ -232,7 +222,7 @@ export const CustomMapView = memo(
         const newClusters = clusterToilets(toilets, region);
         setClusters(newClusters);
       },
-      [toilets]
+      [toilets],
     );
 
     useEffect(() => {
@@ -252,7 +242,7 @@ export const CustomMapView = memo(
           multiMarkers: initialClusters.filter((c) => c.points.length > 1)
             .length,
           region: currentRegion,
-        }
+        },
       );
 
       setClusters(initialClusters);
@@ -261,19 +251,19 @@ export const CustomMapView = memo(
     // Calculate safe area padding for content
     const safeAreaPadding = useMemo(() => {
       const androidInsets =
-        Platform.OS === "android" ?
-          getAndroidInsets()
-        : { statusBarHeight: 0, navBarHeight: 0 };
+        Platform.OS === "android"
+          ? getAndroidInsets()
+          : { statusBarHeight: 0, navBarHeight: 0 };
 
       return {
         paddingTop:
-          Platform.OS === "android" ?
-            androidInsets.statusBarHeight
-          : insets.top,
+          Platform.OS === "android"
+            ? androidInsets.statusBarHeight
+            : insets.top,
         paddingBottom:
-          Platform.OS === "android" ?
-            androidInsets.navBarHeight
-          : insets.bottom,
+          Platform.OS === "android"
+            ? androidInsets.navBarHeight
+            : insets.bottom,
         paddingLeft: insets.left,
         paddingRight: insets.right,
       };
@@ -312,7 +302,7 @@ export const CustomMapView = memo(
                         hasLocation: !!toilet?.location,
                         latitude: toilet?.location?.latitude,
                         longitude: toilet?.location?.longitude,
-                      }
+                      },
                     );
                     // Continue rendering to see if any coordinates are actually being set
                   }
@@ -339,7 +329,7 @@ export const CustomMapView = memo(
                 ) {
                   debug.warn(
                     "MapView",
-                    `Skipping cluster with invalid coordinate: ${cluster?.id}`
+                    `Skipping cluster with invalid coordinate: ${cluster?.id}`,
                   );
                   return null;
                 }
@@ -400,9 +390,9 @@ export const CustomMapView = memo(
                   {(loading || isRefreshing) && (
                     <View style={styles.refreshIndicator}>
                       <Text style={styles.refreshText}>
-                        {loading ?
-                          "Loading toilets..."
-                        : "Updating location..."}
+                        {loading
+                          ? "Loading toilets..."
+                          : "Updating location..."}
                       </Text>
                     </View>
                   )}
@@ -412,7 +402,7 @@ export const CustomMapView = memo(
         </View>
       </ErrorBoundary>
     );
-  })
+  }),
 );
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
