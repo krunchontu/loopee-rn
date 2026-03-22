@@ -60,7 +60,7 @@ export const AddToiletLocation: React.FC<AddToiletLocationProps> = ({
   // Get user's current location on component mount
   useEffect(() => {
     if (!location) {
-      getCurrentLocation();
+      void getCurrentLocation();
     }
   }, []);
 
@@ -78,7 +78,7 @@ export const AddToiletLocation: React.FC<AddToiletLocationProps> = ({
         // Update location
         setCurrentLocation(position);
         // Get address for the location
-        getAddressFromCoordinates(position.latitude, position.longitude);
+        void getAddressFromCoordinates(position.latitude, position.longitude);
         // Animate map to the location
         animateToLocation(position);
       } else {
@@ -135,7 +135,7 @@ export const AddToiletLocation: React.FC<AddToiletLocationProps> = ({
         // Update location
         setCurrentLocation(location);
         // Get full address for the location
-        getAddressFromCoordinates(location.latitude, location.longitude);
+        void getAddressFromCoordinates(location.latitude, location.longitude);
         // Animate map to the location
         animateToLocation(location);
         // Clear search query
@@ -157,7 +157,7 @@ export const AddToiletLocation: React.FC<AddToiletLocationProps> = ({
   const handleMarkerDrag = (e: any) => {
     const { latitude, longitude } = e.nativeEvent.coordinate;
     setCurrentLocation({ latitude, longitude });
-    getAddressFromCoordinates(latitude, longitude);
+    void getAddressFromCoordinates(latitude, longitude);
   };
 
   /**
@@ -166,7 +166,7 @@ export const AddToiletLocation: React.FC<AddToiletLocationProps> = ({
   const handleMapPress = (e: any) => {
     const { latitude, longitude } = e.nativeEvent.coordinate;
     setCurrentLocation({ latitude, longitude });
-    getAddressFromCoordinates(latitude, longitude);
+    void getAddressFromCoordinates(latitude, longitude);
   };
 
   /**

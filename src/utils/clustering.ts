@@ -15,7 +15,7 @@ interface Cluster {
 export function getClusterKey(
   latitude: number,
   longitude: number,
-  zoom: number
+  zoom: number,
 ): string {
   const lat = Math.floor(latitude * Math.pow(10, zoom));
   const lng = Math.floor(longitude * Math.pow(10, zoom));
@@ -30,76 +30,26 @@ export function getZoomLevel(region: Region): number {
   );
 }
 
-export function clusterToilets(
-  toilets: Toilet[],
-  region: Region,
-  _clusterRadius: number = 50 // Renamed with underscore to indicate intentionally unused parameter
-): Cluster[] {
+export function clusterToilets(toilets: Toilet[], region: Region): Cluster[] {
   const zoom = getZoomLevel(region);
-  debug.log("Clustering", "Starting toilet clustering", {
-    zoomLevel: zoom,
-    toiletCount: toilets.length,
-  });
 
   const clusters: { [key: string]: Cluster } = {};
+  let skipped = 0;
 
-  // TEMPORARY DIAGNOSTIC: Count different types of toilets
-  const withLocation = toilets.filter(
-    (toilet) => toilet && toilet.location
-  ).length;
-  const withValidCoordTypes = toilets.filter(
-    (toilet) =>
-      toilet &&
-      toilet.location &&
-      typeof toilet.location.latitude === "number" &&
-      typeof toilet.location.longitude === "number"
-  ).length;
-  const withValidRange = toilets.filter(
-    (toilet) =>
-      toilet &&
-      toilet.location &&
-      typeof toilet.location.latitude === "number" &&
-      typeof toilet.location.longitude === "number" &&
-      toilet.location.latitude >= -90 &&
-      toilet.location.latitude <= 90 &&
-      toilet.location.longitude >= -180 &&
-      toilet.location.longitude <= 180
-  ).length;
-
-  debug.warn("Clustering", "TOILET DIAGNOSIS IN CLUSTERING", {
-    totalToilets: toilets.length,
-    withLocation,
-    withValidCoordTypes,
-    withValidRange,
-    missingLocation: toilets.length - withLocation,
-    invalidCoordTypes: withLocation - withValidCoordTypes,
-    outOfRange: withValidCoordTypes - withValidRange,
-  });
-
-  // Don't filter toilets at clustering level to diagnose the issue
-  // Just add logging for any invalid ones
-  toilets.forEach((toilet, index) => {
-    // Log any invalid toilets
+  for (const toilet of toilets) {
     if (
-      !toilet ||
-      !toilet.location ||
+      !toilet?.location ||
       typeof toilet.location.latitude !== "number" ||
       typeof toilet.location.longitude !== "number"
     ) {
-      debug.warn("Clustering", `Skipping invalid toilet at index ${index}`, {
-        id: toilet?.id || "unknown",
-        hasLocation: !!toilet?.location,
-        latitudeType:
-          toilet?.location ? typeof toilet.location.latitude : "N/A",
-        longitudeType:
-          toilet?.location ? typeof toilet.location.longitude : "N/A",
-      });
-      return; // Skip this toilet
+      skipped++;
+      continue;
     }
+
     const key = getClusterKey(
       toilet.location.latitude,
       toilet.location.longitude,
-      zoom
+      zoom,
     );
 
     if (!clusters[key]) {
@@ -114,21 +64,30 @@ export function clusterToilets(
     }
 
     clusters[key].points.push(toilet);
+  }
 
-    // Update cluster center
-    if (clusters[key].points.length > 1) {
-      const points = clusters[key].points;
-      const center = points.reduce(
-        (acc, point) => ({
-          latitude: acc.latitude + point.location.latitude / points.length,
-          longitude: acc.longitude + point.location.longitude / points.length,
-        }),
-        { latitude: 0, longitude: 0 }
-      );
-
-      clusters[key].coordinate = center;
+  // Compute cluster centers for multi-point clusters
+  for (const cluster of Object.values(clusters)) {
+    if (cluster.points.length > 1) {
+      let latSum = 0;
+      let lngSum = 0;
+      for (const point of cluster.points) {
+        latSum += point.location.latitude;
+        lngSum += point.location.longitude;
+      }
+      cluster.coordinate = {
+        latitude: latSum / cluster.points.length,
+        longitude: lngSum / cluster.points.length,
+      };
     }
-  });
+  }
+
+  if (skipped > 0) {
+    debug.warn(
+      "Clustering",
+      `Skipped ${skipped}/${toilets.length} toilets with invalid coordinates`,
+    );
+  }
 
   return Object.values(clusters);
 }

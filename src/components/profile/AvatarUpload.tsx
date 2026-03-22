@@ -6,15 +6,8 @@
 
 import * as ImagePicker from "expo-image-picker";
 import React, { useState, useCallback } from "react";
-import type {
-  StyleProp,
-  ViewStyle} from "react-native";
-import {
-  StyleSheet,
-  View,
-  Alert,
-  Platform,
-} from "react-native";
+import type { StyleProp, ViewStyle } from "react-native";
+import { StyleSheet, View, Alert, Platform } from "react-native";
 import { Avatar, IconButton, Text } from "react-native-paper";
 
 import { colors } from "../../foundations/colors";
@@ -48,7 +41,7 @@ const AvatarUpload: React.FC<AvatarUploadProps> = ({
       if (status !== ImagePicker.PermissionStatus.GRANTED) {
         Alert.alert(
           "Permission Required",
-          "Sorry, we need camera roll permissions to upload an avatar!"
+          "Sorry, we need camera roll permissions to upload an avatar!",
         );
         return false;
       }
@@ -71,7 +64,7 @@ const AvatarUpload: React.FC<AvatarUploadProps> = ({
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const selectedAsset = result.assets[0];
-        handleUpload(selectedAsset.uri);
+        void handleUpload(selectedAsset.uri);
       }
     } catch (error) {
       debug.error("Component", "Error picking image:", error);
@@ -95,7 +88,7 @@ const AvatarUpload: React.FC<AvatarUploadProps> = ({
       debug.error("Component", "Error uploading avatar:", error);
       Alert.alert(
         "Upload Failed",
-        "Failed to upload avatar. Please try again."
+        "Failed to upload avatar. Please try again.",
       );
     } finally {
       setIsUploading(false);
@@ -105,13 +98,15 @@ const AvatarUpload: React.FC<AvatarUploadProps> = ({
   return (
     <View style={[styles.container, style]}>
       <View style={styles.avatarContainer}>
-        {currentAvatarUrl ?
+        {currentAvatarUrl ? (
           <Avatar.Image
             source={{ uri: currentAvatarUrl }}
             size={120}
             style={styles.avatar}
           />
-        : <Avatar.Text label={getInitial()} size={120} style={styles.avatar} />}
+        ) : (
+          <Avatar.Text label={getInitial()} size={120} style={styles.avatar} />
+        )}
 
         <View style={styles.editIconContainer}>
           <IconButton

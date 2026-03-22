@@ -18,7 +18,7 @@ import { initSentry } from "../services/sentry";
 import { debug } from "../utils/debug";
 
 // Keep the splash screen visible while we initialize resources
-SplashScreen.preventAutoHideAsync();
+void SplashScreen.preventAutoHideAsync();
 
 // Protected route guard component
 function ProtectedRouteGuard({ children }: { children: React.ReactNode }) {
@@ -99,7 +99,7 @@ export default function RootLayout() {
     debug.log("Navigation", "Initializing root layout");
 
     // Hide splash screen once layout is ready
-    SplashScreen.hideAsync();
+    void SplashScreen.hideAsync();
   }, []);
 
   return (
@@ -122,11 +122,13 @@ export default function RootLayout() {
                   gestureEnabled: true,
                   // Keep these styles for screens that do show headers
                   headerStyle: {
-                    backgroundColor:
-                      isDark ? colors.text.primary : colors.background.primary,
+                    backgroundColor: isDark
+                      ? colors.text.primary
+                      : colors.background.primary,
                   },
-                  headerTintColor:
-                    isDark ? colors.background.primary : colors.text.primary,
+                  headerTintColor: isDark
+                    ? colors.background.primary
+                    : colors.text.primary,
                   headerTitleStyle: {
                     fontWeight: "bold",
                   },

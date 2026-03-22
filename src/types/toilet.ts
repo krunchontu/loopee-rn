@@ -7,7 +7,7 @@ export interface Review {
   id: string;
   userId: string;
   rating: number;
-  comment: string;
+  comment: string | null;
   createdAt: string;
   photos?: string[];
   isEdited?: boolean;

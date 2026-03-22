@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from "react";
-import type { StyleProp, ViewStyle} from "react-native";
+import type { StyleProp, ViewStyle } from "react-native";
 import { StyleSheet, View, Alert } from "react-native";
 import {
   Button,
@@ -92,7 +92,7 @@ const AccountSettings: React.FC<AccountSettingsProps> = ({
       Alert.alert("Success", "Your password has been updated.");
     } catch (error) {
       setPasswordError(
-        "Failed to change password. Please check your current password and try again."
+        "Failed to change password. Please check your current password and try again.",
       );
     } finally {
       setIsSubmitting(false);
@@ -124,18 +124,20 @@ const AccountSettings: React.FC<AccountSettingsProps> = ({
         {
           text: "Delete",
           style: "destructive",
-          onPress: async () => {
-            try {
-              await onDeleteAccount();
-            } catch (error) {
-              Alert.alert(
-                "Error",
-                "Failed to delete account. Please try again."
-              );
-            }
+          onPress: () => {
+            void (async () => {
+              try {
+                await onDeleteAccount();
+              } catch (error) {
+                Alert.alert(
+                  "Error",
+                  "Failed to delete account. Please try again.",
+                );
+              }
+            })();
           },
         },
-      ]
+      ],
     );
   };
 
@@ -181,9 +183,9 @@ const AccountSettings: React.FC<AccountSettingsProps> = ({
             disabled={isSubmitting}
           />
 
-          {passwordError ?
+          {passwordError ? (
             <HelperText type="error">{passwordError}</HelperText>
-          : null}
+          ) : null}
 
           <Button
             mode="contained"

@@ -51,7 +51,7 @@ export const ReviewSchema = z.object({
   id: z.string(),
   userId: z.string(),
   rating: z.number(),
-  comment: coerceString,
+  comment: z.union([z.string(), z.null()]).default(null),
   createdAt: coerceString,
   photos: z.array(z.string()).default([]),
   isEdited: z.boolean().default(false),
@@ -106,9 +106,7 @@ export const ToiletSchema = z.object({
   isPublic: z.boolean().optional(),
   isFree: z.boolean().optional(),
   fee: optionalString,
-  openingHours: z
-    .object({ open: z.string(), close: z.string() })
-    .optional(),
+  openingHours: z.object({ open: z.string(), close: z.string() }).optional(),
   amenities: AmenitiesSchema,
   buildingId: optionalString,
   buildingName: optionalString,
@@ -164,6 +162,57 @@ export const SubmissionPreviewRowSchema = z.object({
   data: z
     .union([z.object({ name: z.string().optional() }).passthrough(), z.null()])
     .optional(),
+});
+
+// ---------------------------------------------------------------------------
+// Activity & Notification types (matches src/types/activity.ts)
+// ---------------------------------------------------------------------------
+
+export const ActivityTypeEnum = z.enum([
+  "toilet_new",
+  "toilet_edit",
+  "toilet_report",
+]);
+
+const ActivityMetadataSchema = z.object({
+  submission_id: optionalString,
+  submission_type: SubmissionTypeEnum.optional(),
+  data: z
+    .object({
+      name: z.string().optional(),
+      status: SubmissionStatusEnum.optional(),
+    })
+    .optional(),
+});
+
+export const UserActivitySchema = z.object({
+  id: z.string(),
+  activity_type: ActivityTypeEnum,
+  entity_id: z.string(),
+  metadata: ActivityMetadataSchema.default({}),
+  created_at: z.string(),
+});
+
+export const NotificationTypeEnum = z.enum([
+  "submission_approved",
+  "submission_rejected",
+]);
+
+const NotificationMetadataSchema = z.object({
+  submission_id: optionalString,
+  toilet_id: optionalString,
+});
+
+export const UserNotificationSchema = z.object({
+  id: z.string(),
+  notification_type: NotificationTypeEnum,
+  title: z.string(),
+  message: z.string(),
+  entity_type: optionalString,
+  entity_id: optionalString,
+  metadata: NotificationMetadataSchema.default({}),
+  is_read: z.boolean().default(false),
+  created_at: z.string(),
 });
 
 // ---------------------------------------------------------------------------

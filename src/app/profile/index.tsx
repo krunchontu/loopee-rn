@@ -112,26 +112,28 @@ export default function ProfileScreen() {
       {
         text: "Logout",
         style: "destructive",
-        onPress: async () => {
-          try {
-            // Call signOut and properly handle any returned errors
-            const { error } = await signOut();
+        onPress: () => {
+          void (async () => {
+            try {
+              // Call signOut and properly handle any returned errors
+              const { error } = await signOut();
 
-            if (error) {
-              debug.error("Profile", "Logout failed", error);
-              Alert.alert("Error", "Failed to logout. Please try again.");
-              return;
+              if (error) {
+                debug.error("Profile", "Logout failed", error);
+                Alert.alert("Error", "Failed to logout. Please try again.");
+                return;
+              }
+
+              // Only navigate if logout was successful
+              router.replace("/(auth)/login");
+            } catch (error) {
+              debug.error("Profile", "Logout failed with exception", error);
+              Alert.alert(
+                "Error",
+                "An unexpected error occurred. Please try again.",
+              );
             }
-
-            // Only navigate if logout was successful
-            router.replace("/(auth)/login");
-          } catch (error) {
-            debug.error("Profile", "Logout failed with exception", error);
-            Alert.alert(
-              "Error",
-              "An unexpected error occurred. Please try again.",
-            );
-          }
+          })();
         },
       },
     ]);

@@ -31,7 +31,7 @@ function useLocationService() {
         const granted = await locationService.requestPermissions();
         if (!granted) {
           setLocationError(
-            "Location permission is required to find nearby toilets"
+            "Location permission is required to find nearby toilets",
           );
           return;
         }
@@ -44,7 +44,7 @@ function useLocationService() {
         });
 
         // Fetch toilets based on location
-        fetchNearbyToilets(location.latitude, location.longitude);
+        void fetchNearbyToilets(location.latitude, location.longitude);
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to get location";
@@ -53,7 +53,7 @@ function useLocationService() {
       }
     };
 
-    setupLocation();
+    void setupLocation();
 
     // Cleanup function to stop location updates
     return () => {
@@ -65,10 +65,10 @@ function useLocationService() {
   const handleRetry = useCallback(() => {
     debug.log("Map", "Retrying location and data fetch");
     setLocationError(null);
-    locationService.requestPermissions().then((granted) => {
+    void locationService.requestPermissions().then((granted) => {
       if (granted) {
-        locationService.getCurrentLocation().then((location) => {
-          fetchNearbyToilets(location.latitude, location.longitude);
+        void locationService.getCurrentLocation().then((location) => {
+          void fetchNearbyToilets(location.latitude, location.longitude);
         });
       }
     });
@@ -125,7 +125,7 @@ export default function MapScreen() {
       debug.log("Map", "Marker pressed, selecting toilet", toilet.id);
       selectToilet(toilet);
     },
-    [selectToilet]
+    [selectToilet],
   );
 
   // Handle modal close by clearing the selected toilet
@@ -158,44 +158,43 @@ export default function MapScreen() {
       <MapHeader />
       <View style={styles.container}>
         {/* LocationErrorView removed, will be replaced by a banner style ErrorState */}
-        {
-          !locationError ?
-            <>
-              <CustomMapView
-                onMarkerPress={handleMapMarkerPress}
-                style={styles.mapView}
-              />
-              <ModalToiletSheet
-                visible={!!selectedToilet}
-                toilets={selectedToilet ? [selectedToilet] : []}
-                selectedToilet={selectedToilet}
-                onToiletPress={(toilet) => selectToilet(toilet)}
-                onClose={handleModalClose}
-                isLoading={loading}
-                error={error}
-                onRetry={handleRetry}
-              />
-            </>
-            // If there is a locationError, we still render CustomMapView and ModalToiletSheet
-            // The error banner will overlay the map.
-          : <>
-              <CustomMapView
-                onMarkerPress={handleMapMarkerPress}
-                style={styles.mapView} // Map will be under the banner
-              />
-              <ModalToiletSheet
-                visible={!!selectedToilet}
-                toilets={selectedToilet ? [selectedToilet] : []}
-                selectedToilet={selectedToilet}
-                onToiletPress={(toilet) => selectToilet(toilet)}
-                onClose={handleModalClose}
-                isLoading={loading}
-                error={error} // This is for toilet fetching error
-                onRetry={handleRetry} // This retry might be for toilet fetching
-              />
-            </>
-
-        }
+        {!locationError ? (
+          <>
+            <CustomMapView
+              onMarkerPress={handleMapMarkerPress}
+              style={styles.mapView}
+            />
+            <ModalToiletSheet
+              visible={!!selectedToilet}
+              toilets={selectedToilet ? [selectedToilet] : []}
+              selectedToilet={selectedToilet}
+              onToiletPress={(toilet) => selectToilet(toilet)}
+              onClose={handleModalClose}
+              isLoading={loading}
+              error={error}
+              onRetry={handleRetry}
+            />
+          </>
+        ) : (
+          // If there is a locationError, we still render CustomMapView and ModalToiletSheet
+          // The error banner will overlay the map.
+          <>
+            <CustomMapView
+              onMarkerPress={handleMapMarkerPress}
+              style={styles.mapView} // Map will be under the banner
+            />
+            <ModalToiletSheet
+              visible={!!selectedToilet}
+              toilets={selectedToilet ? [selectedToilet] : []}
+              selectedToilet={selectedToilet}
+              onToiletPress={(toilet) => selectToilet(toilet)}
+              onClose={handleModalClose}
+              isLoading={loading}
+              error={error} // This is for toilet fetching error
+              onRetry={handleRetry} // This retry might be for toilet fetching
+            />
+          </>
+        )}
         {/* Error Banner - Rendered on top if locationError exists */}
         {locationError && (
           <View style={styles.errorBannerContainer}>

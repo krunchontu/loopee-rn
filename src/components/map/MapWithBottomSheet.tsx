@@ -114,7 +114,7 @@ export default function MapWithBottomSheet() {
         lng: location.longitude,
       });
       setCurrentLocation(location);
-      fetchNearbyToilets(location.latitude, location.longitude);
+      void fetchNearbyToilets(location.latitude, location.longitude);
     },
     [fetchNearbyToilets],
   );
@@ -142,7 +142,7 @@ export default function MapWithBottomSheet() {
           } else {
             // Use default location as fallback
             debug.log("MapWithBottomSheet", "Using default location");
-            fetchNearbyToilets(
+            void fetchNearbyToilets(
               DEFAULT_LOCATION.latitude,
               DEFAULT_LOCATION.longitude,
             );
@@ -150,21 +150,21 @@ export default function MapWithBottomSheet() {
         } else {
           // No permission, use default location
           debug.warn("MapWithBottomSheet", "No location permission");
-          fetchNearbyToilets(
+          void fetchNearbyToilets(
             DEFAULT_LOCATION.latitude,
             DEFAULT_LOCATION.longitude,
           );
         }
       } catch (err) {
         debug.error("MapWithBottomSheet", "Location initialization error", err);
-        fetchNearbyToilets(
+        void fetchNearbyToilets(
           DEFAULT_LOCATION.latitude,
           DEFAULT_LOCATION.longitude,
         );
       }
     };
 
-    initializeLocation();
+    void initializeLocation();
 
     // Cleanup function
     return () => {
@@ -175,9 +175,15 @@ export default function MapWithBottomSheet() {
   const handleRetry = () => {
     debug.log("MapWithBottomSheet", "Retrying toilet fetch");
     if (currentLocation) {
-      fetchNearbyToilets(currentLocation.latitude, currentLocation.longitude);
+      void fetchNearbyToilets(
+        currentLocation.latitude,
+        currentLocation.longitude,
+      );
     } else {
-      fetchNearbyToilets(DEFAULT_LOCATION.latitude, DEFAULT_LOCATION.longitude);
+      void fetchNearbyToilets(
+        DEFAULT_LOCATION.latitude,
+        DEFAULT_LOCATION.longitude,
+      );
     }
   };
 

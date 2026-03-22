@@ -11,8 +11,8 @@ import { Card, Text, IconButton } from "react-native-paper";
 import { ReviewModal } from "./ReviewModal";
 import { colors, spacing } from "../../foundations";
 import type { Review } from "../../types/toilet";
-import { Rating } from "../shared/Rating";
 import { debug } from "../../utils/debug";
+import { Rating } from "../shared/Rating";
 
 interface UserReviewCardProps {
   review: Review;
@@ -45,9 +45,9 @@ export const UserReviewCard: React.FC<UserReviewCardProps> = ({
         <Card.Title
           title="Your Review"
           subtitle={
-            review.isEdited ?
-              `Last edited on ${formatDate(review.lastEditedAt || "")}`
-            : ""
+            review.isEdited
+              ? `Last edited on ${formatDate(review.lastEditedAt || "")}`
+              : ""
           }
           right={(props) => (
             <IconButton
@@ -64,12 +64,13 @@ export const UserReviewCard: React.FC<UserReviewCardProps> = ({
               {formatDate(review.createdAt)}
             </Text>
           </View>
-          {review.comment && review.comment.trim().length > 0 ?
+          {review.comment && review.comment.trim().length > 0 ? (
             <Text style={styles.comment}>{review.comment}</Text>
-          : <Text style={styles.noComment}>
+          ) : (
+            <Text style={styles.noComment}>
               No comment provided. Tap the edit button to add one!
             </Text>
-          }
+          )}
         </Card.Content>
       </Card>
 
@@ -79,7 +80,7 @@ export const UserReviewCard: React.FC<UserReviewCardProps> = ({
         onClose={() => setEditModalVisible(false)}
         onSuccess={onUpdateSuccess}
         initialRating={review.rating}
-        initialComment={review.comment}
+        initialComment={review.comment ?? ""}
         isEdit={true}
         reviewId={review.id}
       />

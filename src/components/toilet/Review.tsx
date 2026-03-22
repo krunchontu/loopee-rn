@@ -52,7 +52,7 @@ export function Review({ review }: ReviewProps) {
           marginBottom: review.photos?.length ? spacing.md : 0,
         }}
       >
-        {review.comment}
+        {review.comment ?? ""}
       </Text>
 
       {review.photos && review.photos.length > 0 && (
