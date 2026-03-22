@@ -19,6 +19,7 @@ import { getSupabaseClient, safeRandomInt } from "./supabaseClient";
 import type { UserProfile } from "../types/user";
 import { authDebug } from "../utils/AuthDebugger";
 import { debug } from "../utils/debug";
+import { UserProfileSchema, safeParse } from "../utils/validators";
 
 // ── Local types ──────────────────────────────────────────────────────
 
@@ -374,7 +375,7 @@ export const supabaseAuth = {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           hasAvatar: !!data.avatar_url,
         });
-        return data as UserProfile;
+        return safeParse(UserProfileSchema, data, "getProfile");
       }
 
       if (error.code === "PGRST116") {
@@ -426,7 +427,7 @@ export const supabaseAuth = {
           username: defaultUsername,
         });
 
-        return newProfile as UserProfile;
+        return safeParse(UserProfileSchema, newProfile, "autoCreateProfile");
       } else {
         authDebug.log("PROFILE_UPDATE", "failure", {
           action: "get_profile",
@@ -498,7 +499,7 @@ export const supabaseAuth = {
         timestamp: new Date().toISOString(),
       });
 
-      return data as UserProfile;
+      return safeParse(UserProfileSchema, data, "updateProfile");
     } catch (error) {
       authDebug.log("PROFILE_UPDATE", "network_error", {
         action: "update_profile",
