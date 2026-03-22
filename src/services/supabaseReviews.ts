@@ -7,6 +7,7 @@
 import { getSupabaseClient } from "./supabaseClient";
 import type { Review } from "../types/toilet";
 import { debug } from "../utils/debug";
+import { ReviewSchema, safeParse, safeParseArray } from "../utils/validators";
 
 export const supabaseReviews = {
   async create(review: {
@@ -27,7 +28,7 @@ export const supabaseReviews = {
       debug.error("Supabase", "Error creating review", error);
       throw error;
     }
-    return data as string;
+    return String(data ?? "");
   },
 
   async update(
@@ -46,7 +47,7 @@ export const supabaseReviews = {
       debug.error("Supabase", "Error updating review", error);
       throw error;
     }
-    return data as string;
+    return String(data ?? "");
   },
 
   async getByToiletId(toiletId: string) {
@@ -71,7 +72,7 @@ export const supabaseReviews = {
       throw error;
     }
 
-    return data.map((item) => ({
+    const mapped = data.map((item) => ({
       id: item.id,
       userId: item.user_id,
       rating: item.rating,
@@ -89,7 +90,8 @@ export const supabaseReviews = {
             avatarUrl: item.user_profiles.avatar_url,
           }
         : null,
-    })) as Review[];
+    }));
+    return safeParseArray(ReviewSchema, mapped, "getReviewsByToiletId");
   },
 
   async getCurrentUserReview(toiletId: string) {
@@ -118,7 +120,7 @@ export const supabaseReviews = {
       throw error;
     }
 
-    return {
+    return safeParse(ReviewSchema, {
       id: data.id,
       userId: data.user_id,
       rating: data.rating,
@@ -129,7 +131,7 @@ export const supabaseReviews = {
       version: data.version || 1,
       lastEditedAt: data.last_edited_at,
       updatedAt: data.updated_at,
-    } as Review;
+    }, "getCurrentUserReview");
   },
 
   async getByUserId(userId: string) {

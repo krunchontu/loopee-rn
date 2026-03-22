@@ -8,6 +8,7 @@ import { getSupabaseClient } from "./supabaseClient";
 import type { Toilet, Review } from "../types/toilet";
 import { debug } from "../utils/debug";
 import { normalizeToiletData, isValidLocation } from "../utils/toilet-helpers";
+import { ToiletWithReviewsSchema, ToiletSchema, safeParse } from "../utils/validators";
 
 export const supabaseToilets = {
   async getNearby(latitude: number, longitude: number, radius: number = 5000) {
@@ -112,7 +113,7 @@ export const supabaseToilets = {
       .single();
 
     if (error) throw error;
-    return data as Toilet & { reviews: Review[] };
+    return safeParse(ToiletWithReviewsSchema, data, "getToiletById") as Toilet & { reviews: Review[] };
   },
 
   async create(toilet: Omit<Toilet, "id" | "createdAt" | "updatedAt">) {
@@ -124,6 +125,6 @@ export const supabaseToilets = {
       .single();
 
     if (error) throw error;
-    return data as Toilet;
+    return safeParse(ToiletSchema, data, "createToilet");
   },
 };

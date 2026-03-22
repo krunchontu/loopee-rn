@@ -26,6 +26,14 @@ import type {
 import type { Toilet } from "../types/toilet";
 import { authDebug } from "../utils/AuthDebugger";
 import { debug } from "../utils/debug";
+import {
+  SubmissionRpcResultSchema,
+  ToiletSubmissionSchema,
+  SubmissionPreviewRowSchema,
+  SubmissionTypeEnum,
+  SubmissionStatusEnum,
+  safeParse,
+} from "../utils/validators";
 
 // Use the shared Supabase client instance for consistent auth state
 const supabase = getSupabaseClient();
@@ -919,7 +927,7 @@ export const contributionService = {
         // Continue anyway, as the main function will handle errors
       } else {
         logContribution("log", "submitNewToilet", "Eligibility check passed", {
-          results: eligibilityCheck.data as unknown as Record<string, unknown>,
+          results: eligibilityCheck.data ?? {},
         });
       }
 
@@ -998,7 +1006,11 @@ export const contributionService = {
       }
 
       // Successfully submitted - record this to prevent duplicates
-      const submissionData = insertResponse.data as ToiletSubmission;
+      const submissionData = safeParse(
+        SubmissionRpcResultSchema,
+        insertResponse.data,
+        "submitNewToilet",
+      ) as ToiletSubmission;
 
       logContribution(
         "log",
@@ -1097,12 +1109,12 @@ export const contributionService = {
         );
       }
 
-      const editData = insertResponse.data as ToiletSubmission[] | null;
-      if (!editData || editData.length === 0) {
+      const rawEditData = insertResponse.data;
+      if (!rawEditData || (Array.isArray(rawEditData) && rawEditData.length === 0)) {
         throw new Error("Failed to submit edit - no data returned");
       }
-
-      return editData[0];
+      const editArray = Array.isArray(rawEditData) ? rawEditData : [rawEditData];
+      return safeParse(SubmissionRpcResultSchema, editArray[0], "editToilet") as ToiletSubmission;
     } catch (err) {
       debug.error("contributionService", "Error in edit submission", err);
       if (err instanceof Error) {
@@ -1163,12 +1175,12 @@ export const contributionService = {
         );
       }
 
-      const reportData = insertResponse.data as ToiletSubmission[] | null;
-      if (!reportData || reportData.length === 0) {
+      const rawReportData = insertResponse.data;
+      if (!rawReportData || (Array.isArray(rawReportData) && rawReportData.length === 0)) {
         throw new Error("Failed to report issue - no data returned");
       }
-
-      return reportData[0];
+      const reportArray = Array.isArray(rawReportData) ? rawReportData : [rawReportData];
+      return safeParse(SubmissionRpcResultSchema, reportArray[0], "reportToiletIssue") as ToiletSubmission;
     } catch (err) {
       debug.error("contributionService", "Error in report submission", err);
       if (err instanceof Error) {
@@ -1252,23 +1264,20 @@ export const contributionService = {
         return [];
       }
 
-      // Transform to submission previews with proper typing
+      // Transform to submission previews with validated typing
       return queryResponse.data.map(
-        (submission: {
-          id: string;
-          submission_type: string;
-          status: string;
-          created_at: string;
-          toilet_id?: string;
-          data: { name?: string } | null;
-        }): SubmissionPreview => ({
-          id: submission.id,
-          submission_type: submission.submission_type as SubmissionType,
-          status: submission.status as SubmissionStatus,
-          created_at: submission.created_at,
-          toilet_id: submission.toilet_id,
-          toilet_name: submission.data?.name || "Unnamed toilet",
-        }),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (submission: any): SubmissionPreview => {
+          const row = safeParse(SubmissionPreviewRowSchema, submission, "getMySubmissions");
+          return {
+            id: row.id,
+            submission_type: row.submission_type,
+            status: row.status,
+            created_at: row.created_at,
+            toilet_id: row.toilet_id,
+            toilet_name: row.data?.name || "Unnamed toilet",
+          };
+        },
       );
     } catch (err) {
       debug.error("contributionService", "Error fetching submissions", err);
@@ -1347,18 +1356,11 @@ export const contributionService = {
         throw new Error("Submission not found");
       }
 
-      const row = queryResponse.data as unknown as Record<string, unknown>;
-      return {
-        id: row.id as string,
-        toilet_id: row.toilet_id as string | null,
-        submitter_id: row.submitter_id as string,
-        submission_type: row.submission_type as SubmissionType,
-        status: row.status as SubmissionStatus,
-        data: row.data as Partial<Toilet>,
-        reason: row.reason as string | undefined,
-        created_at: row.created_at as string,
-        updated_at: row.updated_at as string,
-      };
+      return safeParse(
+        ToiletSubmissionSchema,
+        queryResponse.data,
+        "getSubmission",
+      ) as ToiletSubmission;
     } catch (err) {
       debug.error(
         "contributionService",
