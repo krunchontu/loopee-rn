@@ -165,6 +165,57 @@ export const SubmissionPreviewRowSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
+// Activity & Notification types (matches src/types/activity.ts)
+// ---------------------------------------------------------------------------
+
+export const ActivityTypeEnum = z.enum([
+  "toilet_new",
+  "toilet_edit",
+  "toilet_report",
+]);
+
+const ActivityMetadataSchema = z.object({
+  submission_id: optionalString,
+  submission_type: SubmissionTypeEnum.optional(),
+  data: z
+    .object({
+      name: z.string().optional(),
+      status: SubmissionStatusEnum.optional(),
+    })
+    .optional(),
+});
+
+export const UserActivitySchema = z.object({
+  id: z.string(),
+  activity_type: ActivityTypeEnum,
+  entity_id: z.string(),
+  metadata: ActivityMetadataSchema.default({}),
+  created_at: z.string(),
+});
+
+export const NotificationTypeEnum = z.enum([
+  "submission_approved",
+  "submission_rejected",
+]);
+
+const NotificationMetadataSchema = z.object({
+  submission_id: optionalString,
+  toilet_id: optionalString,
+});
+
+export const UserNotificationSchema = z.object({
+  id: z.string(),
+  notification_type: NotificationTypeEnum,
+  title: z.string(),
+  message: z.string(),
+  entity_type: optionalString,
+  entity_id: optionalString,
+  metadata: NotificationMetadataSchema.default({}),
+  is_read: z.boolean().default(false),
+  created_at: z.string(),
+});
+
+// ---------------------------------------------------------------------------
 // Safe parse helper – logs warning + returns fallback on failure
 // ---------------------------------------------------------------------------
 

@@ -8,6 +8,11 @@
 import { getSupabaseClient, supabaseService } from "./supabase";
 import type { UserActivity, UserNotification } from "../types/activity";
 import { debug } from "../utils/debug";
+import {
+  UserActivitySchema,
+  UserNotificationSchema,
+  safeParseArray,
+} from "../utils/validators";
 
 // Use the singleton client so RPC calls share the auth session
 const supabase = getSupabaseClient();
@@ -24,7 +29,7 @@ export const activityService = {
    */
   async getUserActivity(
     limit: number = 20,
-    offset: number = 0
+    offset: number = 0,
   ): Promise<UserActivity[]> {
     try {
       const { data, error } = await supabase.rpc("get_user_activity", {
@@ -37,14 +42,18 @@ export const activityService = {
         throw new Error(`Failed to fetch activity: ${error.message}`);
       }
 
-      return (data || []) as UserActivity[];
+      return safeParseArray(
+        UserActivitySchema,
+        data || [],
+        "getUserActivity",
+      ) as UserActivity[];
     } catch (err) {
       debug.error("activityService", "Error in getUserActivity", err);
       if (err instanceof Error) {
         throw err;
       } else {
         throw new Error(
-          "An unexpected error occurred while fetching activities"
+          "An unexpected error occurred while fetching activities",
         );
       }
     }
@@ -60,7 +69,7 @@ export const activityService = {
   async getUserNotifications(
     limit: number = 20,
     offset: number = 0,
-    unreadOnly: boolean = false
+    unreadOnly: boolean = false,
   ): Promise<UserNotification[]> {
     try {
       const { data, error } = await supabase.rpc("get_user_notifications", {
@@ -74,14 +83,18 @@ export const activityService = {
         throw new Error(`Failed to fetch notifications: ${error.message}`);
       }
 
-      return (data || []) as UserNotification[];
+      return safeParseArray(
+        UserNotificationSchema,
+        data || [],
+        "getUserNotifications",
+      ) as UserNotification[];
     } catch (err) {
       debug.error("activityService", "Error in getUserNotifications", err);
       if (err instanceof Error) {
         throw err;
       } else {
         throw new Error(
-          "An unexpected error occurred while fetching notifications"
+          "An unexpected error occurred while fetching notifications",
         );
       }
     }
@@ -102,7 +115,7 @@ export const activityService = {
         debug.error(
           "activityService",
           "Failed to fetch notification count",
-          error
+          error,
         );
         throw new Error(`Failed to fetch notification count: ${error.message}`);
       }
@@ -112,7 +125,7 @@ export const activityService = {
       debug.error(
         "activityService",
         "Error in getUnreadNotificationCount",
-        err
+        err,
       );
       // Return 0 instead of throwing to prevent UI disruptions
       return 0;
@@ -127,7 +140,7 @@ export const activityService = {
    */
   async markNotificationRead(
     notificationId: string,
-    isRead: boolean = true
+    isRead: boolean = true,
   ): Promise<boolean> {
     try {
       const { data, error } = await supabase.rpc("mark_notification_read", {
@@ -139,7 +152,7 @@ export const activityService = {
         debug.error(
           "activityService",
           "Failed to mark notification as read",
-          error
+          error,
         );
         throw new Error(`Failed to update notification: ${error.message}`);
       }
@@ -151,7 +164,7 @@ export const activityService = {
         throw err;
       } else {
         throw new Error(
-          "An unexpected error occurred while updating notification"
+          "An unexpected error occurred while updating notification",
         );
       }
     }
@@ -194,7 +207,7 @@ export const activityService = {
         debug.error(
           "activityService",
           "Failed to mark all notifications as read",
-          error
+          error,
         );
         throw new Error(`Failed to update notifications: ${error.message}`);
       }
@@ -206,7 +219,7 @@ export const activityService = {
         throw err;
       } else {
         throw new Error(
-          "An unexpected error occurred while updating notifications"
+          "An unexpected error occurred while updating notifications",
         );
       }
     }
@@ -220,7 +233,7 @@ export const activityService = {
    */
   async getEntityActivity(
     entityId: string,
-    limit: number = 5
+    limit: number = 5,
   ): Promise<UserActivity[]> {
     try {
       const { data, error } = await supabase
@@ -234,19 +247,23 @@ export const activityService = {
         debug.error(
           "activityService",
           "Failed to fetch entity activity",
-          error
+          error,
         );
         throw new Error(`Failed to fetch entity activity: ${error.message}`);
       }
 
-      return (data || []) as UserActivity[];
+      return safeParseArray(
+        UserActivitySchema,
+        data || [],
+        "getEntityActivity",
+      ) as UserActivity[];
     } catch (err) {
       debug.error("activityService", "Error in getEntityActivity", err);
       if (err instanceof Error) {
         throw err;
       } else {
         throw new Error(
-          "An unexpected error occurred while fetching entity activity"
+          "An unexpected error occurred while fetching entity activity",
         );
       }
     }
