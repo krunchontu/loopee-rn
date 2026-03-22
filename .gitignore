@@ -33,6 +33,10 @@ yarn-error.*
 .env*.local
 env.local
 
+# Maestro local config (may contain test credentials)
+.maestro/config.local.yaml
+.maestro/screenshots/
+
 # typescript
 *.tsbuildinfo
 

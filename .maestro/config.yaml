@@ -9,10 +9,14 @@ flows:
   - flows/
 
 # Environment
-env:
-  # Test user credentials (use test account)
-  TEST_EMAIL: test@loopee.app
-  TEST_PASSWORD: TestPassword123!
+# Test credentials must be provided via shell environment variables:
+#   export TEST_EMAIL="your-test@example.com"
+#   export TEST_PASSWORD="your-test-password"
+# Or create .maestro/config.local.yaml (git-ignored) with:
+#   env:
+#     TEST_EMAIL: your-test@example.com
+#     TEST_PASSWORD: your-test-password
+env: {}
 
 # Execution settings
 executionOrder:

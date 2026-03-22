@@ -26,6 +26,28 @@ brew install maestro
 
 ## Running Tests
 
+### Set test credentials
+
+Test credentials are **not** stored in the repository. Provide them via
+environment variables before running Maestro:
+
+```bash
+export TEST_EMAIL="your-test@example.com"
+export TEST_PASSWORD="your-test-password"
+```
+
+Or create a git-ignored local config file:
+
+```bash
+cat > .maestro/config.local.yaml <<'EOF'
+env:
+  TEST_EMAIL: your-test@example.com
+  TEST_PASSWORD: your-test-password
+EOF
+```
+
+> **CI:** Set `TEST_EMAIL` and `TEST_PASSWORD` as GitHub Actions secrets.
+
 ### Start the app
 
 ```bash
@@ -41,8 +63,8 @@ npx expo run:android
 ### Run all E2E tests
 
 ```bash
-# Run all flows
-maestro test .maestro/
+# Run all flows (credentials must be in env)
+TEST_EMAIL="..." TEST_PASSWORD="..." maestro test .maestro/
 
 # Run specific flow
 maestro test .maestro/flows/02-auth-login.yaml
@@ -73,10 +95,12 @@ maestro test .maestro/ --format junit --output test-results.xml
 
 Edit `.maestro/config.yaml` to configure:
 
-- Test user credentials
 - App ID
 - Execution order
-- Environment variables
+
+Sensitive values (test credentials) must be provided via shell environment
+variables or a git-ignored `.maestro/config.local.yaml` file — never commit
+credentials to the repository.
 
 ## Writing New Tests
 
