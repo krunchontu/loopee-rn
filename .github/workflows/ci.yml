@@ -18,7 +18,8 @@ jobs:
           cache: npm
       - run: npm install --legacy-peer-deps
       # Start strict — ratchet --max-warnings down as warnings are fixed
-      - run: npx eslint . --max-warnings=1000
+      # Ratchet down as warnings are fixed: 316 remaining (was 1000)
+      - run: npx eslint . --max-warnings=316
 
   typecheck:
     name: Type Check

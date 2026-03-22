@@ -68,19 +68,19 @@ export function CustomClusteredMapView({
       });
 
       // Fetch nearby toilets
-      fetchNearbyToilets(location.latitude, location.longitude);
+      void fetchNearbyToilets(location.latitude, location.longitude);
     },
     [fetchNearbyToilets],
   );
 
   useEffect(() => {
-    handleLocationPermission();
+    void handleLocationPermission();
   }, [handleLocationPermission]);
 
   useEffect(() => {
     if (!hasLocationPermission) return;
 
-    locationService.startLocationUpdates(handleLocationUpdate, (error) =>
+    void locationService.startLocationUpdates(handleLocationUpdate, (error) =>
       setLocationError(error.message),
     );
 

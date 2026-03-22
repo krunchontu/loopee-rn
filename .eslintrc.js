@@ -40,8 +40,14 @@ module.exports = {
         project: "./tsconfig.json",
       },
       rules: {
-        "@typescript-eslint/no-floating-promises": "warn", // Downgraded to warning for now
-        "@typescript-eslint/no-misused-promises": "warn", // Downgraded to warning for now
+        "@typescript-eslint/no-floating-promises": [
+          "error",
+          { ignoreIIFE: true, ignoreVoid: true },
+        ],
+        "@typescript-eslint/no-misused-promises": [
+          "error",
+          { checksVoidReturn: { attributes: false } },
+        ],
         "@typescript-eslint/no-unsafe-assignment": "warn", // Downgraded to warning
         "@typescript-eslint/no-unsafe-member-access": "warn",
         "@typescript-eslint/no-unsafe-call": "warn",
@@ -122,14 +128,7 @@ module.exports = {
         prefer: "type-imports",
       },
     ],
-    "@typescript-eslint/no-floating-promises": [
-      "error",
-      {
-        // Prevent unhandled promises
-        ignoreIIFE: true,
-        ignoreVoid: true,
-      },
-    ],
+    // no-floating-promises is configured as "error" in the TS override block above
 
     // General rules
     "no-console": ["error", { allow: ["warn", "error"] }],

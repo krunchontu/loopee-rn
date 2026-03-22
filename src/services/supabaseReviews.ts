@@ -5,7 +5,7 @@
  */
 
 import { getSupabaseClient } from "./supabaseClient";
-import type { Review } from "../types/toilet";
+import type { Review as _Review } from "../types/toilet";
 import { debug } from "../utils/debug";
 import { ReviewSchema, safeParse, safeParseArray } from "../utils/validators";
 
@@ -120,18 +120,22 @@ export const supabaseReviews = {
       throw error;
     }
 
-    return safeParse(ReviewSchema, {
-      id: data.id,
-      userId: data.user_id,
-      rating: data.rating,
-      comment: data.comment,
-      photos: data.photos || [],
-      createdAt: data.created_at,
-      isEdited: data.is_edited || false,
-      version: data.version || 1,
-      lastEditedAt: data.last_edited_at,
-      updatedAt: data.updated_at,
-    }, "getCurrentUserReview");
+    return safeParse(
+      ReviewSchema,
+      {
+        id: data.id,
+        userId: data.user_id,
+        rating: data.rating,
+        comment: data.comment,
+        photos: data.photos || [],
+        createdAt: data.created_at,
+        isEdited: data.is_edited || false,
+        version: data.version || 1,
+        lastEditedAt: data.last_edited_at,
+        updatedAt: data.updated_at,
+      },
+      "getCurrentUserReview",
+    );
   },
 
   async getByUserId(userId: string) {

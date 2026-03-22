@@ -90,7 +90,7 @@ import {
   VALIDATION_LIMITS,
   MAX_RECENT_SUBMISSIONS,
 } from "../../services/contributionService";
-import * as dedupModule from "../../services/submission/dedup";
+import * as _dedupModule from "../../services/submission/dedup";
 import {
   checkSession,
   refreshSession,

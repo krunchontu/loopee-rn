@@ -164,7 +164,7 @@ export const CustomMapView = memo(
         // Location updates are now throttled in the location service (60s interval, 100m distance)
         // and the toilet store has caching to prevent unnecessary fetches
         setIsRefreshing(true);
-        fetchNearbyToilets(location.latitude, location.longitude).finally(
+        void fetchNearbyToilets(location.latitude, location.longitude).finally(
           () => {
             // Clear refreshing state when done, whether successful or not
             setIsRefreshing(false);
@@ -175,13 +175,13 @@ export const CustomMapView = memo(
     );
 
     useEffect(() => {
-      handleLocationPermission();
+      void handleLocationPermission();
     }, [handleLocationPermission]);
 
     useEffect(() => {
       if (!hasLocationPermission) return;
 
-      locationService.startLocationUpdates(handleLocationUpdate, (error) =>
+      void locationService.startLocationUpdates(handleLocationUpdate, (error) =>
         setLocationError(error.message),
       );
 

@@ -30,7 +30,10 @@ export default function ToiletListScreen() {
   // Get current location and retry fetching
   const handleRetry = () => {
     debug.log("ToiletListScreen", "Retrying toilet fetch");
-    fetchNearbyToilets(DEFAULT_LOCATION.latitude, DEFAULT_LOCATION.longitude);
+    void fetchNearbyToilets(
+      DEFAULT_LOCATION.latitude,
+      DEFAULT_LOCATION.longitude,
+    );
   };
 
   return (

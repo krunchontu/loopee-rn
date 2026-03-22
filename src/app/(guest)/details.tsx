@@ -8,7 +8,10 @@ import { Rating } from "../../components/shared/Rating";
 import { Review } from "../../components/toilet/Review";
 import { colors, spacing } from "../../constants/colors";
 import { supabaseService } from "../../services/supabase";
-import type { Toilet as ToiletType, Review as ReviewType } from "../../types/toilet";
+import type {
+  Toilet as ToiletType,
+  Review as ReviewType,
+} from "../../types/toilet";
 import { debug } from "../../utils/debug";
 
 export default memo(function DetailsScreen() {
@@ -26,12 +29,12 @@ export default memo(function DetailsScreen() {
 
       const toiletData = await supabaseService.toilets.getById(id as string);
       const reviewsData = await supabaseService.reviews.getByToiletId(
-        id as string
+        id as string,
       );
 
       debug.log(
         "DetailsScreen",
-        `Fetched toilet with ${reviewsData.length} reviews`
+        `Fetched toilet with ${reviewsData.length} reviews`,
       );
       setToilet(toiletData);
       setReviews(reviewsData);
@@ -46,7 +49,7 @@ export default memo(function DetailsScreen() {
   }, [id]);
 
   useEffect(() => {
-    fetchToiletDetails();
+    void fetchToiletDetails();
   }, [fetchToiletDetails]);
 
   if (loading) {
@@ -83,9 +86,9 @@ export default memo(function DetailsScreen() {
           <View style={styles.card}>
             <Rating value={toilet.rating} size="large" />
             <Text style={styles.openingHours}>
-              {toilet.openingHours ?
-                `${toilet.openingHours.open} - ${toilet.openingHours.close}`
-              : "Opening hours not available"}
+              {toilet.openingHours
+                ? `${toilet.openingHours.open} - ${toilet.openingHours.close}`
+                : "Opening hours not available"}
             </Text>
 
             {/* Building and floor information */}
@@ -102,10 +105,11 @@ export default memo(function DetailsScreen() {
                     Floor: {toilet.floorName}
                     {typeof toilet.floorLevel === "number" &&
                       ` (${
-                        toilet.floorLevel > 0 ? `Level ${toilet.floorLevel}`
-                        : toilet.floorLevel < 0 ?
-                          `Basement ${Math.abs(toilet.floorLevel)}`
-                        : "Ground Floor"
+                        toilet.floorLevel > 0
+                          ? `Level ${toilet.floorLevel}`
+                          : toilet.floorLevel < 0
+                            ? `Basement ${Math.abs(toilet.floorLevel)}`
+                            : "Ground Floor"
                       })`}
                   </Text>
                 )}
@@ -139,11 +143,13 @@ export default memo(function DetailsScreen() {
 
           <View style={styles.reviewsSection}>
             <Text style={styles.sectionTitle}>Reviews</Text>
-            {reviews.length > 0 ?
+            {reviews.length > 0 ? (
               reviews.map((review) => (
                 <Review key={review.id} review={review} />
               ))
-            : <Text style={styles.noReviews}>No reviews yet</Text>}
+            ) : (
+              <Text style={styles.noReviews}>No reviews yet</Text>
+            )}
           </View>
         </View>
       </ScrollView>

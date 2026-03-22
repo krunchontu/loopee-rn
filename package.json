@@ -75,11 +75,11 @@
   },
   "lint-staged": {
     "*.{ts,tsx}": [
-      "eslint --fix --max-warnings=-1",
+      "eslint --fix --max-warnings=316",
       "prettier --write"
     ],
     "*.{js,jsx}": [
-      "eslint --fix --max-warnings=-1",
+      "eslint --fix --max-warnings=316",
       "prettier --write"
     ]
   },

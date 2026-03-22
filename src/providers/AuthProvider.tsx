@@ -169,7 +169,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     };
 
-    initializeAuth();
+    void initializeAuth();
 
     // Subscribe to auth changes.
     // NOTE: Supabase SDK warns that async callbacks inside onAuthStateChange can
@@ -259,7 +259,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Dispatch async work outside the Supabase lock to avoid deadlocks.
         // The SDK holds an exclusive lock while calling this callback; calling
         // other Supabase APIs (getProfile → getUser) from inside would deadlock.
-        handleAuthEvent(event, session);
+        void handleAuthEvent(event, session);
       },
     );
 
@@ -284,56 +284,58 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     const SESSION_HEALTH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
-    const sessionHealthInterval = setInterval(async () => {
-      try {
-        if (!state.isAuthenticated || !state.user) {
-          return;
-        }
-
-        const sessionInfo = await checkSession();
-
-        // Only log and act when the session actually needs attention.
-        // Healthy sessions (valid, not expiring soon) are silent.
-        const needsRefresh =
-          sessionInfo.session &&
-          (sessionInfo.needsForceRefresh ||
-            (sessionInfo.expiresIn !== null && sessionInfo.expiresIn < 600));
-
-        if (!needsRefresh) {
-          return;
-        }
-
-        const status = sessionInfo.detailedStatus ?? "unknown";
-        debug.log("Auth", `Session health: refreshing (${status})`, {
-          expiresIn: sessionInfo.expiresIn,
-          detailedStatus: status,
-        });
-
-        const refreshRetries =
-          status === "expired_past" || status === "invalid_date" ? 3 : 2;
-        const refreshed = await refreshSession(refreshRetries);
-
-        if (refreshed) {
-          const verified = await checkSession();
-          if (!verified.valid) {
-            debug.warn(
-              "Auth",
-              "Session still invalid after refresh — may require re-authentication",
-              { detailedStatus: verified.detailedStatus },
-            );
+    const sessionHealthInterval = setInterval(() => {
+      void (async () => {
+        try {
+          if (!state.isAuthenticated || !state.user) {
+            return;
           }
-        } else {
-          debug.error("Auth", "Session refresh failed", {
+
+          const sessionInfo = await checkSession();
+
+          // Only log and act when the session actually needs attention.
+          // Healthy sessions (valid, not expiring soon) are silent.
+          const needsRefresh =
+            sessionInfo.session &&
+            (sessionInfo.needsForceRefresh ||
+              (sessionInfo.expiresIn !== null && sessionInfo.expiresIn < 600));
+
+          if (!needsRefresh) {
+            return;
+          }
+
+          const status = sessionInfo.detailedStatus ?? "unknown";
+          debug.log("Auth", `Session health: refreshing (${status})`, {
             expiresIn: sessionInfo.expiresIn,
             detailedStatus: status,
           });
+
+          const refreshRetries =
+            status === "expired_past" || status === "invalid_date" ? 3 : 2;
+          const refreshed = await refreshSession(refreshRetries);
+
+          if (refreshed) {
+            const verified = await checkSession();
+            if (!verified.valid) {
+              debug.warn(
+                "Auth",
+                "Session still invalid after refresh — may require re-authentication",
+                { detailedStatus: verified.detailedStatus },
+              );
+            }
+          } else {
+            debug.error("Auth", "Session refresh failed", {
+              expiresIn: sessionInfo.expiresIn,
+              detailedStatus: status,
+            });
+          }
+        } catch (error) {
+          authDebug.log("SESSION_REFRESH", "failure", {
+            action: "health_check",
+            error,
+          });
         }
-      } catch (error) {
-        authDebug.log("SESSION_REFRESH", "failure", {
-          action: "health_check",
-          error,
-        });
-      }
+      })();
     }, SESSION_HEALTH_INTERVAL_MS);
 
     return () => {

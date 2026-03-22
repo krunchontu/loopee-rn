@@ -13,10 +13,7 @@
  * 3. RLS policies verify that submitter_id::text = auth.uid()::text
  */
 
-import {
-  supabaseService,
-  getSupabaseClient,
-} from "./supabase";
+import { supabaseService, getSupabaseClient } from "./supabase";
 import type {
   ToiletSubmission,
   SubmissionPreview,
@@ -59,20 +56,13 @@ export {
 
 // ── Private imports from sub-modules ────────────────────────────────────────
 
-import {
-  isDuplicateSubmission,
-  recordSubmission,
-} from "./submission/dedup";
-
-import {
-  validateToiletSubmission,
-} from "./submission/validation";
-
+import { isDuplicateSubmission, recordSubmission } from "./submission/dedup";
 import {
   raceWithTimeout,
   ensureValidSession,
   logContribution,
 } from "./submission/sessionGuard";
+import { validateToiletSubmission } from "./submission/validation";
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
@@ -90,14 +80,14 @@ export const contributionService = {
   // Expose sub-module state on the service object so existing tests that
   // access contributionService.recentSubmissions etc. keep working.
   get recentSubmissions() {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
     return require("./submission/dedup").recentSubmissions as Map<
       string,
       { timestamp: number; id: string }
     >;
   },
   get validationPromises() {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
     return require("./submission/sessionGuard").validationPromises as Map<
       string,
       Promise<void>
@@ -106,33 +96,60 @@ export const contributionService = {
 
   // Delegate pure functions to sub-modules
   generateSubmissionHash: (data: Partial<Toilet>) => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    return (require("./submission/dedup").generateSubmissionHash as (d: Partial<Toilet>) => string)(data);
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+    return (
+      require("./submission/dedup").generateSubmissionHash as (
+        d: Partial<Toilet>,
+      ) => string
+    )(data);
   },
-  isDuplicateSubmission: (data: Partial<Toilet>, dedupeTimeWindowMs?: number) => {
+  isDuplicateSubmission: (
+    data: Partial<Toilet>,
+    dedupeTimeWindowMs?: number,
+  ) => {
     return isDuplicateSubmission(data, dedupeTimeWindowMs);
   },
   recordSubmission: (data: Partial<Toilet>, submissionId: string) => {
     return recordSubmission(data, submissionId);
   },
   cleanupOldSubmissions: () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    return (require("./submission/dedup").cleanupOldSubmissions as () => void)();
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+    return (
+      require("./submission/dedup").cleanupOldSubmissions as () => void
+    )();
   },
   completeValidation: (operationId: string) => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    return (require("./submission/sessionGuard").completeValidation as (id: string) => void)(operationId);
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+    return (
+      require("./submission/sessionGuard").completeValidation as (
+        id: string,
+      ) => void
+    )(operationId);
   },
-  getSessionErrorMessage: (detailedStatus: string, expiresIn: number | null) => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    return (require("./submission/sessionGuard").getSessionErrorMessage as (s: string, e: number | null) => string)(detailedStatus, expiresIn);
+  getSessionErrorMessage: (
+    detailedStatus: string,
+    expiresIn: number | null,
+  ) => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+    return (
+      require("./submission/sessionGuard").getSessionErrorMessage as (
+        s: string,
+        e: number | null,
+      ) => string
+    )(detailedStatus, expiresIn);
   },
   ensureValidSession: async () => {
     return ensureValidSession();
   },
-  submitWithSessionGuard: async <T>(operation: () => Promise<T>): Promise<T> => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    return (require("./submission/sessionGuard").submitWithSessionGuard as <T>(op: () => Promise<T>) => Promise<T>)(operation);
+  submitWithSessionGuard: async <T>(
+    operation: () => Promise<T>,
+  ): Promise<T> => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+    return (
+      require("./submission/sessionGuard").submitWithSessionGuard as <T>(
+        op: () => Promise<T>,
+      ) => Promise<T>
+    )(operation);
   },
 
   // ── Core submission methods ───────────────────────────────────────────
@@ -385,11 +402,20 @@ export const contributionService = {
       }
 
       const rawEditData = insertResponse.data;
-      if (!rawEditData || (Array.isArray(rawEditData) && rawEditData.length === 0)) {
+      if (
+        !rawEditData ||
+        (Array.isArray(rawEditData) && rawEditData.length === 0)
+      ) {
         throw new Error("Failed to submit edit - no data returned");
       }
-      const editArray = Array.isArray(rawEditData) ? rawEditData : [rawEditData];
-      return safeParse(SubmissionRpcResultSchema, editArray[0], "editToilet") as ToiletSubmission;
+      const editArray = Array.isArray(rawEditData)
+        ? rawEditData
+        : [rawEditData];
+      return safeParse(
+        SubmissionRpcResultSchema,
+        editArray[0],
+        "editToilet",
+      ) as ToiletSubmission;
     } catch (err) {
       debug.error("contributionService", "Error in edit submission", err);
       if (err instanceof Error) {
@@ -445,11 +471,20 @@ export const contributionService = {
       }
 
       const rawReportData = insertResponse.data;
-      if (!rawReportData || (Array.isArray(rawReportData) && rawReportData.length === 0)) {
+      if (
+        !rawReportData ||
+        (Array.isArray(rawReportData) && rawReportData.length === 0)
+      ) {
         throw new Error("Failed to report issue - no data returned");
       }
-      const reportArray = Array.isArray(rawReportData) ? rawReportData : [rawReportData];
-      return safeParse(SubmissionRpcResultSchema, reportArray[0], "reportToiletIssue") as ToiletSubmission;
+      const reportArray = Array.isArray(rawReportData)
+        ? rawReportData
+        : [rawReportData];
+      return safeParse(
+        SubmissionRpcResultSchema,
+        reportArray[0],
+        "reportToiletIssue",
+      ) as ToiletSubmission;
     } catch (err) {
       debug.error("contributionService", "Error in report submission", err);
       if (err instanceof Error) {
@@ -531,7 +566,11 @@ export const contributionService = {
       return queryResponse.data.map(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (submission: any): SubmissionPreview => {
-          const row = safeParse(SubmissionPreviewRowSchema, submission, "getMySubmissions");
+          const row = safeParse(
+            SubmissionPreviewRowSchema,
+            submission,
+            "getMySubmissions",
+          );
           return {
             id: row.id,
             submission_type: row.submission_type,
