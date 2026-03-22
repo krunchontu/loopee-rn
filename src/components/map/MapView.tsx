@@ -31,7 +31,7 @@ import type { LocationState } from "../../services/location";
 import { locationService } from "../../services/location";
 import { useToiletStore } from "../../stores/toilets";
 import type { Toilet } from "../../types/toilet";
-import { clusterToilets, getZoomLevel } from "../../utils/clustering";
+import { clusterToilets } from "../../utils/clustering";
 import { debug } from "../../utils/debug";
 import { Button } from "../shared/Button";
 import { ErrorBoundary } from "../shared/ErrorBoundary";
@@ -213,40 +213,42 @@ export const CustomMapView = memo(
       [selectToilet, onMarkerPress],
     );
 
+    // Debounce timer ref — survives re-renders without triggering them
+    const clusterTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
     const handleRegionChange = useCallback(
       (region: Region) => {
         setCurrentRegion(region);
-        const zoomLevel = getZoomLevel(region);
-        debug.log("MapView", "Region changed", { zoomLevel });
 
-        const newClusters = clusterToilets(toilets, region);
-        setClusters(newClusters);
+        // Debounce clustering to avoid running on every intermediate frame
+        // during pan/zoom gestures. 150ms is fast enough to feel responsive
+        // once the gesture settles, but skips all intermediate positions.
+        if (clusterTimerRef.current) {
+          clearTimeout(clusterTimerRef.current);
+        }
+        clusterTimerRef.current = setTimeout(() => {
+          const newClusters = clusterToilets(toilets, region);
+          setClusters(newClusters);
+        }, 150);
       },
       [toilets],
     );
 
+    // Clean up debounce timer on unmount
     useEffect(() => {
-      // Initial clustering
-      const initialClusters = clusterToilets(toilets, currentRegion);
+      return () => {
+        if (clusterTimerRef.current) {
+          clearTimeout(clusterTimerRef.current);
+        }
+      };
+    }, []);
 
-      // Debug clustering results
-      debug.log(
-        "MapView",
-        `Clustering resulted in ${initialClusters.length} clusters:`,
-        {
-          totalToilets: toilets.length,
-          numClusters: initialClusters.length,
-          zoomLevel: getZoomLevel(currentRegion),
-          singleMarkers: initialClusters.filter((c) => c.points.length === 1)
-            .length,
-          multiMarkers: initialClusters.filter((c) => c.points.length > 1)
-            .length,
-          region: currentRegion,
-        },
-      );
-
-      setClusters(initialClusters);
-    }, [toilets, currentRegion]);
+    // Re-cluster when the toilets data changes (new fetch results).
+    // Region changes are handled by handleRegionChange above — not here.
+    useEffect(() => {
+      const newClusters = clusterToilets(toilets, currentRegion);
+      setClusters(newClusters);
+    }, [toilets]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Calculate safe area padding for content
     const safeAreaPadding = useMemo(() => {
