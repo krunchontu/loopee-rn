@@ -5,7 +5,42 @@
  * Ensures consistent access to properties regardless of data source or naming conventions.
  */
 
-import type { Toilet } from "../types/toilet";
+import type { Toilet, Location } from "../types/toilet";
+
+/**
+ * Validates that a coordinate pair represents a real-world location.
+ * Rejects (0,0) which is used as a NULL sentinel by the database COALESCE,
+ * as well as NaN, out-of-range, and non-numeric values.
+ *
+ * @param location The location object to validate
+ * @returns true if the coordinates are valid and represent a real location
+ */
+export const isValidLocation = (
+  location: Location | null | undefined,
+): location is Location => {
+  if (!location) return false;
+
+  const { latitude, longitude } = location;
+
+  if (typeof latitude !== "number" || typeof longitude !== "number") {
+    return false;
+  }
+
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return false;
+  }
+
+  // Reject (0,0) — Gulf of Guinea, used as NULL sentinel by DB COALESCE
+  if (latitude === 0 && longitude === 0) {
+    return false;
+  }
+
+  // Standard geographic range
+  if (latitude < -90 || latitude > 90) return false;
+  if (longitude < -180 || longitude > 180) return false;
+
+  return true;
+};
 
 /**
  * The canonical default amenities object with all keys set to false.

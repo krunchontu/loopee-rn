@@ -1,38 +1,18 @@
--- Migration for toilet contributions system
--- Creating tables and triggers for user contributions
+-- Fix: Ensure trigger functions have error handling for table dependency gaps.
+--
+-- Background: 20250522_toilet_submissions.sql originally created
+-- record_submission_activity() and process_approved_submission() that
+-- reference user_activity and user_notifications respectively. Those
+-- tables are only created in 20250529_add_activity_tables.sql.
+-- The original functions had NO error handling, so any submission
+-- between those two migrations would crash and roll back the user's data.
+--
+-- 20250529 already replaces both functions with error-handling versions,
+-- and 20250522 has now been patched to match. This migration is a
+-- safety net for any existing dev databases to ensure the functions
+-- match the corrected 20250529 versions.
 
--- Create toilet submissions table
-CREATE TABLE IF NOT EXISTS public.toilet_submissions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  toilet_id UUID REFERENCES public.toilets, -- Null for new toilet submissions
-  submitter_id UUID REFERENCES public.user_profiles NOT NULL,
-  submission_type TEXT NOT NULL CHECK (submission_type IN ('new', 'edit', 'report')),
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
-  data JSONB NOT NULL, -- The submitted toilet data
-  reason TEXT, -- Reason for edit/report
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Add RLS policies for toilet submissions
-ALTER TABLE public.toilet_submissions ENABLE ROW LEVEL SECURITY;
-
--- Users can view their own submissions
-CREATE POLICY select_own_submissions ON public.toilet_submissions
-  FOR SELECT USING (auth.uid() = submitter_id);
-
--- Users can insert their own submissions
-CREATE POLICY insert_own_submissions ON public.toilet_submissions
-  FOR INSERT WITH CHECK (auth.uid() = submitter_id);
-
--- Only authenticated users can access submissions
-CREATE POLICY authenticated_users_only ON public.toilet_submissions
-  USING (auth.role() = 'authenticated');
-
--- Create function to record submission activity in user_activity table
--- NOTE: user_activity table is created in 20250529_add_activity_tables.sql.
--- The BEGIN...EXCEPTION block ensures this trigger does not crash submissions
--- if the table does not yet exist (e.g. during incremental migration).
+-- Recreate record_submission_activity with error handling
 CREATE OR REPLACE FUNCTION public.record_submission_activity()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -47,7 +27,14 @@ BEGIN
       NEW.submitter_id,
       'toilet_' || NEW.submission_type,
       COALESCE(NEW.toilet_id, NEW.id),
-      jsonb_build_object('submission_id', NEW.id)
+      jsonb_build_object(
+        'submission_id', NEW.id,
+        'submission_type', NEW.submission_type,
+        'data', jsonb_build_object(
+          'name', NEW.data->>'name',
+          'status', NEW.status
+        )
+      )
     );
   EXCEPTION WHEN OTHERS THEN
     RAISE WARNING 'record_submission_activity: %', SQLERRM;
@@ -56,36 +43,17 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Create trigger to record submission activity
-DROP TRIGGER IF EXISTS on_toilet_submission ON public.toilet_submissions;
-CREATE TRIGGER on_toilet_submission
-  AFTER INSERT ON public.toilet_submissions
-  FOR EACH ROW EXECUTE FUNCTION public.record_submission_activity();
-
--- Function to update toilets when submissions are approved
--- NOTE: user_notifications table is created in 20250529_add_activity_tables.sql.
--- Notification inserts are wrapped in BEGIN...EXCEPTION so that a missing
--- notifications table does not prevent the core toilet insert/update.
+-- Recreate process_approved_submission with error handling on notifications
 CREATE OR REPLACE FUNCTION public.process_approved_submission()
 RETURNS TRIGGER AS $$
 DECLARE
   new_toilet_id UUID;
 BEGIN
-  -- Only process when status changes to 'approved'
   IF NEW.status = 'approved' AND (OLD.status IS NULL OR OLD.status <> 'approved') THEN
-    -- For new toilet submissions
     IF NEW.submission_type = 'new' THEN
       INSERT INTO public.toilets (
-        name,
-        description,
-        location,
-        address,
-        building_name,
-        floor_level,
-        is_accessible,
-        amenities,
-        photos,
-        submitted_by
+        name, description, location, address, building_name,
+        floor_level, is_accessible, amenities, photos, submitted_by
       )
       VALUES (
         NEW.data->>'name',
@@ -126,16 +94,10 @@ BEGIN
       WHERE id = NEW.toilet_id;
     END IF;
 
-    -- Notify the submitter (wrapped so missing table does not crash approval)
     BEGIN
       INSERT INTO public.user_notifications (
-        user_id,
-        notification_type,
-        title,
-        message,
-        entity_type,
-        entity_id,
-        metadata
+        user_id, notification_type, title, message,
+        entity_type, entity_id, metadata
       )
       VALUES (
         NEW.submitter_id,
@@ -158,17 +120,11 @@ BEGIN
     END;
   END IF;
 
-  -- Handle rejection notifications
   IF NEW.status = 'rejected' AND (OLD.status IS NULL OR OLD.status <> 'rejected') THEN
     BEGIN
       INSERT INTO public.user_notifications (
-        user_id,
-        notification_type,
-        title,
-        message,
-        entity_type,
-        entity_id,
-        metadata
+        user_id, notification_type, title, message,
+        entity_type, entity_id, metadata
       )
       VALUES (
         NEW.submitter_id,
@@ -194,24 +150,3 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Create trigger for processing approved submissions
-DROP TRIGGER IF EXISTS on_submission_status_change ON public.toilet_submissions;
-CREATE TRIGGER on_submission_status_change
-  AFTER UPDATE OF status ON public.toilet_submissions
-  FOR EACH ROW EXECUTE FUNCTION public.process_approved_submission();
-
--- Update trigger function for updated_at timestamp
-CREATE OR REPLACE FUNCTION public.update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- Add updated_at trigger to submissions
-DROP TRIGGER IF EXISTS update_toilet_submissions_updated_at ON public.toilet_submissions;
-CREATE TRIGGER update_toilet_submissions_updated_at
-  BEFORE UPDATE ON public.toilet_submissions
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
