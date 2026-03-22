@@ -51,7 +51,7 @@ export const ReviewSchema = z.object({
   id: z.string(),
   userId: z.string(),
   rating: z.number(),
-  comment: coerceString,
+  comment: z.union([z.string(), z.null()]).default(null),
   createdAt: coerceString,
   photos: z.array(z.string()).default([]),
   isEdited: z.boolean().default(false),
@@ -106,9 +106,7 @@ export const ToiletSchema = z.object({
   isPublic: z.boolean().optional(),
   isFree: z.boolean().optional(),
   fee: optionalString,
-  openingHours: z
-    .object({ open: z.string(), close: z.string() })
-    .optional(),
+  openingHours: z.object({ open: z.string(), close: z.string() }).optional(),
   amenities: AmenitiesSchema,
   buildingId: optionalString,
   buildingName: optionalString,
