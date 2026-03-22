@@ -1,7 +1,11 @@
 /**
  * @file Contribution Service
  *
- * Service for handling toilet contribution operations
+ * Service for handling toilet contribution operations.
+ *
+ * Validation, deduplication, and session-guard logic live in dedicated
+ * modules under ./submission/ — this file contains only the business-level
+ * submission and retrieval methods.
  *
  * IMPORTANT: User ID and Profile handling
  * 1. The submitter_id field in toilet_submissions must match auth.uid()
@@ -9,842 +13,138 @@
  * 3. RLS policies verify that submitter_id::text = auth.uid()::text
  */
 
-import * as Crypto from "expo-crypto";
-
 import {
   supabaseService,
   getSupabaseClient,
-  refreshSession,
-  checkSession,
 } from "./supabase";
 import type {
   ToiletSubmission,
   SubmissionPreview,
-  SubmissionType,
-  SubmissionStatus,
 } from "../types/contribution";
 import type { Toilet } from "../types/toilet";
-import { authDebug } from "../utils/AuthDebugger";
 import { debug } from "../utils/debug";
 import {
   SubmissionRpcResultSchema,
   ToiletSubmissionSchema,
   SubmissionPreviewRowSchema,
-  SubmissionTypeEnum,
-  SubmissionStatusEnum,
   safeParse,
 } from "../utils/validators";
+
+// ── Re-export sub-modules so existing consumers keep working ────────────────
+
+export {
+  VALIDATION_LIMITS,
+  MAX_RECENT_SUBMISSIONS,
+  validateToiletSubmission,
+} from "./submission/validation";
+
+export {
+  recentSubmissions,
+  generateSubmissionHash,
+  isDuplicateSubmission,
+  recordSubmission,
+  cleanupOldSubmissions,
+} from "./submission/dedup";
+
+export {
+  validationPromises,
+  raceWithTimeout,
+  withRetry,
+  completeValidation,
+  getSessionErrorMessage,
+  ensureValidSession,
+  submitWithSessionGuard,
+  logContribution,
+} from "./submission/sessionGuard";
+
+// ── Private imports from sub-modules ────────────────────────────────────────
+
+import {
+  isDuplicateSubmission,
+  recordSubmission,
+} from "./submission/dedup";
+
+import {
+  validateToiletSubmission,
+} from "./submission/validation";
+
+import {
+  raceWithTimeout,
+  ensureValidSession,
+  logContribution,
+} from "./submission/sessionGuard";
+
+// ── Constants ───────────────────────────────────────────────────────────────
+
+const DEFAULT_TIMEOUT = 15000; // 15 seconds
 
 // Use the shared Supabase client instance for consistent auth state
 const supabase = getSupabaseClient();
 
-/**
- * Enhanced debug logger for contribution service
- * Provides more detailed logging with consistent formatting
- */
-const logContribution = (
-  level: "log" | "error" | "warn",
-  context: string,
-  message: string,
-  data?: Record<string, unknown>,
-) => {
-  const timestamp = new Date().toISOString();
-  const formattedData: Record<string, unknown> = {
-    ...data,
-    timestamp,
-    context: `contributionService.${context}`,
-  };
-
-  switch (level) {
-    case "error":
-      debug.error(
-        "contributionService",
-        `[${context}] ${message}`,
-        formattedData,
-      );
-      break;
-    case "warn":
-      debug.warn(
-        "contributionService",
-        `[${context}] ${message}`,
-        formattedData,
-      );
-      break;
-    default:
-      debug.log(
-        "contributionService",
-        `[${context}] ${message}`,
-        formattedData,
-      );
-  }
-};
-
-// Default timeout for API operations in milliseconds
-const DEFAULT_TIMEOUT = 15000; // 15 seconds
-const SESSION_VALIDATION_TIMEOUT = 10000; // 10 seconds (increased from 5000ms)
-const SESSION_REFRESH_TIMEOUT = 12000; // 12 seconds (increased from 5000ms)
-const SESSION_REFRESH_RETRIES = 2; // Number of retry attempts for session refresh
-
-// ── Submission Validation ───────────────────────────────────────────────────
-
-/** Maximum allowed lengths for text fields */
-export const VALIDATION_LIMITS = {
-  NAME_MAX_LENGTH: 255,
-  ADDRESS_MAX_LENGTH: 500,
-  BUILDING_NAME_MAX_LENGTH: 255,
-  DESCRIPTION_MAX_LENGTH: 2000,
-  FEE_MAX_LENGTH: 100,
-  FLOOR_NAME_MAX_LENGTH: 100,
-  FLOOR_LEVEL_MIN: -10,
-  FLOOR_LEVEL_MAX: 200,
-  PHOTOS_MAX_COUNT: 5,
-  PHOTO_URI_MAX_LENGTH: 2048,
-  LATITUDE_MIN: -90,
-  LATITUDE_MAX: 90,
-  LONGITUDE_MIN: -180,
-  LONGITUDE_MAX: 180,
-} as const;
+// ── Service ─────────────────────────────────────────────────────────────────
 
 /**
- * Maximum number of recent submissions to track in memory.
- * Each entry is ~200 bytes (hash key + timestamp + ID), so 100 entries ≈ 20KB.
- */
-export const MAX_RECENT_SUBMISSIONS = 100;
-
-/**
- * Known amenity keys — any other keys are stripped.
- */
-const VALID_AMENITY_KEYS = new Set([
-  "hasBabyChanging",
-  "hasShower",
-  "isGenderNeutral",
-  "hasPaperTowels",
-  "hasHandDryer",
-  "hasWaterSpray",
-  "hasSoap",
-]);
-
-/**
- * Validates and sanitizes toilet submission data before it reaches the database.
- * Strips unknown fields, enforces string length limits, coordinate ranges, and array bounds.
- *
- * @param data Raw toilet data from the form
- * @returns Sanitized Partial<Toilet> safe for submission
- * @throws Error with a user-friendly message if required fields are invalid
- */
-export function validateToiletSubmission(
-  data: Partial<Toilet>,
-): Partial<Toilet> {
-  const errors: string[] = [];
-
-  // ── Required: name ──────────────────────────────────────────────────────
-  if (!data.name || typeof data.name !== "string" || !data.name.trim()) {
-    errors.push("Name is required");
-  }
-  const name =
-    typeof data.name === "string"
-      ? data.name.trim().slice(0, VALIDATION_LIMITS.NAME_MAX_LENGTH)
-      : undefined;
-
-  // ── Required: location ──────────────────────────────────────────────────
-  if (!data.location || typeof data.location !== "object") {
-    errors.push("Location is required");
-  } else {
-    const { latitude, longitude } = data.location;
-    if (typeof latitude !== "number" || !Number.isFinite(latitude)) {
-      errors.push("Latitude must be a valid number");
-    } else if (
-      latitude < VALIDATION_LIMITS.LATITUDE_MIN ||
-      latitude > VALIDATION_LIMITS.LATITUDE_MAX
-    ) {
-      errors.push(
-        `Latitude must be between ${VALIDATION_LIMITS.LATITUDE_MIN} and ${VALIDATION_LIMITS.LATITUDE_MAX}`,
-      );
-    }
-    if (typeof longitude !== "number" || !Number.isFinite(longitude)) {
-      errors.push("Longitude must be a valid number");
-    } else if (
-      longitude < VALIDATION_LIMITS.LONGITUDE_MIN ||
-      longitude > VALIDATION_LIMITS.LONGITUDE_MAX
-    ) {
-      errors.push(
-        `Longitude must be between ${VALIDATION_LIMITS.LONGITUDE_MIN} and ${VALIDATION_LIMITS.LONGITUDE_MAX}`,
-      );
-    }
-  }
-
-  if (errors.length > 0) {
-    throw new Error(`Invalid submission: ${errors.join("; ")}`);
-  }
-
-  // ── Build sanitized object (whitelist approach) ─────────────────────────
-  const sanitized: Partial<Toilet> = {
-    name: name!,
-    location: {
-      latitude: data.location!.latitude,
-      longitude: data.location!.longitude,
-    },
-  };
-
-  // Optional string fields — truncate, never crash
-  if (typeof data.address === "string") {
-    sanitized.address = data.address
-      .trim()
-      .slice(0, VALIDATION_LIMITS.ADDRESS_MAX_LENGTH);
-  }
-  if (typeof data.buildingName === "string") {
-    sanitized.buildingName = data.buildingName
-      .trim()
-      .slice(0, VALIDATION_LIMITS.BUILDING_NAME_MAX_LENGTH);
-  }
-  if (typeof data.description === "string") {
-    sanitized.description = data.description
-      .trim()
-      .slice(0, VALIDATION_LIMITS.DESCRIPTION_MAX_LENGTH);
-  }
-  if (typeof data.fee === "string") {
-    sanitized.fee = data.fee.trim().slice(0, VALIDATION_LIMITS.FEE_MAX_LENGTH);
-  }
-  if (typeof data.floorName === "string") {
-    sanitized.floorName = data.floorName
-      .trim()
-      .slice(0, VALIDATION_LIMITS.FLOOR_NAME_MAX_LENGTH);
-  }
-
-  // Optional numeric fields — range check
-  if (data.floorLevel != null) {
-    const fl = Number(data.floorLevel);
-    if (
-      Number.isFinite(fl) &&
-      fl >= VALIDATION_LIMITS.FLOOR_LEVEL_MIN &&
-      fl <= VALIDATION_LIMITS.FLOOR_LEVEL_MAX
-    ) {
-      sanitized.floorLevel = Math.round(fl);
-    }
-    // silently drop if out of range — not worth blocking submission
-  }
-
-  // Boolean fields
-  if (typeof data.isAccessible === "boolean")
-    sanitized.isAccessible = data.isAccessible;
-  if (typeof data.isPublic === "boolean") sanitized.isPublic = data.isPublic;
-  if (typeof data.isFree === "boolean") sanitized.isFree = data.isFree;
-
-  // Opening hours — simple structural check
-  if (data.openingHours && typeof data.openingHours === "object") {
-    const { open, close } = data.openingHours;
-    if (typeof open === "string" && typeof close === "string") {
-      sanitized.openingHours = {
-        open: open.slice(0, 10),
-        close: close.slice(0, 10),
-      };
-    }
-  }
-
-  // Amenities — whitelist known boolean keys only
-  if (data.amenities && typeof data.amenities === "object") {
-    const cleanAmenities: Record<string, boolean> = {};
-    for (const key of VALID_AMENITY_KEYS) {
-      const val = (data.amenities as Record<string, unknown>)[key];
-      cleanAmenities[key] = val === true;
-    }
-    sanitized.amenities = cleanAmenities as Toilet["amenities"];
-  }
-
-  // Photos — cap count, validate each URI is a string within length limit
-  if (Array.isArray(data.photos)) {
-    sanitized.photos = data.photos
-      .filter((p): p is string => typeof p === "string" && p.length > 0)
-      .slice(0, VALIDATION_LIMITS.PHOTOS_MAX_COUNT)
-      .map((uri) => uri.slice(0, VALIDATION_LIMITS.PHOTO_URI_MAX_LENGTH));
-  }
-
-  // Building ID — UUID-like check
-  if (
-    typeof data.buildingId === "string" &&
-    /^[0-9a-f-]{36}$/i.test(data.buildingId)
-  ) {
-    sanitized.buildingId = data.buildingId;
-  }
-
-  return sanitized;
-}
-
-/**
- * Races an operation against a timeout with AbortController support.
- * When the timeout fires, the AbortController signal is aborted so that
- * the underlying fetch/network request is cancelled rather than left
- * running as an orphaned background operation.
- *
- * Accepts either a pre-built promise (backward-compatible) or a factory
- * function that receives an AbortSignal for wiring into fetch-based APIs
- * like Supabase's `.abortSignal(signal)`.
- *
- * @param promiseOrFactory A promise, or a function receiving AbortSignal that returns a promise
- * @param ms Milliseconds before timeout
- * @param operation Name of the operation (for error messaging)
- * @returns The result of the promise if it resolves before the timeout
- */
-const raceWithTimeout = <T>(
-  promiseOrFactory: PromiseLike<T> | ((signal: AbortSignal) => PromiseLike<T>),
-  ms: number,
-  operation: string,
-): Promise<T> => {
-  const controller = new AbortController();
-  let timerId: ReturnType<typeof setTimeout>;
-
-  const promise =
-    typeof promiseOrFactory === "function"
-      ? (promiseOrFactory as (signal: AbortSignal) => PromiseLike<T>)(
-          controller.signal,
-        )
-      : promiseOrFactory;
-
-  const timeout = new Promise<never>((_, reject) => {
-    timerId = setTimeout(() => {
-      controller.abort();
-      reject(new Error(`Operation '${operation}' timed out after ${ms}ms`));
-    }, ms);
-  });
-
-  return Promise.race([promise, timeout]).finally(() => {
-    clearTimeout(timerId);
-  });
-};
-
-/**
- * Creates a promise that can be retried multiple times with exponential backoff
- * @param operation Function that returns a promise to retry
- * @param retries Maximum number of retry attempts
- * @param retryDelayMs Base delay between retries in milliseconds (will increase exponentially)
- * @param operationName Name of the operation for logging
- * @returns Promise that will be retried on failure
- */
-const withRetry = async <T>(
-  operation: () => Promise<T>,
-  retries: number,
-  retryDelayMs: number,
-  operationName: string,
-): Promise<T> => {
-  let lastError: Error | null = null;
-
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      if (attempt > 0) {
-        // Log retry attempt
-        logContribution(
-          "log",
-          "withRetry",
-          `Retry attempt ${attempt}/${retries} for ${operationName}`,
-          { attempt, maxRetries: retries },
-        );
-
-        // Exponential backoff
-        const delay = retryDelayMs * Math.pow(2, attempt - 1);
-        await new Promise((resolve) => setTimeout(resolve, delay));
-      }
-
-      // Attempt the operation
-      return await operation();
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-
-      logContribution(
-        "warn",
-        "withRetry",
-        `Attempt ${attempt + 1}/${retries + 1} failed for ${operationName}`,
-        {
-          error: lastError.message,
-          attempt: attempt + 1,
-          remaining: retries - attempt,
-        },
-      );
-
-      // If this was the last attempt, we're out of retries
-      if (attempt === retries) {
-        logContribution(
-          "error",
-          "withRetry",
-          `All ${retries + 1} attempts failed for ${operationName}`,
-          { lastError },
-        );
-        throw lastError;
-      }
-
-      // Otherwise continue to next retry
-    }
-  }
-
-  // This should never be reached because either:
-  // 1. An successful attempt would have returned already
-  // 2. The last failed attempt would have thrown
-  throw new Error(`Unexpected retry logic failure in ${operationName}`);
-};
-
-/**
- * Service for handling toilet submission operations
+ * Service for handling toilet submission operations.
  */
 export const contributionService = {
-  /**
-   * Track ongoing session validation operations to prevent duplicates
-   */
-  validationPromises: new Map<string, Promise<void>>(),
-
-  /**
-   * Track recent submissions to prevent duplicates
-   * Maps content hash to submission timestamp and ID
-   */
-  recentSubmissions: new Map<string, { timestamp: number; id: string }>(),
-
-  /**
-   * Generate a simple hash for toilet data to detect duplicate submissions
-   * @param data Toilet data to hash
-   * @returns Hash string representing the content
-   */
-  generateSubmissionHash(data: Partial<Toilet>): string {
-    // Create a normalized object with key fields that would identify a unique submission
-    const keyData = {
-      name: data.name || "",
-      location: data.location
-        ? `${data.location.latitude.toFixed(6)},${data.location.longitude.toFixed(6)}`
-        : "",
-      address: data.address || "",
-      buildingName: data.buildingName || "",
-      floorLevel:
-        data.floorLevel !== undefined ? data.floorLevel.toString() : "",
-    };
-
-    // Convert to string and create a simple hash
-    return JSON.stringify(keyData);
+  // Expose sub-module state on the service object so existing tests that
+  // access contributionService.recentSubmissions etc. keep working.
+  get recentSubmissions() {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require("./submission/dedup").recentSubmissions as Map<
+      string,
+      { timestamp: number; id: string }
+    >;
+  },
+  get validationPromises() {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require("./submission/sessionGuard").validationPromises as Map<
+      string,
+      Promise<void>
+    >;
   },
 
-  /**
-   * Check if this is a duplicate of a recent submission
-   * @param data Toilet data to check
-   * @param dedupeTimeWindowMs Millisecond window to consider for duplicates (default: 10 seconds)
-   * @returns Object indicating if it's a duplicate and the existing submission ID if it is
-   */
-  isDuplicateSubmission(
-    data: Partial<Toilet>,
-    dedupeTimeWindowMs: number = 10000,
-  ): { isDuplicate: boolean; existingId?: string } {
-    const hash = this.generateSubmissionHash(data);
-    const existingSubmission = this.recentSubmissions.get(hash);
-
-    if (existingSubmission) {
-      const timeSinceLastSubmission = Date.now() - existingSubmission.timestamp;
-
-      // Consider it a duplicate if within the time window
-      if (timeSinceLastSubmission < dedupeTimeWindowMs) {
-        return {
-          isDuplicate: true,
-          existingId: existingSubmission.id,
-        };
-      }
-    }
-
-    return { isDuplicate: false };
+  // Delegate pure functions to sub-modules
+  generateSubmissionHash: (data: Partial<Toilet>) => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return (require("./submission/dedup").generateSubmissionHash as (d: Partial<Toilet>) => string)(data);
+  },
+  isDuplicateSubmission: (data: Partial<Toilet>, dedupeTimeWindowMs?: number) => {
+    return isDuplicateSubmission(data, dedupeTimeWindowMs);
+  },
+  recordSubmission: (data: Partial<Toilet>, submissionId: string) => {
+    return recordSubmission(data, submissionId);
+  },
+  cleanupOldSubmissions: () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return (require("./submission/dedup").cleanupOldSubmissions as () => void)();
+  },
+  completeValidation: (operationId: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return (require("./submission/sessionGuard").completeValidation as (id: string) => void)(operationId);
+  },
+  getSessionErrorMessage: (detailedStatus: string, expiresIn: number | null) => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return (require("./submission/sessionGuard").getSessionErrorMessage as (s: string, e: number | null) => string)(detailedStatus, expiresIn);
+  },
+  ensureValidSession: async () => {
+    return ensureValidSession();
+  },
+  submitWithSessionGuard: async <T>(operation: () => Promise<T>): Promise<T> => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return (require("./submission/sessionGuard").submitWithSessionGuard as <T>(op: () => Promise<T>) => Promise<T>)(operation);
   },
 
-  /**
-   * Record a submission to prevent duplicates
-   * @param data The toilet data that was submitted
-   * @param submissionId The ID of the successful submission
-   */
-  recordSubmission(data: Partial<Toilet>, submissionId: string): void {
-    const hash = this.generateSubmissionHash(data);
+  // ── Core submission methods ───────────────────────────────────────────
 
-    // Store submission details with current timestamp
-    this.recentSubmissions.set(hash, {
-      timestamp: Date.now(),
-      id: submissionId,
-    });
-
-    // Clean up old entries to prevent memory growth
-    this.cleanupOldSubmissions();
-
-    // Hard cap: evict oldest entries if Map exceeds max size
-    while (this.recentSubmissions.size > MAX_RECENT_SUBMISSIONS) {
-      let oldest: { key: string; timestamp: number } | null = null;
-      for (const [key, value] of this.recentSubmissions.entries()) {
-        if (!oldest || value.timestamp < oldest.timestamp) {
-          oldest = { key, timestamp: value.timestamp };
-        }
-      }
-      if (oldest) {
-        this.recentSubmissions.delete(oldest.key);
-      } else {
-        break;
-      }
-    }
-  },
-
-  /**
-   * Remove submission tracking entries older than 30 minutes
-   * to prevent unbounded memory growth
-   */
-  cleanupOldSubmissions(): void {
-    const now = Date.now();
-    const thirtyMinutesMs = 30 * 60 * 1000;
-
-    for (const [hash, { timestamp }] of this.recentSubmissions.entries()) {
-      if (now - timestamp > thirtyMinutesMs) {
-        this.recentSubmissions.delete(hash);
-      }
-    }
-  },
-
-  /**
-   * Cancels a session validation promise when it completes or fails
-   * @param operationId The unique identifier for this validation operation
-   */
-  completeValidation(operationId: string): void {
-    if (this.validationPromises.has(operationId)) {
-      this.validationPromises.delete(operationId);
-      logContribution(
-        "log",
-        "completeValidation",
-        `Completed validation operation ${operationId}`,
-        { remainingOperations: this.validationPromises.size },
-      );
-    }
-  },
-
-  /**
-   * Generate a user-friendly error message based on session issues
-   * @param detailedStatus The detailed status from session validation
-   * @param expiresIn Time in seconds until session expires
-   * @returns A user-friendly error message
-   */
-  getSessionErrorMessage(
-    detailedStatus: string,
-    expiresIn: number | null,
-  ): string {
-    switch (detailedStatus) {
-      case "no_session":
-        return "No active session found. Please log in to continue.";
-      case "expired_past":
-        return "Your session has expired. Please log in again to continue.";
-      case "just_expired":
-        return "Your session just expired. Please log in again to continue.";
-      case "suspicious_future":
-        return "Your session has an invalid expiration time. Please log in again.";
-      case "invalid_date":
-        return "Your session has an invalid date format. Please log in again.";
-      case "missing_expiration":
-        return "Your session is missing expiration information. Please log in again.";
-      case "calculation_error":
-        return "We couldn't validate your session. Please log in again.";
-      case "network_error":
-        return "Network error while checking your session. Please check your connection and try again.";
-      default:
-        // For generic issues with expiresIn
-        if (expiresIn !== null && expiresIn < 0) {
-          return "Your session has expired. Please log in again to continue.";
-        }
-        return "Authentication check failed: Please log in again";
-    }
-  },
-
-  /**
-   * Ensures the user has a valid session before performing critical operations
-   * Will attempt to refresh the session if needed with improved retry logic
-   * @throws Error if user is not authenticated or session cannot be refreshed
-   */
-  async ensureValidSession(): Promise<void> {
-    // Generate a unique ID for this validation operation
-    let randomId: string;
-    try {
-      randomId = Crypto.randomUUID().substring(0, 8);
-    } catch {
-      randomId = Math.random().toString(36).substring(2, 10);
-    }
-    const operationId = `session-validation-${Date.now()}-${randomId}`;
-
-    // Check if we already have a validation operation in progress
-    const existingValidation = this.validationPromises.size > 0;
-    if (existingValidation) {
-      logContribution(
-        "log",
-        "ensureValidSession",
-        "Using existing validation operation",
-        {
-          operationCount: this.validationPromises.size,
-        },
-      );
-
-      // Use the first pending validation operation
-      const firstValidation = this.validationPromises.values().next().value;
-      if (firstValidation) {
-        try {
-          await firstValidation;
-          return; // If the existing validation succeeds, we're done
-        } catch (error) {
-          // If the existing validation fails, we'll try our own below
-          logContribution(
-            "warn",
-            "ensureValidSession",
-            "Existing validation failed, retrying",
-            {
-              error: error instanceof Error ? error.message : String(error),
-            },
-          );
-        }
-      }
-    }
-
-    // Create a new validation operation
-    const validationOperation = (async () => {
-      try {
-        // Check current session status with increased timeout
-        logContribution(
-          "log",
-          "ensureValidSession",
-          "Checking session validity",
-        );
-
-        const sessionInfo = await raceWithTimeout(
-          checkSession(),
-          SESSION_VALIDATION_TIMEOUT,
-          "session validation",
-        );
-
-        // Log session details
-        authDebug.log("SESSION_REFRESH", "info", {
-          action: "check_before_submission",
-          valid: sessionInfo.valid,
-          expiresIn: sessionInfo.expiresIn,
-          status: sessionInfo.detailedStatus,
-          timestamp: new Date().toISOString(),
-        });
-
-        // Log more detailed information about the session
-        logContribution("log", "ensureValidSession", "Session check results", {
-          valid: sessionInfo.valid,
-          hasSession: !!sessionInfo.session,
-          expiresIn: sessionInfo.expiresIn,
-          needsForceRefresh: sessionInfo.needsForceRefresh,
-          detailedStatus: sessionInfo.detailedStatus,
-          needsRefresh:
-            !sessionInfo.valid ||
-            sessionInfo.needsForceRefresh ||
-            (sessionInfo.expiresIn && sessionInfo.expiresIn < 600), // Increased threshold to 10 minutes
-        });
-
-        if (!sessionInfo.valid && !sessionInfo.session) {
-          // No session at all - user needs to log in
-          logContribution(
-            "error",
-            "ensureValidSession",
-            "No active session found",
-          );
-          throw new Error("Authentication required: Please log in");
-        } else if (
-          !sessionInfo.valid ||
-          sessionInfo.needsForceRefresh ||
-          sessionInfo.detailedStatus === "suspicious_future" ||
-          sessionInfo.detailedStatus === "expired_past" ||
-          (sessionInfo.expiresIn && sessionInfo.expiresIn < 600) // Increased threshold to 10 minutes
-        ) {
-          // Session expired or about to expire soon, or has invalid expiration time
-          const reason = sessionInfo.needsForceRefresh
-            ? "session has invalid expiration time"
-            : sessionInfo.detailedStatus === "expired_past"
-              ? "session expiration date is far in the past"
-              : sessionInfo.detailedStatus === "suspicious_future"
-                ? "session expiration date is suspiciously far in the future"
-                : "session is expired or expiring soon";
-
-          logContribution(
-            "warn",
-            "ensureValidSession",
-            `Session needs refresh (${reason})`,
-            {
-              expiresIn: sessionInfo.expiresIn,
-              needsForceRefresh: sessionInfo.needsForceRefresh,
-              detailedStatus: sessionInfo.detailedStatus,
-            },
-          );
-
-          // Attempt to refresh the session with timeout and retry logic
-          try {
-            const refreshed = await withRetry(
-              // Operation to retry
-              async () => {
-                return await raceWithTimeout(
-                  refreshSession(SESSION_REFRESH_RETRIES),
-                  SESSION_REFRESH_TIMEOUT,
-                  "session refresh",
-                );
-              },
-              // Retry parameters
-              1, // One additional retry at this level (combined with internal retries)
-              1000, // Base delay of 1 second
-              "session refresh",
-            );
-
-            if (!refreshed) {
-              logContribution(
-                "error",
-                "ensureValidSession",
-                "Session refresh failed after all retry attempts",
-              );
-              throw new Error("Authentication expired: Please log in again");
-            }
-
-            // Verify the refreshed session
-            const verifySession = await raceWithTimeout(
-              checkSession(),
-              SESSION_VALIDATION_TIMEOUT,
-              "session validation after refresh",
-            );
-
-            if (!verifySession.valid) {
-              logContribution(
-                "error",
-                "ensureValidSession",
-                "Session is still invalid after refresh",
-                {
-                  expiresIn: verifySession.expiresIn,
-                  needsForceRefresh: verifySession.needsForceRefresh,
-                  detailedStatus: verifySession.detailedStatus,
-                },
-              );
-
-              // Get user-friendly error message based on detailed status
-              const errorMessage = this.getSessionErrorMessage(
-                verifySession.detailedStatus || "unknown",
-                verifySession.expiresIn,
-              );
-
-              throw new Error(errorMessage);
-            }
-
-            logContribution(
-              "log",
-              "ensureValidSession",
-              "Session successfully refreshed and verified",
-              {
-                newExpiresIn: verifySession.expiresIn,
-                newDetailedStatus: verifySession.detailedStatus,
-              },
-            );
-          } catch (refreshError) {
-            // Enhanced error for refresh failures
-            logContribution(
-              "error",
-              "ensureValidSession",
-              "Session refresh failed with retry mechanism",
-              { error: refreshError },
-            );
-
-            throw new Error(
-              refreshError instanceof Error &&
-                refreshError.message.includes("timeout")
-                ? "Authentication refresh timed out. Please check your network and try again."
-                : "Authentication refresh failed. Please log in again.",
-            );
-          }
-        } else {
-          logContribution("log", "ensureValidSession", "Session is valid", {
-            expiresIn: sessionInfo.expiresIn,
-            detailedStatus: sessionInfo.detailedStatus,
-          });
-        }
-      } catch (error) {
-        // Provide more context about the error
-        const errorDetails = {
-          message: error instanceof Error ? error.message : String(error),
-          type: error instanceof Error ? error.constructor.name : typeof error,
-          stack: error instanceof Error ? error.stack : undefined,
-        };
-
-        logContribution(
-          "error",
-          "ensureValidSession",
-          "Session validation error",
-          errorDetails,
-        );
-
-        // Improve and categorize error messages based on error type
-        if (error instanceof Error) {
-          if (error.message.includes("timeout")) {
-            throw new Error(
-              "Authentication check timed out. Please check your network connection and try again.",
-            );
-          } else if (error.message.includes("refresh")) {
-            throw new Error(
-              "Your session has expired and couldn't be refreshed. Please log in again to continue.",
-            );
-          } else {
-            throw error; // Keep the original error message if it's already descriptive
-          }
-        } else {
-          throw new Error("Authentication check failed: Please log in again");
-        }
-      } finally {
-        // Always clean up the validation promise when done
-        this.completeValidation(operationId);
-      }
-    })();
-
-    // Store the validation promise
-    this.validationPromises.set(operationId, validationOperation);
-
-    // Wait for validation to complete
-    await validationOperation;
-  },
-
-  /**
-   * Submit data with session validation and network resilience
-   * This is a generic wrapper to make operations more robust against session/network issues
-   * @param operation The operation to perform with a valid session
-   * @returns Result of the operation
-   */
-  async submitWithSessionGuard<T>(operation: () => Promise<T>): Promise<T> {
-    try {
-      // First ensure session is valid
-      await this.ensureValidSession();
-
-      // Perform the operation with the valid session
-      return await operation();
-    } catch (error) {
-      // Enhance error with more context about submission
-      if (error instanceof Error) {
-        if (
-          error.message.includes("session") ||
-          error.message.includes("authentication") ||
-          error.message.includes("log in")
-        ) {
-          logContribution(
-            "error",
-            "submitWithSessionGuard",
-            "Session error during submission",
-            { message: error.message },
-          );
-        } else {
-          logContribution(
-            "error",
-            "submitWithSessionGuard",
-            "Operation error",
-            { message: error.message },
-          );
-        }
-      }
-
-      throw error;
-    }
-  },
   /**
    * Submit a new toilet with duplicate submission protection
-   * @param toiletData The toilet data to submit
-   * @returns The created submission
    */
   async submitNewToilet(
     toiletData: Partial<Toilet>,
   ): Promise<ToiletSubmission> {
     // Check for duplicate submissions first
-    const dupeCheck = this.isDuplicateSubmission(toiletData);
+    const dupeCheck = isDuplicateSubmission(toiletData);
     if (dupeCheck.isDuplicate) {
       logContribution(
         "warn",
@@ -855,8 +155,6 @@ export const contributionService = {
           timeBetweenSubmissions: "< 10 seconds",
         },
       );
-
-      // Return the existing submission instead of creating a duplicate
       throw new Error(
         "A similar toilet was just submitted. Please wait a moment before trying again.",
       );
@@ -880,7 +178,7 @@ export const contributionService = {
         "submitNewToilet",
         "Validating session before submission",
       );
-      await this.ensureValidSession();
+      await ensureValidSession();
 
       logContribution("log", "submitNewToilet", "Session validation complete");
 
@@ -901,9 +199,7 @@ export const contributionService = {
         "log",
         "submitNewToilet",
         "Authenticated user for submission",
-        {
-          userId: user.id,
-        },
+        { userId: user.id },
       );
 
       // First, check eligibility as a diagnostic step
@@ -924,7 +220,6 @@ export const contributionService = {
           errorCode: eligibilityCheck.error.code,
           errorMessage: eligibilityCheck.error.message,
         });
-        // Continue anyway, as the main function will handle errors
       } else {
         logContribution("log", "submitNewToilet", "Eligibility check passed", {
           results: eligibilityCheck.data ?? {},
@@ -949,10 +244,7 @@ export const contributionService = {
         "log",
         "submitNewToilet",
         "Calling submit_toilet function",
-        {
-          submissionType: "new",
-          userId: user.id,
-        },
+        { submissionType: "new", userId: user.id },
       );
 
       // Use the database function with explicit user ID and timeout
@@ -964,7 +256,6 @@ export const contributionService = {
       );
 
       if (insertResponse.error) {
-        // Enhanced error logging with specific error codes
         const pgError = insertResponse.error;
         logContribution(
           "error",
@@ -978,14 +269,11 @@ export const contributionService = {
           },
         );
 
-        // Special handling for specific error types
         if (pgError.code === "42501") {
-          // Permission denied
           throw new Error(
             "Permission denied: Please log out and log back in to refresh your session",
           );
         } else if (pgError.code === "57014") {
-          // Query canceled due to timeout
           throw new Error(
             "Submission is taking too long. Please try again or check your network connection.",
           );
@@ -1016,18 +304,13 @@ export const contributionService = {
         "log",
         "submitNewToilet",
         "Toilet submission successful",
-        {
-          id: submissionData.id,
-          status: submissionData.status,
-        },
+        { id: submissionData.id, status: submissionData.status },
       );
 
-      // Record this submission to prevent duplicates
-      this.recordSubmission(toiletData, submissionData.id);
+      recordSubmission(toiletData, submissionData.id);
 
       return submissionData;
     } catch (err) {
-      // Final error handler with improved reporting
       const errorDetails = {
         type: err instanceof Error ? err.constructor.name : typeof err,
         message: err instanceof Error ? err.message : String(err),
@@ -1042,15 +325,13 @@ export const contributionService = {
         errorDetails,
       );
 
-      // Re-throw with user-friendly message but preserve original error details
       if (err instanceof Error) {
-        // Add specific messaging for timeouts
         if (err.message.includes("timed out")) {
           throw new Error(
             "Submission timed out. The server might be busy or your connection may be slow. Please try again.",
           );
         }
-        throw err; // Preserve error object with stack trace
+        throw err;
       } else {
         throw new Error(
           "An unexpected error occurred during toilet submission",
@@ -1061,10 +342,6 @@ export const contributionService = {
 
   /**
    * Submit an edit for an existing toilet
-   * @param toiletId ID of the toilet to edit
-   * @param toiletData Updated toilet data
-   * @param reason Reason for the edit
-   * @returns The created submission
    */
   async submitToiletEdit(
     toiletId: string,
@@ -1077,7 +354,6 @@ export const contributionService = {
     );
 
     try {
-      // Get authenticated user to explicitly pass the ID
       const user = await supabaseService.auth.getUser();
 
       if (!user) {
@@ -1089,13 +365,12 @@ export const contributionService = {
         userId: user.id,
       });
 
-      // Use the database function with explicit user ID (with p_ prefixed parameters)
       const insertResponse = await supabase.rpc("submit_toilet", {
         p_data: toiletData,
         p_submission_type: "edit",
         p_toilet_id: toiletId,
         p_reason: reason,
-        p_explicit_user_id: user.id, // Pass user ID explicitly
+        p_explicit_user_id: user.id,
       });
 
       if (insertResponse.error) {
@@ -1127,10 +402,6 @@ export const contributionService = {
 
   /**
    * Report an issue with a toilet
-   * @param toiletId ID of the toilet to report
-   * @param issueType Type of issue
-   * @param details Description of the issue
-   * @returns The created submission
    */
   async reportToiletIssue(
     toiletId: string,
@@ -1143,7 +414,6 @@ export const contributionService = {
     );
 
     try {
-      // Get authenticated user to explicitly pass the ID
       const user = await supabaseService.auth.getUser();
 
       if (!user) {
@@ -1155,13 +425,12 @@ export const contributionService = {
         userId: user.id,
       });
 
-      // Use the database function with explicit user ID (with p_ prefixed parameters)
       const insertResponse = await supabase.rpc("submit_toilet", {
         p_data: { issueType, details },
         p_submission_type: "report",
         p_toilet_id: toiletId,
         p_reason: details,
-        p_explicit_user_id: user.id, // Pass user ID explicitly
+        p_explicit_user_id: user.id,
       });
 
       if (insertResponse.error) {
@@ -1191,13 +460,13 @@ export const contributionService = {
     }
   },
 
+  // ── Retrieval methods ─────────────────────────────────────────────────
+
   /**
    * Get all submissions by the current user
-   * @returns List of user's submissions
    */
   async getMySubmissions(): Promise<SubmissionPreview[]> {
     try {
-      // Get authenticated user directly
       const user = await supabaseService.auth.getUser();
 
       if (!user) {
@@ -1208,7 +477,6 @@ export const contributionService = {
         throw new Error("You must be logged in to view your submissions");
       }
 
-      // Log user authentication information in development (sanitized)
       if (__DEV__) {
         debug.log(
           "contributionService",
@@ -1222,18 +490,14 @@ export const contributionService = {
         );
       }
 
-      // Use auth.uid directly
       const uid = user.id;
 
       debug.log(
         "contributionService",
         "Using auth user ID for submissions query",
-        {
-          userId: uid,
-        },
+        { userId: uid },
       );
 
-      // Fetch submissions from the database
       const queryResponse = await supabase
         .from("toilet_submissions")
         .select(
@@ -1264,7 +528,6 @@ export const contributionService = {
         return [];
       }
 
-      // Transform to submission previews with validated typing
       return queryResponse.data.map(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (submission: any): SubmissionPreview => {
@@ -1293,12 +556,9 @@ export const contributionService = {
 
   /**
    * Get a specific submission by ID
-   * @param submissionId ID of the submission to fetch
-   * @returns The submission details
    */
   async getSubmission(submissionId: string): Promise<ToiletSubmission> {
     try {
-      // Get authenticated user directly
       const user = await supabaseService.auth.getUser();
 
       if (!user) {
@@ -1309,7 +569,6 @@ export const contributionService = {
         throw new Error("You must be logged in to view submission details");
       }
 
-      // Log user authentication information in development (sanitized)
       if (__DEV__) {
         debug.log(
           "contributionService",
@@ -1323,18 +582,14 @@ export const contributionService = {
         );
       }
 
-      // Use auth.uid directly
       const uid = user.id;
 
       debug.log(
         "contributionService",
         "Using auth user ID for submission details",
-        {
-          userId: uid,
-        },
+        { userId: uid },
       );
 
-      // Fetch the submission - RLS policy will ensure user can only access their own submissions
       const queryResponse = await supabase
         .from("toilet_submissions")
         .select("*")

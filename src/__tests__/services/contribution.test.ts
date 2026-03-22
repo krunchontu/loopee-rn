@@ -90,6 +90,7 @@ import {
   VALIDATION_LIMITS,
   MAX_RECENT_SUBMISSIONS,
 } from "../../services/contributionService";
+import * as dedupModule from "../../services/submission/dedup";
 import {
   checkSession,
   refreshSession,
@@ -256,10 +257,13 @@ describe("Contribution Service", () => {
       });
 
       it("should trigger cleanup of old submissions", () => {
-        const cleanupSpy = jest.spyOn(
-          contributionService,
-          "cleanupOldSubmissions",
-        );
+        // Add an old entry (31 minutes ago) that should be cleaned up
+        const oldData: Partial<Toilet> = { name: "Old Toilet" };
+        const oldHash = contributionService.generateSubmissionHash(oldData);
+        contributionService.recentSubmissions.set(oldHash, {
+          timestamp: Date.now() - 31 * 60 * 1000,
+          id: "old-submission",
+        });
 
         const toiletData: Partial<Toilet> = {
           name: "Test Toilet",
@@ -267,7 +271,8 @@ describe("Contribution Service", () => {
 
         contributionService.recordSubmission(toiletData, "submission-123");
 
-        expect(cleanupSpy).toHaveBeenCalled();
+        // The old entry should have been cleaned up during recordSubmission
+        expect(contributionService.recentSubmissions.has(oldHash)).toBe(false);
       });
     });
 
